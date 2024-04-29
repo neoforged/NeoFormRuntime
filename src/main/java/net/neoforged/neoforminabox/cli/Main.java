@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
 import picocli.CommandLine;
 
 import java.net.URI;

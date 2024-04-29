@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.config.neoforge;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;

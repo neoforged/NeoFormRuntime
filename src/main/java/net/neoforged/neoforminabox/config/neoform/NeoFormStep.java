@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.config;
+package net.neoforged.neoforminabox.config.neoform;
 
 import java.util.Map;
 import java.util.Objects;

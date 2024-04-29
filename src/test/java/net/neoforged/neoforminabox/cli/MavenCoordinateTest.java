@@ -5,6 +5,7 @@
 
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.utils;
 
 import java.net.URI;
 import java.nio.file.Path;

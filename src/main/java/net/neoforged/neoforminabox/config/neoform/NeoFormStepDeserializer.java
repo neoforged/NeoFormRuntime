@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.config;
+package net.neoforged.neoforminabox.config.neoform;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;

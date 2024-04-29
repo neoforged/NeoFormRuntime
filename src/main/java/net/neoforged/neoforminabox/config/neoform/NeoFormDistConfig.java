@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.config;
+package net.neoforged.neoforminabox.config.neoform;
 
 import org.jetbrains.annotations.Nullable;
 

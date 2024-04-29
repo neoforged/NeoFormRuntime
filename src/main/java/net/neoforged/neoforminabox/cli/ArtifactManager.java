@@ -4,6 +4,7 @@ import net.neoforged.neoforminabox.manifests.LauncherManifest;
 import net.neoforged.neoforminabox.manifests.MinecraftLibrary;
 import net.neoforged.neoforminabox.manifests.MinecraftVersionManifest;
 import net.neoforged.neoforminabox.utils.FilenameUtil;
+import net.neoforged.neoforminabox.utils.MavenCoordinate;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

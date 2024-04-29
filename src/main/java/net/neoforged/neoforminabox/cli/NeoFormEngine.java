@@ -1,9 +1,9 @@
 package net.neoforged.neoforminabox.cli;
 
-import net.neoforged.neoforminabox.config.NeoFormConfig;
-import net.neoforged.neoforminabox.config.NeoFormDistConfig;
-import net.neoforged.neoforminabox.config.NeoFormFunction;
-import net.neoforged.neoforminabox.config.NeoFormStep;
+import net.neoforged.neoforminabox.config.neoform.NeoFormConfig;
+import net.neoforged.neoforminabox.config.neoform.NeoFormDistConfig;
+import net.neoforged.neoforminabox.config.neoform.NeoFormFunction;
+import net.neoforged.neoforminabox.config.neoform.NeoFormStep;
 import net.neoforged.neoforminabox.graph.ExecutionGraph;
 import net.neoforged.neoforminabox.graph.ExecutionNode;
 import net.neoforged.neoforminabox.graph.ExecutionNodeBuilder;

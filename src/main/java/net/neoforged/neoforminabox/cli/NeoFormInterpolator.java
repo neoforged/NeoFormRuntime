@@ -1,7 +1,7 @@
 package net.neoforged.neoforminabox.cli;
 
-import net.neoforged.neoforminabox.config.NeoFormDistConfig;
-import net.neoforged.neoforminabox.config.NeoFormStep;
+import net.neoforged.neoforminabox.config.neoform.NeoFormDistConfig;
+import net.neoforged.neoforminabox.config.neoform.NeoFormStep;
 
 import java.io.IOException;
 import java.nio.file.Files;
