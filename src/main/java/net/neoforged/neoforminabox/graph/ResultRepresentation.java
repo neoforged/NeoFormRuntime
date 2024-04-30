@@ -3,7 +3,9 @@ package net.neoforged.neoforminabox.graph;
 import net.neoforged.neoforminabox.manifests.MinecraftVersionManifest;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public record ResultRepresentation<T>(Class<T> resultClass, Loader<T> loader) {
     public static final ResultRepresentation<Path> PATH = new ResultRepresentation<>(

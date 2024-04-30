@@ -86,13 +86,6 @@ public class NeoFormEngine implements AutoCloseable {
         return new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager, zipFile, distConfig);
     }
 
-    public void run() throws Exception {
-        var graph = buildGraph();
-
-        var patchOutput = graph.getRequiredOutput("patch", "output");
-        runNode(patchOutput.node());
-    }
-
     public ExecutionGraph buildGraph() {
         var graph = new ExecutionGraph();
 
@@ -269,7 +262,7 @@ public class NeoFormEngine implements AutoCloseable {
         return future;
     }
 
-    private void runNode(ExecutionNode node) throws InterruptedException {
+    public void runNode(ExecutionNode node) throws InterruptedException {
         // Wait for pre-requisites
         Set<ExecutionNode> dependencies = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var input : node.inputs().values()) {
@@ -304,6 +297,7 @@ public class NeoFormEngine implements AutoCloseable {
                         outputValues.put(entry.getKey(), cachedFile);
                     } else {
                         System.err.println("Cache for " + node.id() + " is incomplete. Missing: " + filename);
+                        outputValues.clear();
                         complete = false;
                         break;
                     }

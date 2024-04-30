@@ -1,6 +1,8 @@
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.actions.RecompileSourcesAction;
 import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
+import net.neoforged.neoforminabox.graph.NodeOutputType;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
@@ -33,6 +35,9 @@ public class Main implements Callable<Integer> {
     @Option(names = "--print-graph")
     boolean printGraph;
 
+    @Option(names = "--recompile")
+    boolean recompile;
+
     static class SourceArtifacts {
         @Option(names = "--neoform")
         String neoform;
@@ -59,11 +64,23 @@ public class Main implements Callable<Integer> {
             }
 
             try (var neoFormEngine = NeoFormEngine.create(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager, neoformArtifact, dist)) {
+                var graph = neoFormEngine.buildGraph();
+
                 if (printGraph) {
-                    var graph = neoFormEngine.buildGraph();
                     graph.dump(new PrintWriter(System.out));
+                }
+
+                var patchOutput = graph.getRequiredOutput("patch", "output");
+                if (recompile) {
+                    var builder = graph.nodeBuilder("recompile");
+                    builder.input("sources", patchOutput.asInput());
+                    builder.inputFromNodeOutput("libraries", "listLibraries", "output");
+                    builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
+                    builder.action(new RecompileSourcesAction());
+                    var recompileNode = builder.build();
+                    neoFormEngine.runNode(recompileNode);
                 } else {
-                    neoFormEngine.run();
+                    neoFormEngine.runNode(patchOutput.node());
                 }
             }
 
