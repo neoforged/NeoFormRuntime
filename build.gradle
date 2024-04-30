@@ -34,6 +34,7 @@ dependencies {
     compileOnly 'org.jetbrains:annotations:24.0.0'
     implementation 'info.picocli:picocli:4.7.5'
     implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.eclipse.jdt:ecj:3.37.0'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')

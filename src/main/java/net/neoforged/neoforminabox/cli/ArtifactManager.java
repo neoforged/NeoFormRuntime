@@ -19,10 +19,10 @@ import java.util.List;
 
 public class ArtifactManager {
     private final List<URI> repositoryBaseUrls;
-    private final CacheManager cacheManager;
     private final DownloadManager downloadManager;
     private final LockManager lockManager;
     private final URI launcherManifestUrl;
+    private final Path artifactsCache;
 
     public ArtifactManager(List<URI> repositoryBaseUrls,
                            CacheManager cacheManager,
@@ -30,10 +30,10 @@ public class ArtifactManager {
                            LockManager lockManager,
                            URI launcherManifestUrl) {
         this.repositoryBaseUrls = repositoryBaseUrls;
-        this.cacheManager = cacheManager;
         this.downloadManager = downloadManager;
         this.lockManager = lockManager;
         this.launcherManifestUrl = launcherManifestUrl;
+        this.artifactsCache = cacheManager.getCacheDir().resolve("artifacts");
     }
 
     public Artifact get(MinecraftLibrary library) throws IOException {
@@ -45,7 +45,7 @@ public class ArtifactManager {
         // TODO: if we identify where the Minecraft installation is, we could try to copy the library from there
 
         var mavenCoordinate = MavenCoordinate.parse(library.artifactId());
-        var finalLocation = cacheManager.getCacheDir().resolve(mavenCoordinate.toRelativeRepositoryPath());
+        var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         return download(finalLocation, artifact);
     }
@@ -53,7 +53,7 @@ public class ArtifactManager {
     public Artifact get(String location, URI repositoryBaseUrl) throws IOException {
         var mavenCoordinate = MavenCoordinate.parse(location);
 
-        var finalLocation = cacheManager.getCacheDir().resolve(mavenCoordinate.toRelativeRepositoryPath());
+        var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
         var url = mavenCoordinate.toRepositoryUri(repositoryBaseUrl);
 
         return download(finalLocation, url);
@@ -62,7 +62,7 @@ public class ArtifactManager {
     public Artifact get(String location) throws IOException {
         var mavenCoordinate = MavenCoordinate.parse(location);
 
-        var finalLocation = cacheManager.getCacheDir().resolve(mavenCoordinate.toRelativeRepositoryPath());
+        var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         return download(finalLocation, () -> {
             for (var repositoryBaseUrl : repositoryBaseUrls) {
@@ -82,7 +82,7 @@ public class ArtifactManager {
      * Special purpose method to get the version manifest for a specific Minecraft version.
      */
     public Artifact getVersionManifest(String minecraftVersion) throws IOException {
-        var finalLocation = cacheManager.getCacheDir().resolve("minecraft_" + minecraftVersion + "_version_manifest.json");
+        var finalLocation = artifactsCache.resolve("minecraft_" + minecraftVersion + "_version_manifest.json");
         return download(finalLocation, () -> {
             var launcherManifestArtifact = getLauncherManifest();
             var launcherManifest = LauncherManifest.from(launcherManifestArtifact.path());
@@ -100,7 +100,7 @@ public class ArtifactManager {
      * Gets the v2 Launcher Manifest.
      */
     public Artifact getLauncherManifest() throws IOException {
-        var finalLocation = cacheManager.getCacheDir().resolve("minecraft_launcher_manifest.json");
+        var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
         return download(finalLocation, launcherManifestUrl);
     }
 
@@ -116,7 +116,7 @@ public class ArtifactManager {
         }
 
         var extension = FilenameUtil.getExtension(downloadSpec.uri().getPath());
-        var finalPath = cacheManager.getCacheDir().resolve("minecraft_" + versionManifest.id() + "_" + type + extension);
+        var finalPath = artifactsCache.resolve("minecraft_" + versionManifest.id() + "_" + type + extension);
 
         return download(finalPath, downloadSpec);
     }
@@ -134,14 +134,11 @@ public class ArtifactManager {
         } catch (NoSuchFileException e) {
             // Artifact does not exist, try to get it
             var lockKey = finalLocation.toAbsolutePath().normalize().toString();
-            try (var lock = lockManager.lock(lockKey)) {
+            try (var ignored = lockManager.lock(lockKey)) {
                 // Re-check (essentially double-checked locking)
-                if (Files.exists(finalLocation)) {
-                    System.out.println("Reusing previous download of " + finalLocation);
-                    return null;
+                if (!Files.exists(finalLocation)) {
+                    downloadAction.run();
                 }
-
-                downloadAction.run();
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

@@ -1,6 +1,7 @@
 package net.neoforged.neoforminabox.cli;
 
-import net.neoforged.neoforminabox.actions.RecompileSourcesAction;
+import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithECJ;
+import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoforminabox.graph.NodeOutputType;
 import picocli.CommandLine;
@@ -38,6 +39,9 @@ public class Main implements Callable<Integer> {
     @Option(names = "--recompile")
     boolean recompile;
 
+    @Option(names = "--recompile-ecj")
+    boolean recompileEcj;
+
     static class SourceArtifacts {
         @Option(names = "--neoform")
         String neoform;
@@ -71,12 +75,16 @@ public class Main implements Callable<Integer> {
                 }
 
                 var patchOutput = graph.getRequiredOutput("patch", "output");
-                if (recompile) {
+                if (recompile || recompileEcj) {
                     var builder = graph.nodeBuilder("recompile");
                     builder.input("sources", patchOutput.asInput());
                     builder.inputFromNodeOutput("libraries", "listLibraries", "output");
                     builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
-                    builder.action(new RecompileSourcesAction());
+                    if (recompileEcj) {
+                        builder.action(new RecompileSourcesActionWithECJ());
+                    } else {
+                        builder.action(new RecompileSourcesActionWithJDK());
+                    }
                     var recompileNode = builder.build();
                     neoFormEngine.runNode(recompileNode);
                 } else {

@@ -19,13 +19,12 @@ import net.neoforged.neoforminabox.graph.ExecutionNodeBuilder;
 import net.neoforged.neoforminabox.graph.NodeExecutionException;
 import net.neoforged.neoforminabox.graph.NodeOutputType;
 import net.neoforged.neoforminabox.graph.ResultRepresentation;
+import net.neoforged.neoforminabox.utils.FileUtil;
 import net.neoforged.neoforminabox.utils.HashingUtil;
 
 import java.io.IOException;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -348,11 +347,7 @@ public class NeoFormEngine implements AutoCloseable {
                 for (var entry : outputValues.entrySet()) {
                     var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
                     var cachedPath = intermediateCacheDir.resolve(filename);
-                    try {
-                        Files.move(entry.getValue(), cachedPath, StandardCopyOption.ATOMIC_MOVE);
-                    } catch (AtomicMoveNotSupportedException e) {
-                        Files.move(entry.getValue(), cachedPath, StandardCopyOption.REPLACE_EXISTING);
-                    }
+                    FileUtil.atomicMove(entry.getValue(), cachedPath);
                     finalOutputValues.put(entry.getKey(), cachedPath);
                 }
                 Files.writeString(cacheMarkerFile, cacheKeyDescription);

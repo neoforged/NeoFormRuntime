@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.utils.FileUtil;
 import net.neoforged.neoforminabox.utils.HashingUtil;
 
 import java.io.FileNotFoundException;
@@ -77,10 +78,6 @@ public class DownloadManager implements AutoCloseable {
             }
         }
 
-        try {
-            Files.move(partialFile, finalLocation, StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException e) {
-            Files.move(partialFile, finalLocation, StandardCopyOption.REPLACE_EXISTING);
-        }
+        FileUtil.atomicMove(partialFile, finalLocation);
     }
 }

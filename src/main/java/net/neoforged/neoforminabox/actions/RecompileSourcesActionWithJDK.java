@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Uses the current JDKs java compiler interface to recompile the sources.
  */
-public class RecompileSourcesAction extends BuiltInAction {
+public class RecompileSourcesActionWithJDK extends BuiltInAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
