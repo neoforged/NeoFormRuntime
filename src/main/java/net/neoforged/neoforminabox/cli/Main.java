@@ -74,6 +74,7 @@ public class Main implements Callable<Integer> {
                     graph.dump(new PrintWriter(System.out));
                 }
 
+                // Patch is pretty much the last task in the NeoForm steps list
                 var patchOutput = graph.getRequiredOutput("patch", "output");
                 if (recompile || recompileEcj) {
                     var builder = graph.nodeBuilder("recompile");
