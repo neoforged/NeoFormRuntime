@@ -1,6 +1,13 @@
 
+Example invocation:
+
 ```
-Usage: neoform [-hV] [--cache-dir=<cacheDir>] --dist=<dist>
+--recompile-ecj --neoform "net.neoforged:neoform:1.20.6-rc1-20240426.131110@zip" --dist joined
+```
+
+```
+Usage: neoform [-hV] [--print-graph] [--recompile] [--recompile-ecj]
+               [--cache-dir=<cacheDir>] --dist=<dist>
                [--launcher-meta-uri=<launcherManifestUrl>] [--repository
                [=<repositories>...]]... ([--neoform=<neoform>]
                [--neoforge=<neoforge>])
@@ -12,6 +19,9 @@ Usage: neoform [-hV] [--cache-dir=<cacheDir>] --dist=<dist>
 
       --neoforge=<neoforge>
       --neoform=<neoform>
+      --print-graph
+      --recompile
+      --recompile-ecj
       --repository[=<repositories>...]
 
   -V, --version             Print version information and exit.
