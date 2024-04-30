@@ -30,11 +30,8 @@ public class ExecutionNodeBuilder {
         if (node == null) {
             throw new IllegalArgumentException("Node " + nodeId + " not found");
         }
-        var output = node.outputs().get(outputId);
-        if (output == null) {
-            throw new IllegalArgumentException("Output " + outputId + " on node " + nodeId + " not found");
-        }
-        return input(inputId, new NodeInput.NodeInputForOutput(node, output));
+        var output = node.getRequiredOutput(outputId);
+        return input(inputId, new NodeInput.NodeInputForOutput(output));
     }
 
     public NodeOutput output(String outputId, NodeOutputType type, String description) {

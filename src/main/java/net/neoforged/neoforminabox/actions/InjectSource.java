@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.tasks;
+package net.neoforged.neoforminabox.actions;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Defines a source for injecting content into a zip file using the {@link InjectZipContentTask} task.
+ * Defines a source for injecting content into a zip file using the {@link InjectZipContentAction} task.
  *
  * @see InjectFromDirectorySource
  * @see InjectFromZipSource

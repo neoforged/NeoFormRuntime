@@ -3,6 +3,7 @@ package net.neoforged.neoforminabox.cli;
 import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
 import picocli.CommandLine;
 
+import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,6 +30,9 @@ public class Main implements Callable<Integer> {
     @Option(names = "--dist", required = true)
     String dist;
 
+    @Option(names = "--print-graph")
+    boolean printGraph;
+
     static class SourceArtifacts {
         @Option(names = "--neoform")
         String neoform;
@@ -43,6 +47,7 @@ public class Main implements Callable<Integer> {
              var downloadManager = new DownloadManager()) {
             var artifactManager = new ArtifactManager(repositories, cacheManager, downloadManager, lockManager, launcherManifestUrl);
             var processingStepManager = new ProcessingStepManager(cacheDir.resolve("work"), cacheManager, artifactManager);
+            var fileHashService = new FileHashService();
 
             String neoformArtifact;
             if (sourceArtifacts.neoforge != null) {
@@ -53,8 +58,13 @@ public class Main implements Callable<Integer> {
                 neoformArtifact = sourceArtifacts.neoform;
             }
 
-            try (var neoFormEngine = NeoFormEngine.create(artifactManager, processingStepManager, neoformArtifact, dist)) {
-                neoFormEngine.run();
+            try (var neoFormEngine = NeoFormEngine.create(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager, neoformArtifact, dist)) {
+                if (printGraph) {
+                    var graph = neoFormEngine.buildGraph();
+                    graph.dump(new PrintWriter(System.out));
+                } else {
+                    neoFormEngine.run();
+                }
             }
 
         }

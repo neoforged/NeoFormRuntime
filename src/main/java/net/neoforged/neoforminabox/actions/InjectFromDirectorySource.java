@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.tasks;
+package net.neoforged.neoforminabox.actions;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -13,7 +13,7 @@ import java.util.zip.ZipOutputStream;
 /**
  * Inject content from a directory on disk.
  *
- * @see InjectZipContentTask
+ * @see InjectZipContentAction
  */
 public record InjectFromDirectorySource(Path folder) implements InjectSource {
 

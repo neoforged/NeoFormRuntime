@@ -1,5 +1,6 @@
-package net.neoforged.neoforminabox.tasks;
+package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -13,19 +14,18 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-public class InjectZipContentTask {
-
-    private final Path inputZipFile;
-    private final Path outputZipFile;
+public class InjectZipContentAction extends BuiltInAction {
     private final List<InjectSource> injectedSources;
 
-    public InjectZipContentTask(Path inputZipFile, Path outputZipFile, List<InjectSource> injectedSources) {
-        this.inputZipFile = inputZipFile;
-        this.outputZipFile = outputZipFile;
+    public InjectZipContentAction(List<InjectSource> injectedSources) {
         this.injectedSources = injectedSources;
     }
 
-    public void run() throws IOException {
+    @Override
+    public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
+        var inputZipFile = environment.getRequiredInputPath("input");
+        var outputZipFile = environment.getOutputPath("output");
+
         String packageInfoTemplateContent = findPackageInfoTemplate(injectedSources);
 
         try (var fileOut = Files.newOutputStream(outputZipFile);

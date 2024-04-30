@@ -19,7 +19,7 @@ public class LockManager implements AutoCloseable {
     }
 
     private Path getLockFile(String key) {
-        return lockDirectory.resolve("_" + HashingUtil.md5(key) + ".lock");
+        return lockDirectory.resolve("_" + HashingUtil.sha1(key) + ".lock");
     }
 
     public Lock lock(String key) {

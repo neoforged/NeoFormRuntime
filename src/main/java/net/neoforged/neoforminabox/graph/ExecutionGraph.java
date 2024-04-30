@@ -3,6 +3,9 @@ package net.neoforged.neoforminabox.graph;
 import net.neoforged.neoforminabox.utils.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.PrintWriter;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -57,6 +60,29 @@ public class ExecutionGraph {
     @Nullable
     public ExecutionNode getNode(String nodeId) {
         return nodes.get(nodeId);
+    }
+
+    public void dump(PrintWriter writer) {
+
+        try {
+
+            var sortedNodes = TopologicalSort.topologicalSort(this);
+
+            for (var node : sortedNodes) {
+                writer.println("*** NODE " + node.id());
+                for (var predecessor : node.getPredecessors()) {
+                    writer.println("  needs " + predecessor.id());
+                }
+            }
+
+        } finally {
+            writer.flush();
+        }
+
+    }
+
+    public Collection<ExecutionNode> getNodes() {
+        return Collections.unmodifiableCollection(nodes.values());
     }
 }
 

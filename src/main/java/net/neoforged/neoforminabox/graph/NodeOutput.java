@@ -1,5 +1,11 @@
 package net.neoforged.neoforminabox.graph;
 
+import net.neoforged.neoforminabox.cli.FileHashService;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public final class NodeOutput {
@@ -7,7 +13,9 @@ public final class NodeOutput {
     private final NodeOutputType type;
     private final String description;
     private ExecutionNode node;
-    private Object result;
+    private Path resultPath;
+    // Allows caching an alternate in-memory representations of the result
+    private final Map<ResultRepresentation<?>, Object> resultRepresentations = new HashMap<>();
 
     public NodeOutput(String id, NodeOutputType type, String description) {
         this.id = id;
@@ -23,15 +31,15 @@ public final class NodeOutput {
         this.node = node;
     }
 
-    void setResult(Object result) {
-        this.result = result;
-    }
-
-    public Object getResult() {
+    public synchronized Path getResultPath() {
         if (node.getState() != NodeState.COMPLETED) {
             throw new IllegalStateException("Trying to access " + this + " while node is in state " + node.getState());
         }
-        return result;
+        return resultPath;
+    }
+
+    synchronized void setResultPath(Path result) {
+        this.resultPath = result;
     }
 
     public String id() {
@@ -64,5 +72,16 @@ public final class NodeOutput {
     @Override
     public String toString() {
         return "output '" + id + "' of node '" + node.id() + "'";
+    }
+
+    public synchronized <T> T getResultRepresentation(ResultRepresentation<T> representation) throws IOException {
+        var cachedResult = resultRepresentations.get(representation);
+
+        if (cachedResult == null) {
+            cachedResult = representation.loader().load(getResultPath());
+            resultRepresentations.put(representation, cachedResult);
+        }
+
+        return representation.resultClass().cast(cachedResult);
     }
 }

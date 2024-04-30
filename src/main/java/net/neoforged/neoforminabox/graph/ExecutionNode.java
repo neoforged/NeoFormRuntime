@@ -1,14 +1,19 @@
 package net.neoforged.neoforminabox.graph;
 
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public final class ExecutionNode {
     private final String id;
     private final Map<String, NodeInput> inputs;
     private final Map<String, NodeOutput> outputs;
     private final ExecutionNodeAction action;
+    private final Set<ExecutionNode> predecessors;
     private Long started;
     private long elapsedMs;
     private NodeState state = NodeState.NOT_STARTED;
@@ -17,6 +22,10 @@ public final class ExecutionNode {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(action, "action");
         inputs = Map.copyOf(inputs);
+        for (var entry : inputs.entrySet()) {
+            entry.getValue().setNode(this);
+            entry.getValue().setId(entry.getKey());
+        }
         outputs = Map.copyOf(outputs);
         for (var output : outputs.values()) {
             output.setNode(this);
@@ -25,6 +34,13 @@ public final class ExecutionNode {
         this.inputs = inputs;
         this.outputs = outputs;
         this.action = action;
+
+        // Our predecessor nodes are nodes that our inputs depend on
+        Set<ExecutionNode> predecessors = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var value : inputs.values()) {
+            predecessors.addAll(value.getNodeDependencies());
+        }
+        this.predecessors = Collections.unmodifiableSet(predecessors);
     }
 
     public void start() {
@@ -43,7 +59,7 @@ public final class ExecutionNode {
         state = NodeState.FAILED;
     }
 
-    public void complete(Map<String, Object> outputs) {
+    public void complete(Map<String, Path> outputs) {
         if (state != NodeState.STARTED) {
             throw new IllegalStateException("Node " + this + " not started yet.");
         }
@@ -53,7 +69,7 @@ public final class ExecutionNode {
             if (output == null) {
                 throw new IllegalArgumentException("Trying to set output " + entry.getKey() + " which does not exist on " + this);
             }
-            output.setResult(entry.getValue());
+            output.setResultPath(entry.getValue());
         }
 
         // Validate that all outputs have received values
@@ -107,6 +123,10 @@ public final class ExecutionNode {
     @Override
     public String toString() {
         return id;
+    }
+
+    public Set<ExecutionNode> getPredecessors() {
+        return predecessors;
     }
 }
 

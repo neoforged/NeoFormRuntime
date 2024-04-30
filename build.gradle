@@ -1,4 +1,3 @@
-
 buildscript {
     dependencies {
         // Fix for the shadow plugin using outdated ASM

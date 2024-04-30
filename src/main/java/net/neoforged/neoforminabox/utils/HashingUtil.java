@@ -1,6 +1,7 @@
 package net.neoforged.neoforminabox.utils;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,15 +9,16 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.stream.Collectors;
 
 public final class HashingUtil {
     private HashingUtil() {
     }
 
-    public static String md5(String value) {
+    public static String sha1(String value) {
         MessageDigest digest;
         try {
-            digest = MessageDigest.getInstance("MD5");
+            digest = MessageDigest.getInstance("SHA1");
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
@@ -41,5 +43,22 @@ public final class HashingUtil {
         }
 
         return HexFormat.of().formatHex(digest.digest());
+    }
+
+    public static String hashDirectory(Path path, String algorithm) throws IOException {
+        try (var stream = Files.walk(path)) {
+            var fileListing = stream.map(p -> p.relativize(path))
+                    .filter(Files::isRegularFile)
+                    .sorted()
+                    .map(p -> {
+                        try {
+                            return p.toString() + " " + HashingUtil.hashFile(p, algorithm);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .collect(Collectors.joining("\n"));
+            return sha1(fileListing);
+        }
     }
 }

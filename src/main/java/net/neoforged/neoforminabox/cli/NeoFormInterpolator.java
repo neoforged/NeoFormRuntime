@@ -14,7 +14,7 @@ import java.util.zip.ZipFile;
 /**
  * Interpolates tokens of the form {@code {token}} found in the argument lists of NeoForm functions.
  */
-final class NeoFormInterpolator {
+public final class NeoFormInterpolator {
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\{([^}]+)}");
     private final ProcessingEnvironment environment;
     private final NeoFormStep step;
@@ -50,7 +50,7 @@ final class NeoFormInterpolator {
             if (!stepValue.contains("{")) {
                 return stepValue;
             }
-            return representPath(environment.getRequiredInput(inputId, Path.class));
+            return representPath(environment.getRequiredInputPath(inputId));
         }
 
         // We can also access data-files defined in the NeoForm archive via the `data` indirection

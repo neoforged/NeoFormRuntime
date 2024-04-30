@@ -1,28 +1,19 @@
 package net.neoforged.neoforminabox.graph;
 
-import net.neoforged.neoforminabox.manifests.MinecraftVersionManifest;
-
-import java.nio.file.Path;
-
 public enum NodeOutputType {
-    JAR(Path.class),
-    TXT(Path.class),
-    ZIP(Path.class),
-    JSON(Path.class),
-    TSRG(Path.class),
-    VERSION_MANIFEST(MinecraftVersionManifest.class);
+    JAR(".jar"),
+    TXT(".txt"),
+    ZIP(".zip"),
+    JSON(".json"),
+    TSRG(".tsrg");
 
-    private final Class<?> resultClass;
+    private final String extension;
 
-    NodeOutputType(Class<?> resultClass) {
-        this.resultClass = resultClass;
+    NodeOutputType(String extension) {
+        this.extension = extension;
     }
 
-    public Class<?> getResultClass() {
-        return resultClass;
-    }
-
-    public boolean isValidResult(Object result) {
-        return resultClass.isInstance(result);
+    public String getExtension() {
+        return extension;
     }
 }

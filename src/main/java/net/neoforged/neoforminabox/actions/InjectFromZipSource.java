@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.tasks;
+package net.neoforged.neoforminabox.actions;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -11,7 +11,7 @@ import java.util.zip.ZipOutputStream;
 /**
  * Inject content from another ZIP-file.
  *
- * @see InjectZipContentTask
+ * @see InjectZipContentAction
  */
 public class InjectFromZipSource implements InjectSource {
     private final ZipFile zf;
