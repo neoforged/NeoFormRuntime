@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Uses the current JDKs java compiler interface to recompile the sources.
+ */
 public class RecompileSourcesAction extends BuiltInAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
