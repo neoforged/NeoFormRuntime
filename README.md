@@ -2,7 +2,7 @@
 Example invocation:
 
 ```
---recompile-ecj --neoform "net.neoforged:neoform:1.20.6-rc1-20240426.131110@zip" --dist joined
+--recompile-ecj --neoform "net.neoforged:neoform:1.20.6-20240429.153634@zip" --dist joined
 ```
 
 ```

@@ -11,6 +11,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 
 import static picocli.CommandLine.Command;
@@ -51,6 +52,8 @@ public class Main implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        var start = System.currentTimeMillis();
+
         try (var lockManager = new LockManager(cacheDir);
              var cacheManager = new CacheManager(cacheDir);
              var downloadManager = new DownloadManager()) {
@@ -92,8 +95,11 @@ public class Main implements Callable<Integer> {
                     neoFormEngine.runNode(patchOutput.node());
                 }
             }
-
+        } finally {
+            var elapsed = System.currentTimeMillis() - start;
+            System.out.format(Locale.ROOT, "Total runtime: %.02fs\n", elapsed / 1000.0);
         }
+
         return 0;
     }
 
