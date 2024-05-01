@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.downloads;
 
 import net.neoforged.neoforminabox.utils.FileUtil;
 import net.neoforged.neoforminabox.utils.HashingUtil;
@@ -11,7 +11,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;

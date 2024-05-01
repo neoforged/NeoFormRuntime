@@ -1,7 +1,7 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.cli.ArtifactManager;
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.artifacts.ArtifactManager;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 
 import java.io.IOException;
 

@@ -1,6 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

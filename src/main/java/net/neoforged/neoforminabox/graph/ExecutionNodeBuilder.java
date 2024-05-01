@@ -16,6 +16,10 @@ public class ExecutionNodeBuilder {
         this.id = Objects.requireNonNull(id, "id");
     }
 
+    public boolean hasInput(String inputId) {
+        return nodeInputs.containsKey(inputId);
+    }
+
     public NodeInput input(String inputId, NodeInput input) {
         if (nodeInputs.containsKey(inputId)) {
             throw new IllegalArgumentException("Duplicate input " + inputId + " on node " + id);
@@ -34,6 +38,10 @@ public class ExecutionNodeBuilder {
         return input(inputId, new NodeInput.NodeInputForOutput(output));
     }
 
+    public boolean hasOutput(String outputId) {
+        return nodeOutputs.containsKey(outputId);
+    }
+
     public NodeOutput output(String outputId, NodeOutputType type, String description) {
         // IDs of outputs may be used for naming files, and since we support case-insensitive file-systems
         // the ids should be unqiue regardless of case.
@@ -48,6 +56,10 @@ public class ExecutionNodeBuilder {
 
     public void action(ExecutionNodeAction work) {
         this.action = work;
+    }
+
+    public void clearInputs() {
+        nodeInputs.clear();
     }
 
     public ExecutionNode build() {

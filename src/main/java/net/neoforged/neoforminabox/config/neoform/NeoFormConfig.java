@@ -3,6 +3,7 @@ package net.neoforged.neoforminabox.config.neoform;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.annotations.SerializedName;
+import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -20,7 +21,7 @@ public record NeoFormConfig(int spec,
                             Map<String, Object> data,
                             Map<String, List<NeoFormStep>> steps,
                             Map<String, NeoFormFunction> functions,
-                            Map<String, List<String>> libraries) {
+                            Map<String, List<MavenCoordinate>> libraries) {
 
     public NeoFormDistConfig getDistConfig(String dist) {
         if (!steps.containsKey(dist)) {
@@ -43,6 +44,7 @@ public record NeoFormConfig(int spec,
 
         var gson = new GsonBuilder()
                 .registerTypeAdapter(NeoFormStep.class, new NeoFormStepDeserializer())
+                .registerTypeAdapter(MavenCoordinate.class, MavenCoordinate.TYPE_ADAPTER)
                 .create();
         var root = gson.fromJson(new StringReader(new String(configContent, StandardCharsets.UTF_8)), JsonObject.class);
 

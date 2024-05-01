@@ -1,24 +1,35 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.cache.CacheKeyBuilder;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class InjectZipContentAction extends BuiltInAction {
-    private final List<InjectSource> injectedSources;
+    private List<InjectSource> injectedSources;
 
     public InjectZipContentAction(List<InjectSource> injectedSources) {
-        this.injectedSources = injectedSources;
+        this.injectedSources = new ArrayList<>(injectedSources);
+    }
+
+    public List<InjectSource> getInjectedSources() {
+        return injectedSources;
+    }
+
+    public void setInjectedSources(List<InjectSource> injectedSources) {
+        this.injectedSources = new ArrayList<>(Objects.requireNonNull(injectedSources));
     }
 
     @Override
@@ -80,6 +91,20 @@ public class InjectZipContentAction extends BuiltInAction {
                         zos.closeEntry();
                     }
                 }
+            }
+        }
+    }
+
+    @Override
+    public void computeCacheKey(CacheKeyBuilder ck) {
+        super.computeCacheKey(ck);
+
+        for (int i = 0; i < injectedSources.size(); i++) {
+            var injectedSource = injectedSources.get(i);
+            try {
+                ck.add("injectSource." + i, injectedSource.getClass().getName() + " [" + injectedSource.getCacheKey(ck.getFileHashService()) + "]");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }

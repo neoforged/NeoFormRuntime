@@ -12,8 +12,8 @@ public final class ExecutionNode {
     private final String id;
     private final Map<String, NodeInput> inputs;
     private final Map<String, NodeOutput> outputs;
-    private final ExecutionNodeAction action;
-    private final Set<ExecutionNode> predecessors;
+    private ExecutionNodeAction action;
+    private Set<ExecutionNode> predecessors;
     private Long started;
     private long elapsedMs;
     private NodeState state = NodeState.NOT_STARTED;
@@ -59,7 +59,7 @@ public final class ExecutionNode {
         state = NodeState.FAILED;
     }
 
-    public void complete(Map<String, Path> outputs) {
+    public void complete(Map<String, Path> outputs, boolean fromCache) {
         if (state != NodeState.STARTED) {
             throw new IllegalStateException("Node " + this + " not started yet.");
         }
@@ -81,7 +81,12 @@ public final class ExecutionNode {
 
         state = NodeState.COMPLETED;
         elapsedMs = System.currentTimeMillis() - started;
-        System.out.println("*** Completed " + id() + " in " + String.format(Locale.ROOT, "%.02f", elapsedMs / 1000.0) + "s");
+        var elapsedStr = String.format(Locale.ROOT, "%.02f", elapsedMs / 1000.0) + "s";
+        if (fromCache) {
+            System.out.println("*** Used cache of " + id() + " in " + elapsedStr);
+        } else {
+            System.out.println("*** Completed " + id() + " in " + elapsedStr);
+        }
     }
 
     public NodeState getState() {
@@ -127,6 +132,10 @@ public final class ExecutionNode {
 
     public Set<ExecutionNode> getPredecessors() {
         return predecessors;
+    }
+
+    public void setAction(ExecutionNodeAction action) {
+        this.action = Objects.requireNonNull(action, "action");
     }
 }
 

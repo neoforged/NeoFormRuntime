@@ -12,7 +12,8 @@ import java.util.Map;
 
 public class ExecutionGraph {
     private final Map<String, ExecutionNode> nodes = new LinkedHashMap<>();
-    private final Map<String, ResolvedNodeOutput> nodeOutputs = new HashMap<>();
+    private final Map<String, NodeOutput> nodeOutputs = new HashMap<>();
+    private final Map<String, NodeOutput> results = new HashMap<>();
 
     public ExecutionNodeBuilder nodeBuilder(String id) {
         return new ExecutionNodeBuilder(this, id);
@@ -32,11 +33,23 @@ public class ExecutionGraph {
         }
         nodes.put(node.id(), node);
         for (var entry : node.outputs().entrySet()) {
-            nodeOutputs.put(getGlobalNodeOutputId(node, entry.getKey()), new ResolvedNodeOutput(node, entry.getValue()));
+            nodeOutputs.put(getGlobalNodeOutputId(node, entry.getKey()), entry.getValue());
         }
     }
 
-    public ResolvedNodeOutput getRequiredOutput(String nodeId, String outputId) {
+    public void setResult(String id, NodeOutput output) {
+        results.put(id, output);
+    }
+
+    public NodeOutput getResult(String id) {
+        return results.get(id);
+    }
+
+    public Map<String, NodeOutput> getResults() {
+        return results;
+    }
+
+    public NodeOutput getRequiredOutput(String nodeId, String outputId) {
         var node = getNode(nodeId);
         if (node == null) {
             throw new IllegalArgumentException("Node not found: " + nodeId);
@@ -45,11 +58,11 @@ public class ExecutionGraph {
         if (output == null) {
             throw new IllegalArgumentException("Output " + outputId + " not found on node " + nodeId);
         }
-        return new ResolvedNodeOutput(node, output);
+        return output;
     }
 
     @Nullable
-    public ResolvedNodeOutput getOutput(String globalOutputId) {
+    public NodeOutput getOutput(String globalOutputId) {
         return nodeOutputs.get(globalOutputId);
     }
 

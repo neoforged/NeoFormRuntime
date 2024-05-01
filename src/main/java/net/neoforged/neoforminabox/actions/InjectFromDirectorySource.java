@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.FileNotFoundException;
@@ -16,6 +17,10 @@ import java.util.zip.ZipOutputStream;
  * @see InjectZipContentAction
  */
 public record InjectFromDirectorySource(Path folder) implements InjectSource {
+    @Override
+    public String getCacheKey(FileHashService fileHashService) throws IOException {
+        return fileHashService.getHashValue(folder);
+    }
 
     @Override
     public byte @Nullable [] tryReadFile(String path) throws IOException {

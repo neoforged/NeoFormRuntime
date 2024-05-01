@@ -1,7 +1,5 @@
 package net.neoforged.neoforminabox.graph;
 
-import net.neoforged.neoforminabox.cli.FileHashService;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -55,23 +53,12 @@ public final class NodeOutput {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (obj == this) return true;
-        if (obj == null || obj.getClass() != this.getClass()) return false;
-        var that = (NodeOutput) obj;
-        return Objects.equals(this.id, that.id) &&
-               Objects.equals(this.type, that.type) &&
-               Objects.equals(this.description, that.description);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, type, description);
-    }
-
-    @Override
     public String toString() {
         return "output '" + id + "' of node '" + node.id() + "'";
+    }
+
+    public NodeInput asInput() {
+        return new NodeInput.NodeInputForOutput(this);
     }
 
     public synchronized <T> T getResultRepresentation(ResultRepresentation<T> representation) throws IOException {

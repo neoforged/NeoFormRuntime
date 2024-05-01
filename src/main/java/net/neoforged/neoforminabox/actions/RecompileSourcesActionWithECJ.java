@@ -1,6 +1,7 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.artifacts.ClasspathItem;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
@@ -16,12 +17,12 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,23 +37,22 @@ import java.util.zip.ZipFile;
 /**
  * Uses Eclipse Compiler for Java to recompile the sources.
  */
-public class RecompileSourcesActionWithECJ extends BuiltInAction {
+public class RecompileSourcesActionWithECJ extends BuiltInAction implements ActionWithClasspath {
+    private final List<ClasspathItem> classpathItems = new ArrayList<>();
+
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
-        var librariesFile = environment.getRequiredInputPath("libraries");
-        var libraries = Files.readAllLines(librariesFile)
-                .stream()
-                .map(line -> line.replaceFirst("^-e=", ""))
-                .toList();
+
+        var classpathPaths = environment.getArtifactManager().resolveClasspath(classpathItems);
 
         var classpaths = new ArrayList<FileSystem.Classpath>();
         Util.collectRunningVMBootclasspath(classpaths);
-        for (String library : libraries) {
+        for (var library : classpathPaths) {
             classpaths.add(new ClasspathMultiReleaseJar(
-                    new File(library),
+                    library.toFile(),
                     true,
-                    new AccessRuleSet(new AccessRule[0], AccessRestriction.COMMAND_LINE, library),
+                    new AccessRuleSet(new AccessRule[0], AccessRestriction.COMMAND_LINE, library.getFileName().toString()),
                     "none",
                     "21"
             ));
@@ -158,6 +158,11 @@ public class RecompileSourcesActionWithECJ extends BuiltInAction {
                 jos.closeEntry();
             }
         }
+    }
+
+    @Override
+    public List<ClasspathItem> getClasspath() {
+        return classpathItems;
     }
 
     static class ECJFilesystem extends FileSystem {

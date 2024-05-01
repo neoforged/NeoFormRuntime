@@ -1,18 +1,33 @@
 package net.neoforged.neoforminabox.cli;
 
-import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithECJ;
-import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoforminabox.actions.ActionWithClasspath;
+import net.neoforged.neoforminabox.actions.ApplySourceAccessTransformersAction;
+import net.neoforged.neoforminabox.actions.InjectFromZipFileSource;
+import net.neoforged.neoforminabox.actions.InjectZipContentAction;
+import net.neoforged.neoforminabox.actions.PatchActionFactory;
+import net.neoforged.neoforminabox.artifacts.ArtifactManager;
+import net.neoforged.neoforminabox.artifacts.ClasspathItem;
 import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
+import net.neoforged.neoforminabox.downloads.DownloadManager;
+import net.neoforged.neoforminabox.engine.NeoFormEngine;
+import net.neoforged.neoforminabox.engine.ProcessingStepManager;
 import net.neoforged.neoforminabox.graph.NodeOutputType;
+import net.neoforged.neoforminabox.graph.transforms.GraphTransform;
+import net.neoforged.neoforminabox.graph.transforms.ModifyAction;
+import net.neoforged.neoforminabox.graph.transforms.ReplaceNodeOutput;
+import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Callable;
+import java.util.jar.JarFile;
+import java.util.zip.ZipFile;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
@@ -54,48 +69,108 @@ public class Main implements Callable<Integer> {
     public Integer call() throws Exception {
         var start = System.currentTimeMillis();
 
+
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            System.out.println();
+        });
+
+        var closables = new ArrayList<AutoCloseable>();
+
         try (var lockManager = new LockManager(cacheDir);
              var cacheManager = new CacheManager(cacheDir);
              var downloadManager = new DownloadManager()) {
             var artifactManager = new ArtifactManager(repositories, cacheManager, downloadManager, lockManager, launcherManifestUrl);
             var processingStepManager = new ProcessingStepManager(cacheDir.resolve("work"), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
+            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
 
-            String neoformArtifact;
-            if (sourceArtifacts.neoforge != null) {
-                var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
-                var neoforgeConfig = NeoForgeConfig.from(neoforgeArtifact.path());
-                throw new UnsupportedOperationException(); // NYI
-            } else {
-                neoformArtifact = sourceArtifacts.neoform;
-            }
+                List<GraphTransform> transforms = new ArrayList<>();
+                if (sourceArtifacts.neoforge != null) {
+                    var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
+                    try (var neoforgeZipFile = new JarFile(neoforgeArtifact.path().toFile())) {
+                        var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
+                        MavenCoordinate neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
+                        // Allow it to be overridden
+                        if (sourceArtifacts.neoform != null) {
+                            System.out.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
+                            neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
+                        }
 
-            try (var neoFormEngine = NeoFormEngine.create(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager, neoformArtifact, dist)) {
-                var graph = neoFormEngine.buildGraph();
+                        engine.loadNeoFormData(neoformArtifact, dist);
 
-                if (printGraph) {
-                    graph.dump(new PrintWriter(System.out));
-                }
+                        // Add NeoForge specific data sources
+                        engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
 
-                // Patch is pretty much the last task in the NeoForm steps list
-                var patchOutput = graph.getRequiredOutput("patch", "output");
-                if (recompile || recompileEcj) {
-                    var builder = graph.nodeBuilder("recompile");
-                    builder.input("sources", patchOutput.asInput());
-                    builder.inputFromNodeOutput("libraries", "listLibraries", "output");
-                    builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
-                    if (recompileEcj) {
-                        builder.action(new RecompileSourcesActionWithECJ());
-                    } else {
-                        builder.action(new RecompileSourcesActionWithJDK());
+                        // Build the graph transformations needed to apply NeoForge to the NeoForm execution
+
+                        // Add NeoForge libraries to the list of libraries
+                        transforms.add(new ModifyAction<>(
+                                "recompile",
+                                ActionWithClasspath.class,
+                                action -> {
+                                    for (var mavenLibrary : neoforgeConfig.libraries()) {
+                                        action.getClasspath().add(ClasspathItem.of(mavenLibrary));
+                                    }
+                                }
+                        ));
+
+                        // Also inject NeoForge sources, which we can get from the sources file
+                        var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
+                        var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
+                        closables.add(neoforgeSourcesZip);
+
+                        transforms.add(new ReplaceNodeOutput(
+                                "patch",
+                                "output",
+                                "transformSources",
+                                (builder, previousNodeOutput) -> {
+                                    builder.input("input", previousNodeOutput.asInput());
+                                    builder.action(new ApplySourceAccessTransformersAction("neoForgeAccessTransformers"));
+                                    return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
+                                }
+                        ));
+
+                        transforms.add(new ModifyAction<>(
+                                "inject",
+                                InjectZipContentAction.class,
+                                action -> {
+                                    action.getInjectedSources().add(
+                                            new InjectFromZipFileSource(neoforgeSourcesZip, "/")
+                                    );
+                                }
+                        ));
+
+                        // Append a patch step to the NeoForge patches
+                        transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+                                (builder, previousOutput) -> {
+                                    return PatchActionFactory.makeAction(builder, neoforgeArtifact.path(), neoforgeConfig.patchesFolder(), previousOutput);
+                                }
+                        ));
+
+                        engine.applyTransforms(transforms);
+
+                        if (printGraph) {
+                            engine.dumpGraph(new PrintWriter(System.out));
+                        }
+
+                        var results = engine.createResults("sources", "compiled");
+                        System.out.println(results);
                     }
-                    var recompileNode = builder.build();
-                    neoFormEngine.runNode(recompileNode);
                 } else {
-                    neoFormEngine.runNode(patchOutput.node());
+                    engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
                 }
+
+
             }
         } finally {
+            for (var closable : closables) {
+                try {
+                    closable.close();
+                } catch (Exception e) {
+                    System.err.println("Failed to close " + closable + ": " + e);
+                }
+            }
+
             var elapsed = System.currentTimeMillis() - start;
             System.out.format(Locale.ROOT, "Total runtime: %.02fs\n", elapsed / 1000.0);
         }

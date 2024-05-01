@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.downloads;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +31,10 @@ public interface DownloadSpec {
     @Nullable
     default String checksumAlgorithm() {
         return null;
+    }
+
+    static DownloadSpec of(URI uri) {
+        return new SimpleDownloadSpec(uri);
     }
 }
 

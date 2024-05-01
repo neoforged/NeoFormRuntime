@@ -1,4 +1,4 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.engine;
 
 import net.neoforged.neoforminabox.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoforminabox.config.neoform.NeoFormStep;
@@ -15,7 +15,7 @@ import java.util.zip.ZipFile;
  * Interpolates tokens of the form {@code {token}} found in the argument lists of NeoForm functions.
  */
 public final class NeoFormInterpolator {
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("\\{([^}]+)}");
+    public static final Pattern TOKEN_PATTERN = Pattern.compile("\\{([^}]+)}");
     private final ProcessingEnvironment environment;
     private final NeoFormStep step;
     private final NeoFormDistConfig neoFormConfig;

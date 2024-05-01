@@ -47,4 +47,8 @@ public class CacheKeyBuilder {
                 .map(entry -> entry.getKey() + " " + entry.getValue())
                 .collect(Collectors.joining("\n"));
     }
+
+    public FileHashService getFileHashService() {
+        return fileHashService;
+    }
 }

@@ -1,7 +1,7 @@
 package net.neoforged.neoforminabox.manifests;
 
 import com.google.gson.annotations.SerializedName;
-import net.neoforged.neoforminabox.cli.DownloadSpec;
+import net.neoforged.neoforminabox.downloads.DownloadSpec;
 import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;

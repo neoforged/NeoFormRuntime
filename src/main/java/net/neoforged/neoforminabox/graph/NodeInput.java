@@ -26,6 +26,11 @@ public abstract class NodeInput {
         this.node = node;
     }
 
+    /**
+     * replace any reference to a given node output with another node output if they occur within this input.
+     */
+    public abstract void replaceReferences(NodeOutput oldOutput, NodeOutput newOutput);
+
     public abstract Collection<ExecutionNode> getNodeDependencies();
 
     public abstract void collectCacheKeyComponent(CacheKeyBuilder builder);
@@ -33,10 +38,17 @@ public abstract class NodeInput {
     public abstract <T> T getValue(ResultRepresentation<T> representation) throws IOException;
 
     static final class NodeInputForOutput extends NodeInput {
-        private final NodeOutput output;
+        private NodeOutput output;
 
         public NodeInputForOutput(NodeOutput output) {
             this.output = output;
+        }
+
+        @Override
+        public void replaceReferences(NodeOutput oldOutput, NodeOutput newOutput) {
+            if (this.output == oldOutput) {
+                this.output = newOutput;
+            }
         }
 
         @Override

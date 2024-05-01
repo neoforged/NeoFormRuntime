@@ -1,7 +1,7 @@
 package net.neoforged.neoforminabox.graph;
 
 import net.neoforged.neoforminabox.cache.CacheKeyBuilder;
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 
 import java.io.IOException;
 

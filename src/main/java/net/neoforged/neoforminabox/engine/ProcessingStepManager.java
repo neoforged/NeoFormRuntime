@@ -1,5 +1,7 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.engine;
 
+import net.neoforged.neoforminabox.artifacts.ArtifactManager;
+import net.neoforged.neoforminabox.cli.CacheManager;
 import net.neoforged.neoforminabox.utils.FilenameUtil;
 
 import java.io.IOException;

@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -9,9 +10,11 @@ import java.util.zip.ZipOutputStream;
  * Defines a source for injecting content into a zip file using the {@link InjectZipContentAction} task.
  *
  * @see InjectFromDirectorySource
- * @see InjectFromZipSource
+ * @see InjectFromZipFileSource
  */
 public interface InjectSource {
+    String getCacheKey(FileHashService fileHashService) throws IOException;
+
     /**
      * Tries to read a file from this source.
      *

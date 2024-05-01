@@ -1,8 +1,14 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -13,22 +19,50 @@ import java.util.zip.ZipOutputStream;
  *
  * @see InjectZipContentAction
  */
-public class InjectFromZipSource implements InjectSource {
+public class InjectFromZipFileSource implements InjectSource {
     private final ZipFile zf;
     /**
      * Folder within the ZIP we're copying from
      */
     private final String sourcePath;
 
-    public InjectFromZipSource(ZipFile zf, String sourcePath) {
+    public InjectFromZipFileSource(ZipFile zf, String sourcePath) {
         this.zf = zf;
+        this.sourcePath = sanitizeSourcePath(sourcePath);
+    }
+
+    private static String sanitizeSourcePath(String sourcePath) {
         while (sourcePath.startsWith("/")) {
             sourcePath = sourcePath.substring(1);
         }
         if (!sourcePath.isEmpty() && !sourcePath.endsWith("/")) {
             sourcePath = sourcePath + "/";
         }
-        this.sourcePath = sourcePath;
+        return sourcePath;
+    }
+
+    @Override
+    public String getCacheKey(FileHashService fileHashService) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA1");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        var digestStream = new DigestOutputStream(OutputStream.nullOutputStream(), digest);
+
+        var entries = zf.entries();
+        while (entries.hasMoreElements()) {
+            var entry = entries.nextElement();
+            if (sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) {
+                digestStream.write(entry.getName().getBytes());
+                try (var in = zf.getInputStream(entry)) {
+                    in.transferTo(digestStream);
+                }
+            }
+        }
+
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     @Override

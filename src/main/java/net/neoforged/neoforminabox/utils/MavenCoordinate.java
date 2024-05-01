@@ -1,5 +1,11 @@
 package net.neoforged.neoforminabox.utils;
 
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -9,6 +15,26 @@ import java.util.Objects;
  * Models the Maven coordinates for an artifact.
  */
 public record MavenCoordinate(String groupId, String artifactId, String extension, String classifier, String version) {
+    public static final TypeAdapter<MavenCoordinate> TYPE_ADAPTER = new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter out, MavenCoordinate value) throws IOException {
+            if (value == null) {
+                out.nullValue();
+            } else {
+                out.value(value.toString());
+            }
+        }
+
+        @Override
+        public MavenCoordinate read(JsonReader in) throws IOException {
+            if (in.peek() == JsonToken.NULL) {
+                in.nextNull();
+                return null;
+            }
+            return MavenCoordinate.parse(in.nextString());
+        }
+    };
+
     public MavenCoordinate {
         Objects.requireNonNull(groupId);
         Objects.requireNonNull(artifactId);

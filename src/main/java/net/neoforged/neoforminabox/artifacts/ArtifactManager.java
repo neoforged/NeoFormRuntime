@@ -1,5 +1,9 @@
-package net.neoforged.neoforminabox.cli;
+package net.neoforged.neoforminabox.artifacts;
 
+import net.neoforged.neoforminabox.cli.CacheManager;
+import net.neoforged.neoforminabox.cli.LockManager;
+import net.neoforged.neoforminabox.downloads.DownloadManager;
+import net.neoforged.neoforminabox.downloads.DownloadSpec;
 import net.neoforged.neoforminabox.manifests.LauncherManifest;
 import net.neoforged.neoforminabox.manifests.MinecraftLibrary;
 import net.neoforged.neoforminabox.manifests.MinecraftVersionManifest;
@@ -15,9 +19,12 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public class ArtifactManager {
+    private static final URI MINECRAFT_LIBRARIES_URI = URI.create("https://libraries.minecraft.net");
     private final List<URI> repositoryBaseUrls;
     private final DownloadManager downloadManager;
     private final LockManager lockManager;
@@ -51,18 +58,26 @@ public class ArtifactManager {
     }
 
     public Artifact get(String location, URI repositoryBaseUrl) throws IOException {
-        var mavenCoordinate = MavenCoordinate.parse(location);
+        return get(MavenCoordinate.parse(location), repositoryBaseUrl);
+    }
 
-        var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
-        var url = mavenCoordinate.toRepositoryUri(repositoryBaseUrl);
-
+    public Artifact get(MavenCoordinate artifactCoordinates, URI repositoryBaseUrl) throws IOException {
+        var finalLocation = artifactsCache.resolve(artifactCoordinates.toRelativeRepositoryPath());
+        var url = artifactCoordinates.toRepositoryUri(repositoryBaseUrl);
         return download(finalLocation, url);
     }
 
     public Artifact get(String location) throws IOException {
-        var mavenCoordinate = MavenCoordinate.parse(location);
+        return get(MavenCoordinate.parse(location));
+    }
 
+    public Artifact get(MavenCoordinate mavenCoordinate) throws IOException {
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
+
+        // Special case: NeoForge reference libraries that are only available via the Mojang download server
+        if (mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging")) {
+            return get(mavenCoordinate, MINECRAFT_LIBRARIES_URI);
+        }
 
         return download(finalLocation, () -> {
             for (var repositoryBaseUrl : repositoryBaseUrls) {
@@ -76,6 +91,25 @@ public class ArtifactManager {
 
             throw new FileNotFoundException("Could not find " + mavenCoordinate + " in any repository.");
         });
+    }
+
+    public List<Path> resolveClasspath(Collection<ClasspathItem> classpathItems) throws IOException {
+        var result = new ArrayList<Path>(classpathItems.size());
+        for (var item : classpathItems) {
+            Path pathToAdd = switch (item) {
+                case ClasspathItem.MavenCoordinateItem(MavenCoordinate mavenCoordinate, URI repositoryUri) -> {
+                    if (repositoryUri == null) {
+                        yield get(mavenCoordinate).path();
+                    } else {
+                        yield get(mavenCoordinate, repositoryUri).path();
+                    }
+                }
+                case ClasspathItem.MinecraftLibraryItem(MinecraftLibrary library) -> get(library).path();
+                case ClasspathItem.PathItem(Path path) -> path;
+            };
+            result.add(pathToAdd);
+        }
+        return result;
     }
 
     /**
@@ -153,7 +187,7 @@ public class ArtifactManager {
     }
 
     private Artifact download(Path finalLocation, URI uri) throws IOException {
-        return download(finalLocation, new SimpleDownloadSpec(uri));
+        return download(finalLocation, DownloadSpec.of(uri));
     }
 
     private Artifact download(Path finalLocation, DownloadSpec spec) throws IOException {

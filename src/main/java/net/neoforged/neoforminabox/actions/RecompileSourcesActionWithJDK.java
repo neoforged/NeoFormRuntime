@@ -1,6 +1,8 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.cli.ProcessingEnvironment;
+import net.neoforged.neoforminabox.artifacts.ClasspathItem;
+import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
+import net.neoforged.neoforminabox.graph.ResultRepresentation;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -23,16 +25,32 @@ import java.util.Map;
 /**
  * Uses the current JDKs java compiler interface to recompile the sources.
  */
-public class RecompileSourcesActionWithJDK extends BuiltInAction {
+public class RecompileSourcesActionWithJDK extends BuiltInAction implements ActionWithClasspath {
+    private final List<ClasspathItem> classpathItems = new ArrayList<>();
+
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
-        var librariesFile = environment.getRequiredInputPath("libraries");
-        var libraries = Files.readAllLines(librariesFile)
-                .stream()
-                .map(line -> line.replaceFirst("^-e=", ""))
-                .map(Paths::get)
-                .toList();
+        var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
+
+        // Merge the original Minecraft classpath with the libs required by additional patches that we made
+        var effectiveClasspathItems = new ArrayList<ClasspathItem>();
+        for (var library : versionManifest.libraries()) {
+            effectiveClasspathItems.add(ClasspathItem.of(library));
+        }
+        effectiveClasspathItems.addAll(classpathItems);
+
+        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
+
+        System.out.println(" Compile Classpath:");
+        var userHome = Paths.get(System.getProperty("user.home"));
+        for (var path : classpath) {
+            if (path.startsWith(userHome)) {
+                System.out.println("  ~/" + userHome.relativize(path).toString().replace('\\', '/'));
+            } else {
+                System.out.println(path);
+            }
+        }
 
         var javaCompilerOptions = new ArrayList<String>();
         javaCompilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources
@@ -67,7 +85,7 @@ public class RecompileSourcesActionWithJDK extends BuiltInAction {
 
                 try (var fileManager = compiler.getStandardFileManager(diagnostics, Locale.ROOT, StandardCharsets.UTF_8)) {
                     fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, Collections.singleton(outputRoot));
-                    fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, libraries);
+                    fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
 
                     var sourceJavaFiles = fileManager.getJavaFileObjectsFromPaths(sourcePaths);
                     var task = compiler.getTask(null, fileManager, diagnostics, javaCompilerOptions, null, sourceJavaFiles);
@@ -77,5 +95,10 @@ public class RecompileSourcesActionWithJDK extends BuiltInAction {
                 }
             }
         }
+    }
+
+    @Override
+    public List<ClasspathItem> getClasspath() {
+        return classpathItems;
     }
 }
