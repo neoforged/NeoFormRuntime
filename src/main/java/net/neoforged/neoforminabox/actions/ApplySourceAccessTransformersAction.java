@@ -19,9 +19,9 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
-
         var args = new ArrayList<String>();
         Collections.addAll(args,
+                "--libraries-list", "{libraries}",
                 "--in-format", "ARCHIVE",
                 "--out-format", "ARCHIVE",
                 "--enable-accesstransformers"

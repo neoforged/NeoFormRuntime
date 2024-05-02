@@ -1,7 +1,7 @@
 package net.neoforged.neoforminabox.actions;
 
-import net.neoforged.neoforminabox.artifacts.ClasspathItem;
 import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
+import net.neoforged.neoforminabox.graph.ResultRepresentation;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
@@ -22,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,14 +36,13 @@ import java.util.zip.ZipFile;
 /**
  * Uses Eclipse Compiler for Java to recompile the sources.
  */
-public class RecompileSourcesActionWithECJ extends BuiltInAction implements ActionWithClasspath {
-    private final List<ClasspathItem> classpathItems = new ArrayList<>();
-
+public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
 
-        var classpathPaths = environment.getArtifactManager().resolveClasspath(classpathItems);
+        // Merge the original Minecraft classpath with the libs required by additional patches that we made
+        var classpathPaths = getLibraries(environment);
 
         var classpaths = new ArrayList<FileSystem.Classpath>();
         Util.collectRunningVMBootclasspath(classpaths);
@@ -158,11 +156,6 @@ public class RecompileSourcesActionWithECJ extends BuiltInAction implements Acti
                 jos.closeEntry();
             }
         }
-    }
-
-    @Override
-    public List<ClasspathItem> getClasspath() {
-        return classpathItems;
     }
 
     static class ECJFilesystem extends FileSystem {

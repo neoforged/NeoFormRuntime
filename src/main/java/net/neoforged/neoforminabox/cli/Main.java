@@ -52,11 +52,8 @@ public class Main implements Callable<Integer> {
     @Option(names = "--print-graph")
     boolean printGraph;
 
-    @Option(names = "--recompile")
-    boolean recompile;
-
-    @Option(names = "--recompile-ecj")
-    boolean recompileEcj;
+    @Option(names = "--use-eclipse-compiler")
+    boolean useEclipseCompiler;
 
     static class SourceArtifacts {
         @Option(names = "--neoform")
@@ -69,11 +66,6 @@ public class Main implements Callable<Integer> {
     public Integer call() throws Exception {
         var start = System.currentTimeMillis();
 
-
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-            System.out.println();
-        });
-
         var closables = new ArrayList<AutoCloseable>();
 
         try (var lockManager = new LockManager(cacheDir);
@@ -83,6 +75,7 @@ public class Main implements Callable<Integer> {
             var processingStepManager = new ProcessingStepManager(cacheDir.resolve("work"), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
+                engine.setUseEclipseCompiler(useEclipseCompiler);
 
                 List<GraphTransform> transforms = new ArrayList<>();
                 if (sourceArtifacts.neoforge != null) {
@@ -125,6 +118,7 @@ public class Main implements Callable<Integer> {
                                 "transformSources",
                                 (builder, previousNodeOutput) -> {
                                     builder.input("input", previousNodeOutput.asInput());
+                                    builder.inputFromNodeOutput("libraries", "listLibraries", "output");
                                     builder.action(new ApplySourceAccessTransformersAction("neoForgeAccessTransformers"));
                                     return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
                                 }
