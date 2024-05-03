@@ -15,18 +15,22 @@ import net.neoforged.neoforminabox.graph.NodeOutputType;
 import net.neoforged.neoforminabox.graph.transforms.GraphTransform;
 import net.neoforged.neoforminabox.graph.transforms.ModifyAction;
 import net.neoforged.neoforminabox.graph.transforms.ReplaceNodeOutput;
+import net.neoforged.neoforminabox.utils.FileUtil;
 import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
 import static picocli.CommandLine.Command;
@@ -55,6 +59,12 @@ public class Main implements Callable<Integer> {
     @Option(names = "--use-eclipse-compiler")
     boolean useEclipseCompiler;
 
+    @Option(names = "--artifact-manifest")
+    Path artifactManifest;
+
+    @Option(names = "--write-result", arity = "*")
+    List<String> writeResults = new ArrayList<>();
+
     static class SourceArtifacts {
         @Option(names = "--neoform")
         String neoform;
@@ -72,6 +82,11 @@ public class Main implements Callable<Integer> {
              var cacheManager = new CacheManager(cacheDir);
              var downloadManager = new DownloadManager()) {
             var artifactManager = new ArtifactManager(repositories, cacheManager, downloadManager, lockManager, launcherManifestUrl);
+
+            if (artifactManifest != null) {
+                artifactManager.loadArtifactManifest(artifactManifest);
+            }
+
             var processingStepManager = new ProcessingStepManager(cacheDir.resolve("work"), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
@@ -147,14 +162,38 @@ public class Main implements Callable<Integer> {
                             engine.dumpGraph(new PrintWriter(System.out));
                         }
 
-                        var results = engine.createResults("sources", "compiled");
-                        System.out.println(results);
+                        var neededResults = writeResults.stream().map(encodedResult -> {
+                                    var parts = encodedResult.split(":", 2);
+                                    if (parts.length != 2) {
+                                        throw new IllegalArgumentException("Specify a result destination in the form: <resultid>:<destination>");
+                                    }
+                                    return parts;
+                                })
+                                .collect(Collectors.toMap(
+                                        parts -> parts[0],
+                                        parts -> Paths.get(parts[1])
+                                ));
+
+                        if (neededResults.isEmpty()) {
+                            System.err.println("No results requested. Available results: " + engine.getAvailableResults());
+                            System.exit(1);
+                        }
+
+                        var results = engine.createResults(neededResults.keySet().toArray(new String[0]));
+
+                        for (var entry : neededResults.entrySet()) {
+                            var result = results.get(entry.getKey());
+                            if (result == null) {
+                                throw new IllegalStateException("Result " + entry.getKey() + " was requested but not produced");
+                            }
+                            var tmpFile = Paths.get(entry.getValue() + ".tmp");
+                            Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+                            FileUtil.atomicMove(tmpFile, entry.getValue());
+                        }
                     }
                 } else {
                     engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
                 }
-
-
             }
         } finally {
             for (var closable : closables) {

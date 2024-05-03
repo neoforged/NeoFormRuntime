@@ -16,12 +16,16 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class ArtifactManager {
     private static final URI MINECRAFT_LIBRARIES_URI = URI.create("https://libraries.minecraft.net");
@@ -30,6 +34,7 @@ public class ArtifactManager {
     private final LockManager lockManager;
     private final URI launcherManifestUrl;
     private final Path artifactsCache;
+    private final Map<MavenCoordinate, Artifact> externallyProvided = new HashMap<>();
 
     public ArtifactManager(List<URI> repositoryBaseUrls,
                            CacheManager cacheManager,
@@ -51,8 +56,12 @@ public class ArtifactManager {
 
         // TODO: if we identify where the Minecraft installation is, we could try to copy the library from there
 
-        var mavenCoordinate = MavenCoordinate.parse(library.artifactId());
-        var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
+        var artifactCoordinate = MavenCoordinate.parse(library.artifactId());
+        if (externallyProvided.containsKey(artifactCoordinate)) {
+            return externallyProvided.get(artifactCoordinate);
+        }
+
+        var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
 
         return download(finalLocation, artifact);
     }
@@ -61,9 +70,13 @@ public class ArtifactManager {
         return get(MavenCoordinate.parse(location), repositoryBaseUrl);
     }
 
-    public Artifact get(MavenCoordinate artifactCoordinates, URI repositoryBaseUrl) throws IOException {
-        var finalLocation = artifactsCache.resolve(artifactCoordinates.toRelativeRepositoryPath());
-        var url = artifactCoordinates.toRepositoryUri(repositoryBaseUrl);
+    public Artifact get(MavenCoordinate artifactCoordinate, URI repositoryBaseUrl) throws IOException {
+        if (externallyProvided.containsKey(artifactCoordinate)) {
+            return externallyProvided.get(artifactCoordinate);
+        }
+
+        var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
+        var url = artifactCoordinate.toRepositoryUri(repositoryBaseUrl);
         return download(finalLocation, url);
     }
 
@@ -72,6 +85,10 @@ public class ArtifactManager {
     }
 
     public Artifact get(MavenCoordinate mavenCoordinate) throws IOException {
+        if (externallyProvided.containsKey(mavenCoordinate)) {
+            return externallyProvided.get(mavenCoordinate);
+        }
+
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         // Special case: NeoForge reference libraries that are only available via the Mojang download server
@@ -153,6 +170,34 @@ public class ArtifactManager {
         var finalPath = artifactsCache.resolve("minecraft_" + versionManifest.id() + "_" + type + extension);
 
         return download(finalPath, downloadSpec);
+    }
+
+    public void loadArtifactManifest(Path artifactManifestPath) throws IOException {
+
+        var properties = new Properties();
+        try (var in = Files.newInputStream(artifactManifestPath)) {
+            properties.load(in);
+        }
+
+        for (var artifactId : properties.stringPropertyNames()) {
+            var value = properties.getProperty(artifactId);
+            try {
+                var path = Paths.get(value);
+                if (!Files.isRegularFile(path)) {
+                    throw new NoSuchFileException(value);
+                }
+                var attrView = Files.getFileAttributeView(artifactManifestPath, BasicFileAttributeView.class).readAttributes();
+                externallyProvided.put(MavenCoordinate.parse(artifactId), new Artifact(
+                        path,
+                        attrView.lastModifiedTime().toMillis(),
+                        attrView.size()
+                ));
+            } catch (Exception e) {
+                System.err.println("Failed to pre-load artifact '" + artifactId + "' from path '" + value + "': " + e);
+                System.exit(1);
+            }
+        }
+        System.out.println("Loaded " + properties.size() + " artifacts from " + artifactManifestPath);
     }
 
     @FunctionalInterface

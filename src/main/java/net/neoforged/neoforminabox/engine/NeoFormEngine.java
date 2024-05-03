@@ -554,6 +554,10 @@ public class NeoFormEngine implements AutoCloseable {
         this.useEclipseCompiler = useEclipseCompiler;
     }
 
+    public Set<String> getAvailableResults() {
+        return graph.getResults().keySet();
+    }
+
     public Map<String, Path> createResults(String... ids) throws InterruptedException {
         // Determine the nodes we need to run
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
