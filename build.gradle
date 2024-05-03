@@ -8,10 +8,11 @@ buildscript {
 
 plugins {
     id 'java'
+    id 'maven-publish'
     id "com.github.johnrengelman.shadow" version '8.1.1'
 }
 
-group = 'org.example'
+group = 'net.neoforged'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -44,4 +45,12 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
