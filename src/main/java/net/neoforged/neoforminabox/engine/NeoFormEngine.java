@@ -579,7 +579,7 @@ public class NeoFormEngine implements AutoCloseable {
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
             if (nodeOutput == null) {
-                throw new IllegalArgumentException("Unknown result: " + id);
+                throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
             }
             nodes.add(nodeOutput.getNode());
         }
