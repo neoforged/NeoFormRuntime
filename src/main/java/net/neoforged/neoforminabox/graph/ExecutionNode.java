@@ -109,6 +109,10 @@ public final class ExecutionNode {
         return inputs;
     }
 
+    public boolean hasOutput(String id) {
+        return outputs.containsKey(id);
+    }
+
     public NodeOutput getRequiredOutput(String id) {
         var result = outputs.get(id);
         if (result == null) {

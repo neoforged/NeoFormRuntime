@@ -75,6 +75,11 @@ public class ExecutionGraph {
         return nodes.get(nodeId);
     }
 
+    public boolean hasOutput(String nodeId, String outputId) {
+        var node = getNode(nodeId);
+        return node != null && node.hasOutput(outputId);
+    }
+
     public void dump(PrintWriter writer) {
 
         try {

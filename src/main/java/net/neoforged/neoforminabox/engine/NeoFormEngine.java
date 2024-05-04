@@ -6,12 +6,12 @@ import net.neoforged.neoforminabox.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoforminabox.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoforminabox.actions.DownloadVersionManifestAction;
 import net.neoforged.neoforminabox.actions.ExternalJavaToolAction;
-import net.neoforged.neoforminabox.actions.FilterJarContentAction;
 import net.neoforged.neoforminabox.actions.InjectFromZipFileSource;
 import net.neoforged.neoforminabox.actions.InjectZipContentAction;
 import net.neoforged.neoforminabox.actions.PatchActionFactory;
 import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoforminabox.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoforminabox.artifacts.ArtifactManager;
 import net.neoforged.neoforminabox.artifacts.ClasspathItem;
 import net.neoforged.neoforminabox.cache.CacheKeyBuilder;
@@ -141,6 +141,17 @@ public class NeoFormEngine implements AutoCloseable {
         // Register the sources and the compiled binary as results
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
+
+        // The split-off resources must also be made available. The steps are not consistently named across dists
+        if (graph.hasOutput("stripClient", "resourcesOutput")) {
+            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+        }
+        if (graph.hasOutput("stripServer", "resourcesOutput")) {
+            graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
+        }
+        if (graph.hasOutput("strip", "resourcesOutput")) {
+            graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
+        }
     }
 
     private void addNodeForStep(ExecutionGraph graph, NeoFormDistConfig config, NeoFormStep step) {
@@ -184,8 +195,12 @@ public class NeoFormEngine implements AutoCloseable {
             case "downloadServerMappings" ->
                     createDownloadFromVersionManifest(builder, "server_mappings", NodeOutputType.TXT, "The official mappings for the Minecraft server jar-file.");
             case "strip" -> {
-                builder.output("output", NodeOutputType.JAR, "The jar-file with only classes remaining");
-                builder.action(new FilterJarContentAction());
+                builder.output("output", NodeOutputType.JAR, "The jar-file that contains only .class files");
+                builder.output("resourcesOutput", NodeOutputType.JAR, "The jar-file that contains anything but .class files");
+                var action = new SplitResourcesFromClassesAction();
+                // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
+                action.addDenyPatterns("META-INF/.*");
+                builder.action(action);
             }
             case "listLibraries" -> {
                 builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
