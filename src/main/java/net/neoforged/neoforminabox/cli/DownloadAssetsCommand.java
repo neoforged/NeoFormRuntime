@@ -1,10 +1,14 @@
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.artifacts.ArtifactManager;
+import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
+import net.neoforged.neoforminabox.config.neoform.NeoFormConfig;
 import net.neoforged.neoforminabox.downloads.DownloadSpec;
 import net.neoforged.neoforminabox.engine.NeoFormEngine;
 import net.neoforged.neoforminabox.manifests.AssetIndex;
 import net.neoforged.neoforminabox.manifests.AssetObject;
 import net.neoforged.neoforminabox.manifests.MinecraftVersionManifest;
+import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
@@ -18,21 +22,56 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.jar.JarFile;
+import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "download-assets", description = "Download the client assets used to run a particular game version")
 public class DownloadAssetsCommand extends NeoFormEngineCommand {
     private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = r -> Thread.ofVirtual().name("download-asset", 1).unstarted(r);
 
-    @CommandLine.Option(names = "--version")
-    public String minecraftVersion;
+    @CommandLine.ArgGroup(multiplicity = "1")
+    public Version version;
 
     @CommandLine.Option(names = "--asset-repository")
     public URI assetRepository = URI.create("https://resources.download.minecraft.net/");
+
+    static class Version {
+        @CommandLine.Option(names = "--minecraft-version")
+        String minecraftVersion;
+        @CommandLine.Option(names = "--neoform")
+        String neoformArtifact;
+        @CommandLine.Option(names = "--neoforge")
+        String neoforgeArtifact;
+    }
+
+    private String getMinecraftVersion(ArtifactManager artifactManager) throws IOException {
+        if (version.minecraftVersion != null) {
+            return version.minecraftVersion;
+        }
+
+        MavenCoordinate neoformArtifact;
+        if (version.neoformArtifact != null) {
+            neoformArtifact = MavenCoordinate.parse(version.neoformArtifact);
+        } else {
+            // Pull from neoforge artifact then
+            var neoforgeArtifact = artifactManager.get(version.neoforgeArtifact);
+            try (var neoforgeZipFile = new JarFile(neoforgeArtifact.path().toFile())) {
+                var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
+                neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
+            }
+        }
+
+        var neoFormArchive = artifactManager.get(neoformArtifact);
+        try (var zipFile = new ZipFile(neoFormArchive.path().toFile())) {
+            return NeoFormConfig.from(zipFile).minecraftVersion();
+        }
+    }
 
     @Override
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
         var downloadManager = artifactManager.getDownloadManager();
+        var minecraftVersion = getMinecraftVersion(artifactManager);
 
         var versionManifest = MinecraftVersionManifest.from(artifactManager.getVersionManifest(minecraftVersion).path());
         var assetIndexReference = versionManifest.assetIndex();
