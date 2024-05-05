@@ -65,7 +65,6 @@ public class NeoFormEngine implements AutoCloseable {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Map<ExecutionNode, CompletableFuture<Void>> executingNodes = new IdentityHashMap<>();
     private final LockManager lockManager;
-    private boolean useEclipseCompiler;
     private final ExecutionGraph graph = new ExecutionGraph();
 
     /**
@@ -100,7 +99,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder));
     }
 
-    public void loadNeoFormData(MavenCoordinate neoFormArtifactId, String dist) throws IOException {
+    public void loadNeoFormData(MavenCoordinate neoFormArtifactId, String dist, boolean useEclipseCompiler) throws IOException {
         var neoFormArchive = artifactManager.get(Objects.requireNonNull(neoFormArtifactId, "neoFormArtifactId"));
         var zipFile = new ZipFile(neoFormArchive.path().toFile());
         var config = NeoFormConfig.from(zipFile);
@@ -111,10 +110,10 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig);
+        loadNeoFormProcess(distConfig, useEclipseCompiler);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
+    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean useEclipseCompiler) {
         for (var step : distConfig.steps()) {
             addNodeForStep(graph, distConfig, step);
         }
@@ -127,7 +126,7 @@ public class NeoFormEngine implements AutoCloseable {
         builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
         var compiledOutput = builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
         ActionWithClasspath compileAction;
-        if (isUseEclipseCompiler()) {
+        if (useEclipseCompiler) {
             compileAction = new RecompileSourcesActionWithECJ();
         } else {
             compileAction = new RecompileSourcesActionWithJDK();
@@ -561,14 +560,6 @@ public class NeoFormEngine implements AutoCloseable {
         return artifactManager;
     }
 
-    public boolean isUseEclipseCompiler() {
-        return useEclipseCompiler;
-    }
-
-    public void setUseEclipseCompiler(boolean useEclipseCompiler) {
-        this.useEclipseCompiler = useEclipseCompiler;
-    }
-
     public Set<String> getAvailableResults() {
         return graph.getResults().keySet();
     }
@@ -604,6 +595,14 @@ public class NeoFormEngine implements AutoCloseable {
         for (GraphTransform transform : transforms) {
             transform.apply(this, graph);
         }
+    }
+
+    public ExecutionGraph getGraph() {
+        return graph;
+    }
+
+    public Path getHome() {
+        return cacheManager.getCacheDir();
     }
 }
 

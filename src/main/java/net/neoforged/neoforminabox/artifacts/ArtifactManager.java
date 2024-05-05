@@ -200,6 +200,10 @@ public class ArtifactManager {
         System.out.println("Loaded " + properties.size() + " artifacts from " + artifactManifestPath);
     }
 
+    public DownloadManager getDownloadManager() {
+        return downloadManager;
+    }
+
     @FunctionalInterface
     public interface DownloadAction {
         void run() throws IOException;

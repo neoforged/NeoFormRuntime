@@ -1,6 +1,6 @@
 package net.neoforged.neoforminabox.manifests;
 
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,10 +9,16 @@ import java.util.List;
 import java.util.Map;
 
 public record MinecraftVersionManifest(String id, Map<String, MinecraftDownload> downloads,
-                                       List<MinecraftLibrary> libraries) {
+                                       List<MinecraftLibrary> libraries,
+                                       AssetIndexReference assetIndex, String assets, JavaVersionReference javaVersion,
+                                       String mainClass, MinecraftArguments arguments) {
     public static MinecraftVersionManifest from(Path path) throws IOException {
         try (var reader = Files.newBufferedReader(path)) {
-            return new Gson().fromJson(reader, MinecraftVersionManifest.class);
+            return new GsonBuilder()
+                    .registerTypeAdapter(UnresolvedArgument.class, UnresolvedArgument.JSON_SERIALIZER)
+                    .registerTypeAdapter(UnresolvedArgument.class, UnresolvedArgument.JSON_DESERIALIZER)
+                    .create()
+                    .fromJson(reader, MinecraftVersionManifest.class);
         }
     }
 }
