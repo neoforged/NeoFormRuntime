@@ -15,9 +15,12 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
@@ -34,6 +37,12 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
 
     @CommandLine.Option(names = "--asset-repository")
     public URI assetRepository = URI.create("https://resources.download.minecraft.net/");
+
+    /**
+     * Properties file that will receive the metadata of the asset index.
+     */
+    @CommandLine.Option(names = "--output-properties-to")
+    public String outputPropertiesPath;
 
     static class Version {
         @CommandLine.Option(names = "--minecraft-version")
@@ -140,6 +149,15 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
             System.err.println("First error:");
             errors.getFirst().printStackTrace();
             System.exit(1);
+        }
+
+        if (outputPropertiesPath != null) {
+            var properties = new Properties();
+            properties.put("assets_root", assetRoot.toAbsolutePath().toString());
+            properties.put("asset_index", assetIndexReference.id());
+            try (var writer = Files.newBufferedWriter(Paths.get(outputPropertiesPath), StandardOpenOption.CREATE)) {
+                properties.store(writer, null);
+            }
         }
     }
 
