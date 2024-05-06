@@ -1,7 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
 import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
-import net.neoforged.neoforminabox.graph.ResultRepresentation;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
@@ -22,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,7 +80,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
 
         var requestor = new ICompilerRequestor() {
             // Collect in-memory for now
-            Map<String, byte[]> classFileContent = new ConcurrentHashMap<>();
+            final Map<String, byte[]> classFileContent = new ConcurrentHashMap<>();
             AtomicLong totalSize = new AtomicLong();
 
             @Override
@@ -105,6 +105,8 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
         compilerRef[0] = compiler;
         compiler.useSingleThread = false; // Multi-thread
 
+        Map<String, byte[]> nonSourceContent = new HashMap<>();
+
         // Slurp all sources into memory in parallel
         ICompilationUnit[] compilationUnits;
         try (var sourcesZip = new ZipFile(sources.toFile()); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -112,18 +114,24 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
             var entries = sourcesZip.entries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
-                if (!entry.isDirectory() && entry.getName().endsWith(".java")) {
-                    futures.add(executor.submit(() -> {
-                        // TODO This is copy heavy and should be optimized
+                if (!entry.isDirectory()) {
+                    if (entry.getName().endsWith(".java")) {
+                        futures.add(executor.submit(() -> {
+                            // TODO This is copy heavy and should be optimized
+                            try (var in = sourcesZip.getInputStream(entry)) {
+                                var contents = new String(in.readAllBytes(), StandardCharsets.UTF_8).toCharArray();
+                                return new CompilationUnit(
+                                        contents,
+                                        entry.getName().replace('\\', '/'),
+                                        "UTF-8"
+                                );
+                            }
+                        }));
+                    } else {
                         try (var in = sourcesZip.getInputStream(entry)) {
-                            var contents = new String(in.readAllBytes(), StandardCharsets.UTF_8).toCharArray();
-                            return new CompilationUnit(
-                                    contents,
-                                    entry.getName().replace('\\', '/'),
-                                    "UTF-8"
-                            );
+                            nonSourceContent.put(entry.getName(), in.readAllBytes());
                         }
-                    }));
+                    }
                 }
             }
             compilationUnits = new ICompilationUnit[futures.size()];
@@ -155,6 +163,15 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
                 jos.write(content);
                 jos.closeEntry();
             }
+
+            // Copy over non-source files as well
+            for (var entry : nonSourceContent.entrySet()) {
+                var jarEntry = new JarEntry(entry.getKey());
+                jos.putNextEntry(jarEntry);
+                jos.write(entry.getValue());
+                jos.closeEntry();
+            }
+            System.out.println("Copied " + nonSourceContent.size() + " resource files");
         }
     }
 

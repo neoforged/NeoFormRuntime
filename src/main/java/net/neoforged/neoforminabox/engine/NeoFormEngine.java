@@ -361,6 +361,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         // Prep node output cache
         var ck = new CacheKeyBuilder(fileHashService);
+        ck.add("node action class", node.action().getClass().getName());
         for (var entry : node.inputs().entrySet()) {
             entry.getValue().collectCacheKeyComponent(ck);
         }

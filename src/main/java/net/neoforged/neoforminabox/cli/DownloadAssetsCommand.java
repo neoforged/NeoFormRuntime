@@ -44,7 +44,7 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--output-properties-to")
     public String outputPropertiesPath;
 
-    static class Version {
+    public static class Version {
         @CommandLine.Option(names = "--minecraft-version")
         String minecraftVersion;
         @CommandLine.Option(names = "--neoform")

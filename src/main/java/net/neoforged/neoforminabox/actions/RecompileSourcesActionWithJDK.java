@@ -33,15 +33,21 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
         javaCompilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
 
         URI uri = URI.create("jar:" + sources.toUri());
-        try (var fs = FileSystems.newFileSystem(uri, Map.of())) {
+        try (var sourceFs = FileSystems.newFileSystem(uri, Map.of())) {
             var compiler = ToolProvider.getSystemJavaCompiler();
 
-            var root = fs.getRootDirectories().iterator().next();
-            List<Path> sourcePaths;
-            try (var stream = Files.walk(root)
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".java"))) {
-                sourcePaths = stream.toList();
+            var sourceRoot = sourceFs.getRootDirectories().iterator().next();
+            List<Path> sourcePaths = new ArrayList<>();
+            List<Path> nonSourcePaths = new ArrayList<>();
+            try (var stream = Files.walk(sourceRoot).filter(Files::isRegularFile)) {
+                stream.forEach(path -> {
+                    var filename = path.getFileName().toString();
+                    if (filename.endsWith(".java")) {
+                        sourcePaths.add(path);
+                    } else {
+                        nonSourcePaths.add(path);
+                    }
+                });
             }
 
             System.out.println("Compiling " + sourcePaths.size() + " source files");
@@ -69,6 +75,15 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                         throw new IOException("Compilation failed");
                     }
                 }
+
+                // Copy over all non-java files as well
+                for (var nonSourcePath : nonSourcePaths) {
+                    var relativeDestinationPath = sourceRoot.relativize(nonSourcePath).toString().replace('\\', '/');
+                    var destination = outputRoot.resolve(relativeDestinationPath);
+                    Files.createDirectories(destination.getParent());
+                    Files.copy(nonSourcePath, destination);
+                }
+                System.out.println("Copied " + nonSourcePaths.size() + " resource files");
             }
         }
     }
