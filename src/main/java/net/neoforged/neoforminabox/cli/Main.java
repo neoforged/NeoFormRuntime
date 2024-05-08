@@ -16,7 +16,7 @@ public class Main {
     Path cacheDir = Paths.get(System.getProperty("user.home")).resolve(".neoform");
 
     @Option(names = "--repository", arity = "*", scope = CommandLine.ScopeType.INHERIT)
-    List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"));
+    List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());
 
     @Option(names = "--artifact-manifest", scope = CommandLine.ScopeType.INHERIT)
     Path artifactManifest;
