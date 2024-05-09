@@ -1,11 +1,10 @@
 package net.neoforged.neoforminabox.cli;
 
-import net.neoforged.neoforminabox.actions.ActionWithClasspath;
 import net.neoforged.neoforminabox.actions.ApplySourceAccessTransformersAction;
 import net.neoforged.neoforminabox.actions.InjectFromZipFileSource;
 import net.neoforged.neoforminabox.actions.InjectZipContentAction;
 import net.neoforged.neoforminabox.actions.PatchActionFactory;
-import net.neoforged.neoforminabox.artifacts.ClasspathItem;
+import net.neoforged.neoforminabox.actions.RecompileSourcesAction;
 import net.neoforged.neoforminabox.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoforminabox.engine.NeoFormEngine;
 import net.neoforged.neoforminabox.graph.NodeOutputType;
@@ -38,9 +37,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--dist", required = true)
     String dist;
 
-    @CommandLine.Option(names = "--use-eclipse-compiler")
-    boolean useEclipseCompiler;
-
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
@@ -67,7 +63,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
                 }
 
-                engine.loadNeoFormData(neoformArtifact, dist, useEclipseCompiler);
+                engine.loadNeoFormData(neoformArtifact, dist);
 
                 // Add NeoForge specific data sources
                 engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
@@ -77,11 +73,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 // Add NeoForge libraries to the list of libraries
                 transforms.add(new ModifyAction<>(
                         "recompile",
-                        ActionWithClasspath.class,
+                        RecompileSourcesAction.class,
                         action -> {
-                            for (var mavenLibrary : neoforgeConfig.libraries()) {
-                                action.getClasspath().add(ClasspathItem.of(mavenLibrary));
-                            }
+                            action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
                         }
                 ));
 
@@ -121,41 +115,47 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
                 engine.applyTransforms(transforms);
 
-                if (printGraph) {
-                    engine.dumpGraph(new PrintWriter(System.out));
-                }
-
-                var neededResults = writeResults.stream().map(encodedResult -> {
-                            var parts = encodedResult.split(":", 2);
-                            if (parts.length != 2) {
-                                throw new IllegalArgumentException("Specify a result destination in the form: <resultid>:<destination>");
-                            }
-                            return parts;
-                        })
-                        .collect(Collectors.toMap(
-                                parts -> parts[0],
-                                parts -> Paths.get(parts[1])
-                        ));
-
-                if (neededResults.isEmpty()) {
-                    System.err.println("No results requested. Available results: " + engine.getAvailableResults());
-                    System.exit(1);
-                }
-
-                var results = engine.createResults(neededResults.keySet().toArray(new String[0]));
-
-                for (var entry : neededResults.entrySet()) {
-                    var result = results.get(entry.getKey());
-                    if (result == null) {
-                        throw new IllegalStateException("Result " + entry.getKey() + " was requested but not produced");
-                    }
-                    var tmpFile = Paths.get(entry.getValue() + ".tmp");
-                    Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
-                    FileUtil.atomicMove(tmpFile, entry.getValue());
-                }
+                execute(engine);
             }
         } else {
-            engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist, useEclipseCompiler);
+            engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
+
+            execute(engine);
+        }
+    }
+
+    private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
+        if (printGraph) {
+            engine.dumpGraph(new PrintWriter(System.out));
+        }
+
+        var neededResults = writeResults.stream().map(encodedResult -> {
+                    var parts = encodedResult.split(":", 2);
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("Specify a result destination in the form: <resultid>:<destination>");
+                    }
+                    return parts;
+                })
+                .collect(Collectors.toMap(
+                        parts -> parts[0],
+                        parts -> Paths.get(parts[1])
+                ));
+
+        if (neededResults.isEmpty()) {
+            System.err.println("No results requested. Available results: " + engine.getAvailableResults());
+            System.exit(1);
+        }
+
+        var results = engine.createResults(neededResults.keySet().toArray(new String[0]));
+
+        for (var entry : neededResults.entrySet()) {
+            var result = results.get(entry.getKey());
+            if (result == null) {
+                throw new IllegalStateException("Result " + entry.getKey() + " was requested but not produced");
+            }
+            var tmpFile = Paths.get(entry.getValue() + ".tmp");
+            Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+            FileUtil.atomicMove(tmpFile, entry.getValue());
         }
     }
 }

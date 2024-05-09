@@ -26,7 +26,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
-        var classpath = getLibraries(environment);
+        var classpath = getEffectiveClasspath(environment);
 
         var javaCompilerOptions = new ArrayList<String>();
         javaCompilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources

@@ -1,6 +1,5 @@
 package net.neoforged.neoforminabox.engine;
 
-import net.neoforged.neoforminabox.actions.ActionWithClasspath;
 import net.neoforged.neoforminabox.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoforminabox.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoforminabox.actions.DownloadLauncherManifestAction;
@@ -9,11 +8,11 @@ import net.neoforged.neoforminabox.actions.ExternalJavaToolAction;
 import net.neoforged.neoforminabox.actions.InjectFromZipFileSource;
 import net.neoforged.neoforminabox.actions.InjectZipContentAction;
 import net.neoforged.neoforminabox.actions.PatchActionFactory;
+import net.neoforged.neoforminabox.actions.RecompileSourcesAction;
 import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoforminabox.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoforminabox.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoforminabox.artifacts.ArtifactManager;
-import net.neoforged.neoforminabox.artifacts.ClasspathItem;
 import net.neoforged.neoforminabox.cache.CacheKeyBuilder;
 import net.neoforged.neoforminabox.cli.CacheManager;
 import net.neoforged.neoforminabox.cli.FileHashService;
@@ -29,9 +28,11 @@ import net.neoforged.neoforminabox.graph.NodeExecutionException;
 import net.neoforged.neoforminabox.graph.NodeOutputType;
 import net.neoforged.neoforminabox.graph.ResultRepresentation;
 import net.neoforged.neoforminabox.graph.transforms.GraphTransform;
+import net.neoforged.neoforminabox.utils.AnsiColor;
 import net.neoforged.neoforminabox.utils.FileUtil;
 import net.neoforged.neoforminabox.utils.HashingUtil;
 import net.neoforged.neoforminabox.utils.MavenCoordinate;
+import net.neoforged.neoforminabox.utils.StringUtils;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -66,6 +67,9 @@ public class NeoFormEngine implements AutoCloseable {
     private final Map<ExecutionNode, CompletableFuture<Void>> executingNodes = new IdentityHashMap<>();
     private final LockManager lockManager;
     private final ExecutionGraph graph = new ExecutionGraph();
+    private final BuildOptions buildOptions = new BuildOptions();
+    private boolean disableCache;
+    private boolean verbose;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -99,7 +103,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder));
     }
 
-    public void loadNeoFormData(MavenCoordinate neoFormArtifactId, String dist, boolean useEclipseCompiler) throws IOException {
+    public void loadNeoFormData(MavenCoordinate neoFormArtifactId, String dist) throws IOException {
         var neoFormArchive = artifactManager.get(Objects.requireNonNull(neoFormArtifactId, "neoFormArtifactId"));
         var zipFile = new ZipFile(neoFormArchive.path().toFile());
         var config = NeoFormConfig.from(zipFile);
@@ -110,10 +114,10 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig, useEclipseCompiler);
+        loadNeoFormProcess(distConfig);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean useEclipseCompiler) {
+    public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
         for (var step : distConfig.steps()) {
             addNodeForStep(graph, distConfig, step);
         }
@@ -125,15 +129,16 @@ public class NeoFormEngine implements AutoCloseable {
         builder.input("sources", sourcesOutput.asInput());
         builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
         var compiledOutput = builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
-        ActionWithClasspath compileAction;
-        if (useEclipseCompiler) {
+        RecompileSourcesAction compileAction;
+        if (buildOptions.isUseEclipseCompiler()) {
             compileAction = new RecompileSourcesActionWithECJ();
         } else {
             compileAction = new RecompileSourcesActionWithJDK();
         }
 
-        // Add NeoForm libraries
-        compileAction.getClasspath().addAll(distConfig.libraries().stream().map(ClasspathItem::of).toList());
+        // Add NeoForm libraries or apply overridden classpath fully
+        compileAction.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+        compileAction.getClasspath().addMavenLibraries(distConfig.libraries());
         builder.action(compileAction);
         builder.build();
 
@@ -205,9 +210,8 @@ public class NeoFormEngine implements AutoCloseable {
                 builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
                 builder.output("output", NodeOutputType.TXT, "A list of all external JAR files needed to decompile/recompile");
                 var action = new CreateLibrariesOptionsFileAction();
-                action.getClasspath().addAll(
-                        config.libraries().stream().map(ClasspathItem::of).toList()
-                );
+                action.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+                action.getClasspath().addMavenLibraries(config.libraries());
                 builder.action(action);
             }
             case "inject" -> {
@@ -252,8 +256,8 @@ public class NeoFormEngine implements AutoCloseable {
     }
 
     private void applyFunctionToNode(NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
-        var resolvedJvmArgs = new ArrayList<>(function.jvmargs());
-        var resolvedArgs = new ArrayList<>(function.args());
+        var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
+        var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
         // Start by resolving the function->step indirection where functions can reference variables that
         // are defined in the step. Usually (but not always) these will just refer to further global variables.
@@ -266,7 +270,6 @@ public class NeoFormEngine implements AutoCloseable {
         // Now resolve the remaining placeholders.
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
-            var result = new StringBuilder();
             while (matcher.find()) {
                 var variable = matcher.group(1);
 
@@ -287,6 +290,8 @@ public class NeoFormEngine implements AutoCloseable {
                     // this is done via <stepName>Output.
                     var otherStep = variable.substring(0, variable.length() - "Output".length());
                     builder.inputFromNodeOutput(variable, otherStep, "output");
+                } else if (variable.equals("log")) {
+                    // This variable is used in legacy MCP config JSONs to signify the path to a logfile and is ignored here
                 } else {
                     throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + step.getId());
                 }
@@ -370,31 +375,37 @@ public class NeoFormEngine implements AutoCloseable {
         node.start();
         var cacheKeyDescription = ck.buildCacheKey();
         var cacheKey = node.id() + "_" + HashingUtil.sha1(ck.buildCacheKey());
+        if (verbose) {
+            System.out.println(" Cache Key:");
+            System.out.println(AnsiColor.BLACK_BRIGHT + StringUtils.indent(cacheKeyDescription, 2) + AnsiColor.RESET);
+        }
 
         try (var lock = lockManager.lock(cacheKey)) {
             var outputValues = new HashMap<String, Path>();
 
             var intermediateCacheDir = cacheManager.getCacheDir().resolve("intermediate_results");
-            Files.createDirectories(intermediateCacheDir);
             var cacheMarkerFile = intermediateCacheDir.resolve(cacheKey + ".txt");
-            if (Files.isRegularFile(cacheMarkerFile)) {
-                // Try to rebuild output values from cache
-                boolean complete = true;
-                for (var entry : node.outputs().entrySet()) {
-                    var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
-                    var cachedFile = intermediateCacheDir.resolve(filename);
-                    if (Files.isRegularFile(cachedFile)) {
-                        outputValues.put(entry.getKey(), cachedFile);
-                    } else {
-                        System.err.println("Cache for " + node.id() + " is incomplete. Missing: " + filename);
-                        outputValues.clear();
-                        complete = false;
-                        break;
+            if (!disableCache) {
+                Files.createDirectories(intermediateCacheDir);
+                if (Files.isRegularFile(cacheMarkerFile)) {
+                    // Try to rebuild output values from cache
+                    boolean complete = true;
+                    for (var entry : node.outputs().entrySet()) {
+                        var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
+                        var cachedFile = intermediateCacheDir.resolve(filename);
+                        if (Files.isRegularFile(cachedFile)) {
+                            outputValues.put(entry.getKey(), cachedFile);
+                        } else {
+                            System.err.println("Cache for " + node.id() + " is incomplete. Missing: " + filename);
+                            outputValues.clear();
+                            complete = false;
+                            break;
+                        }
                     }
-                }
-                if (complete) {
-                    node.complete(outputValues, true);
-                    return;
+                    if (complete) {
+                        node.complete(outputValues, true);
+                        return;
+                    }
                 }
             }
 
@@ -436,6 +447,9 @@ public class NeoFormEngine implements AutoCloseable {
                     } else if (dataSources.containsKey(variable)) {
                         // We can also access data-files defined in the NeoForm archive via the `data` indirection
                         resultPath = extractData(variable);
+                    } else if ("log".equals(variable)) {
+                        // Old MCP versions support "log" to point to a path
+                        resultPath = workspace.resolve("log.txt");
                     } else {
                         throw new IllegalArgumentException("Variable " + variable + " is neither an input, output or configuration data");
                     }
@@ -536,7 +550,7 @@ public class NeoFormEngine implements AutoCloseable {
             // Only cache if all outputs are in the workdir, otherwise
             // we assume some of them are artifacts and will always come from the
             // artifact cache
-            if (outputValues.values().stream().allMatch(p -> p.startsWith(workspace))) {
+            if (!disableCache && outputValues.values().stream().allMatch(p -> p.startsWith(workspace))) {
                 System.out.println("Caching outputs...");
                 var finalOutputValues = new HashMap<String, Path>(outputValues.size());
                 for (var entry : outputValues.entrySet()) {
@@ -604,6 +618,22 @@ public class NeoFormEngine implements AutoCloseable {
 
     public Path getHome() {
         return cacheManager.getCacheDir();
+    }
+
+    public BuildOptions getBuildOptions() {
+        return buildOptions;
+    }
+
+    public boolean isDisableCache() {
+        return disableCache;
+    }
+
+    public void setDisableCache(boolean disableCache) {
+        this.disableCache = disableCache;
+    }
+
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
     }
 }
 

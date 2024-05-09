@@ -4,6 +4,7 @@ import net.neoforged.neoforminabox.artifacts.Artifact;
 import net.neoforged.neoforminabox.cache.CacheKeyBuilder;
 import net.neoforged.neoforminabox.engine.ProcessingEnvironment;
 import net.neoforged.neoforminabox.graph.ExecutionNodeAction;
+import net.neoforged.neoforminabox.utils.AnsiColor;
 import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,8 +75,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             command.add(environment.interpolateString(arg));
         }
 
-        System.out.println("Running external tool " + toolArtifactId);
-        System.out.println(String.join(" ", command));
+        System.out.println(" ↳ Running external tool " + toolArtifactId);
+        System.out.println(" " + AnsiColor.BLACK_BRIGHT + String.join(" ", command) + AnsiColor.RESET);
 
         var logFile = workingDir.resolve("console_output.txt").toFile();
         var process = new ProcessBuilder()

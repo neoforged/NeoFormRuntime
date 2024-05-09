@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.cli;
 
+import net.neoforged.neoforminabox.utils.AnsiColor;
 import net.neoforged.neoforminabox.utils.HashingUtil;
 
 import java.io.IOException;
@@ -55,7 +56,7 @@ public class LockManager implements AutoCloseable {
             }
         }
 
-        System.out.println("Acquired lock for " + key);
+        System.out.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
         return new Lock(fileLock);
     }
 

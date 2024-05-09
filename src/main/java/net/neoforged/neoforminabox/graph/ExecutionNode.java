@@ -1,5 +1,7 @@
 package net.neoforged.neoforminabox.graph;
 
+import net.neoforged.neoforminabox.utils.AnsiColor;
+
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -49,7 +51,8 @@ public final class ExecutionNode {
         }
         started = System.currentTimeMillis();
         state = NodeState.STARTED;
-        System.out.println("*** Started working on " + id());
+        var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
+        System.out.println(AnsiColor.BLACK_BOLD + "*** Started working on " + underlinedId + AnsiColor.RESET);
     }
 
     public void fail() {
@@ -82,10 +85,11 @@ public final class ExecutionNode {
         state = NodeState.COMPLETED;
         elapsedMs = System.currentTimeMillis() - started;
         var elapsedStr = String.format(Locale.ROOT, "%.02f", elapsedMs / 1000.0) + "s";
+        var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
         if (fromCache) {
-            System.out.println("*** Used cache of " + id() + " in " + elapsedStr);
+            System.out.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "♻" + AnsiColor.RESET + " Used cache of " + underlinedId + " in " + elapsedStr);
         } else {
-            System.out.println("*** Completed " + id() + " in " + elapsedStr);
+            System.out.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "✓" + AnsiColor.RESET + " Completed " + underlinedId + " in " + elapsedStr);
         }
     }
 

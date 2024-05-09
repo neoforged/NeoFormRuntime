@@ -42,7 +42,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
         var sources = environment.getRequiredInputPath("sources");
 
         // Merge the original Minecraft classpath with the libs required by additional patches that we made
-        var classpathPaths = getLibraries(environment);
+        var classpathPaths = getEffectiveClasspath(environment);
 
         var classpaths = new ArrayList<FileSystem.Classpath>();
         Util.collectRunningVMBootclasspath(classpaths);
