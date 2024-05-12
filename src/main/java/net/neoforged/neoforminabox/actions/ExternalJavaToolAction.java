@@ -76,7 +76,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
 
         System.out.println(" ↳ Running external tool " + toolArtifactId);
-        System.out.println(" " + AnsiColor.BLACK_BRIGHT + String.join(" ", command) + AnsiColor.RESET);
+        if (environment.isVerbose()) {
+            System.out.println(" " + AnsiColor.BLACK_BRIGHT + String.join(" ", command) + AnsiColor.RESET);
+        }
 
         var logFile = workingDir.resolve("console_output.txt").toFile();
         var process = new ProcessBuilder()

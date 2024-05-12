@@ -40,6 +40,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
+    @CommandLine.Option(names = "--access-transformer", arity = "*")
+    List<String> additionalAccessTransformers = new ArrayList<>();
+
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
         String neoform;
@@ -91,7 +94,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         (builder, previousNodeOutput) -> {
                             builder.input("input", previousNodeOutput.asInput());
                             builder.inputFromNodeOutput("libraries", "listLibraries", "output");
-                            builder.action(new ApplySourceAccessTransformersAction("neoForgeAccessTransformers"));
+                            var action = new ApplySourceAccessTransformersAction("neoForgeAccessTransformers");
+                            action.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+                            builder.action(action);
                             return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
                         }
                 ));

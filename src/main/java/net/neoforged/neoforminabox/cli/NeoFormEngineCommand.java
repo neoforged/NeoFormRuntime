@@ -50,6 +50,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         try (var lockManager = new LockManager(commonOptions.cacheDir);
              var cacheManager = new CacheManager(commonOptions.cacheDir);
              var downloadManager = new DownloadManager()) {
+            lockManager.setVerbose(verbose);
             var artifactManager = new ArtifactManager(commonOptions.repositories, cacheManager, downloadManager, lockManager, commonOptions.launcherManifestUrl);
 
             if (commonOptions.artifactManifest != null) {

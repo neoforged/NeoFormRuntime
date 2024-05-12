@@ -9,9 +9,11 @@ import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.locks.Lock;
 
 public class LockManager implements AutoCloseable {
     private final Path lockDirectory;
+    private boolean verbose;
 
     public LockManager(Path lockDirectory) throws IOException {
         Files.createDirectories(lockDirectory);
@@ -56,7 +58,9 @@ public class LockManager implements AutoCloseable {
             }
         }
 
-        System.out.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
+        if (verbose) {
+            System.out.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
+        }
         return new Lock(fileLock);
     }
 
@@ -84,5 +88,13 @@ public class LockManager implements AutoCloseable {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    public boolean isVerbose() {
+        return verbose;
+    }
+
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
     }
 }

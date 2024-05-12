@@ -45,4 +45,6 @@ public interface ProcessingEnvironment {
     Path getOutputPath(String id);
 
     void setOutput(String id, Path resultPath);
+
+    boolean isVerbose();
 }

@@ -545,13 +545,17 @@ public class NeoFormEngine implements AutoCloseable {
                     }
                     outputValues.put(id, resultPath);
                 }
+
+                @Override
+                public boolean isVerbose() {
+                    return verbose;
+                }
             });
 
             // Only cache if all outputs are in the workdir, otherwise
             // we assume some of them are artifacts and will always come from the
             // artifact cache
             if (!disableCache && outputValues.values().stream().allMatch(p -> p.startsWith(workspace))) {
-                System.out.println("Caching outputs...");
                 var finalOutputValues = new HashMap<String, Path>(outputValues.size());
                 for (var entry : outputValues.entrySet()) {
                     var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
