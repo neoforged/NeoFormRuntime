@@ -1,10 +1,14 @@
 package net.neoforged.neoforminabox.utils;
 
+import net.fabricmc.loom.nativeplatform.LoomNativePlatform;
+import net.fabricmc.loom.nativeplatform.LoomNativePlatformException;
+
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 public final class FileUtil {
@@ -43,11 +47,27 @@ public final class FileUtil {
                     return;
                 } catch (final AccessDeniedException ex2) {
                     if (tries == MAX_TRIES - 1) {
+                        printLockingInfo(ex2);
                         throw ex;
                     }
                 } catch (final InterruptedException exInterrupt) {
                     Thread.currentThread().interrupt();
                     throw ex;
+                }
+            }
+        }
+    }
+
+    private static void printLockingInfo(AccessDeniedException ex) {
+        if (ex.getOtherFile() != null) {
+            if (LoomNativePlatform.isSupported()) {
+                try {
+                    var processes = LoomNativePlatform.getProcessesWithLockOn(Paths.get(ex.getOtherFile()));
+                    System.err.println("File " + ex.getOtherFile() + " is locked by:");
+                    for (ProcessHandle process : processes) {
+                        System.err.println(" " + process.pid() + " " + process.info().command().orElse("<unknown>") + " " + LoomNativePlatform.getWindowTitlesForPid(process.pid()));
+                    }
+                } catch (LoomNativePlatformException ignored) {
                 }
             }
         }

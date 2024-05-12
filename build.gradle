@@ -17,6 +17,18 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Fabric"
+                url = "https://maven.fabricmc.net/"
+            }
+        }
+        filter {
+            includeModule("net.fabricmc", "fabric-loom-native")
+        }
+    }
 }
 
 java {
@@ -41,6 +53,7 @@ dependencies {
     implementation 'info.picocli:picocli:4.7.6'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.eclipse.jdt:ecj:3.37.0'
+    implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
