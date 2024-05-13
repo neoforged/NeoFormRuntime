@@ -1,4 +1,4 @@
-# NeoForm Runtime
+# NeoForm Runtime (NFRT)
 
 This project implements a standalone commandline interface to create artifacts used to compile mods against Minecraft.
 It is usually used as part of a Gradle plugin.
@@ -19,23 +19,22 @@ the NeoForge APIs.
 ## Usage
 
 ```
-Usage: neoform [-hV] [--print-graph] [--recompile] [--recompile-ecj]
-               [--cache-dir=<cacheDir>] --dist=<dist>
-               [--launcher-meta-uri=<launcherManifestUrl>] [--repository
-               [=<repositories>...]]... ([--neoform=<neoform>]
-               [--neoforge=<neoforge>])
-      --cache-dir=<cacheDir>
+Usage: neoform-runtime [-hV] [--artifact-manifest=<artifactManifest>]
+                       [--home-dir=<cacheDir>]
+                       [--launcher-meta-uri=<launcherManifestUrl>] [--repository
+                       [=<repositories>...]]... [COMMAND]
+      --artifact-manifest=<artifactManifest>
 
-      --dist=<dist>
-  -h, --help                Show this help message and exit.
+  -h, --help      Show this help message and exit.
+      --home-dir=<cacheDir>
+
       --launcher-meta-uri=<launcherManifestUrl>
 
-      --neoforge=<neoforge>
-      --neoform=<neoform>
-      --print-graph
-      --recompile
-      --recompile-ecj
       --repository[=<repositories>...]
 
-  -V, --version             Print version information and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  run              Run the NeoForm engine and produce Minecraft artifacts
+  download-assets  Download the client assets used to run a particular game
+                     version
 ```

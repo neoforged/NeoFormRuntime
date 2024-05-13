@@ -1,7 +1,7 @@
 package net.neoforged.neoform.runtime.downloads;
 
-import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.FileUtil;
+import net.neoforged.neoform.runtime.utils.HashingUtil;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class DownloadManager implements AutoCloseable {
-    private static final String USER_AGENT = "NeoFormInABox";
+    private static final String USER_AGENT = "NeoFormRuntime";
     private final ExecutorService executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual()
             .name("download", 1).factory());
 

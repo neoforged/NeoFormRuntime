@@ -10,7 +10,7 @@ import java.util.List;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
-@Command(subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class}, mixinStandardHelpOptions = true)
+@Command(name = "neoform-runtime", subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class}, mixinStandardHelpOptions = true)
 public class Main {
     @Option(names = "--home-dir", scope = CommandLine.ScopeType.INHERIT)
     Path cacheDir = Paths.get(System.getProperty("user.home")).resolve(".neoform");
