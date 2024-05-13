@@ -10,13 +10,20 @@ plugins {
     id 'java'
     id 'maven-publish'
     id "com.github.johnrengelman.shadow" version '8.1.1'
+    id "net.neoforged.gradleutils" version "3.0.0-alpha.13"
 }
 
 group = 'net.neoforged'
 base {
     archivesName = "neoform-runtime"
 }
-version = '1.0-SNAPSHOT'
+project.version = gradleutils.version
+
+changelog {
+    from '0.1'
+    // For fine-grained changelog publication control
+    disableAutomaticPublicationRegistration()
+}
 
 repositories {
     mavenCentral()
@@ -51,6 +58,20 @@ jar {
     }
 }
 
+AdhocComponentWithVariants javaComponent = (AdhocComponentWithVariants) project.components.getByName("java")
+
+configurations {
+    changelog {
+        canBeResolved = false
+        canBeConsumed = true
+        attributes {
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+            attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, "changelog"))
+        }
+        javaComponent.addVariantsFromConfiguration(it) {}
+    }
+}
+
 dependencies {
     compileOnly 'org.jetbrains:annotations:24.1.0'
     implementation 'info.picocli:picocli:4.7.6'
@@ -62,6 +83,15 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
+}
+
+artifacts {
+    // Only publish a changelog for releases
+    changelog(createChangelog.outputFile) {
+        builtBy(createChangelog)
+        setClassifier("changelog")
+        setExtension("txt")
+    }
 }
 
 test {

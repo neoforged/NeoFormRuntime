@@ -7,7 +7,7 @@ It uses data from the [NeoForm project](https://github.com/neoforged/NeoForm) to
 sources and finally recompile them.
 
 Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding direct support to
-apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produce the necessary artifacts to compile against
+apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produces the necessary artifacts to compile against
 the NeoForge APIs.
 
 ## Examples
