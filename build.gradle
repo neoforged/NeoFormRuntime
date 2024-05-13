@@ -17,6 +17,9 @@ group = 'net.neoforged'
 base {
     archivesName = "neoform-runtime"
 }
+gradleutils.version {
+    branches.suffixBranch()
+}
 project.version = gradleutils.version
 
 changelog {
@@ -103,5 +106,9 @@ publishing {
         mavenJava(MavenPublication) {
             from components.java
         }
+    }
+
+    repositories {
+        maven gradleutils.publishingMaven
     }
 }
