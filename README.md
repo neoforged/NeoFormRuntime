@@ -1,9 +1,22 @@
+# NeoForm Runtime
 
-Example invocation:
+This project implements a standalone commandline interface to create artifacts used to compile mods against Minecraft.
+It is usually used as part of a Gradle plugin.
+
+It uses data from the [NeoForm project](https://github.com/neoforged/NeoForm) to deobfuscate, merge and patch the
+sources and finally recompile them.
+
+Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding direct support to
+apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produce the necessary artifacts to compile against
+the NeoForge APIs.
+
+## Examples
 
 ```
---recompile-ecj --neoform "net.neoforged:neoform:1.20.6-20240429.153634@zip" --dist joined
+--use-eclipse-compiler --neoform "net.neoforged:neoform:1.20.6-20240429.153634@zip" --dist joined
 ```
+
+## Usage
 
 ```
 Usage: neoform [-hV] [--print-graph] [--recompile] [--recompile-ecj]

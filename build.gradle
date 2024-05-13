@@ -13,6 +13,9 @@ plugins {
 }
 
 group = 'net.neoforged'
+base {
+    archivesName = "neoform-runtime"
+}
 version = '1.0-SNAPSHOT'
 
 repositories {
