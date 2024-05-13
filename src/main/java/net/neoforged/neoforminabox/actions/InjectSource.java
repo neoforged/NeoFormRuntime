@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cache.CacheKey;
 import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,7 +14,7 @@ import java.util.zip.ZipOutputStream;
  * @see InjectFromZipFileSource
  */
 public interface InjectSource {
-    String getCacheKey(FileHashService fileHashService) throws IOException;
+    CacheKey.AnnotatedValue getCacheKey(FileHashService fileHashService) throws IOException;
 
     /**
      * Tries to read a file from this source.

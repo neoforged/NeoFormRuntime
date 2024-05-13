@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cache.CacheKey;
 import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,8 +19,11 @@ import java.util.zip.ZipOutputStream;
  */
 public record InjectFromDirectorySource(Path folder) implements InjectSource {
     @Override
-    public String getCacheKey(FileHashService fileHashService) throws IOException {
-        return fileHashService.getHashValue(folder);
+    public CacheKey.AnnotatedValue getCacheKey(FileHashService fileHashService) throws IOException {
+        return new CacheKey.AnnotatedValue(
+                fileHashService.getHashValue(folder),
+                folder.toString()
+        );
     }
 
     @Override

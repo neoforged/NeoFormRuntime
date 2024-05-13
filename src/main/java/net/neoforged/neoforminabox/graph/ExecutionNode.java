@@ -15,7 +15,7 @@ public final class ExecutionNode {
     private final Map<String, NodeInput> inputs;
     private final Map<String, NodeOutput> outputs;
     private ExecutionNodeAction action;
-    private Set<ExecutionNode> predecessors;
+    private final Set<ExecutionNode> predecessors;
     private Long started;
     private long elapsedMs;
     private NodeState state = NodeState.NOT_STARTED;

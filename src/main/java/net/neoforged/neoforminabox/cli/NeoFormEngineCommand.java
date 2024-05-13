@@ -36,6 +36,9 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
     @CommandLine.Option(names = "--disable-cache")
     boolean disableCache;
 
+    @CommandLine.Option(names = "--analyze-cache-misses")
+    boolean analyzeCacheMisses;
+
     @CommandLine.Option(names = "--verbose")
     boolean verbose;
 
@@ -50,6 +53,8 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         try (var lockManager = new LockManager(commonOptions.cacheDir);
              var cacheManager = new CacheManager(commonOptions.cacheDir);
              var downloadManager = new DownloadManager()) {
+            cacheManager.setDisabled(disableCache);
+            cacheManager.setAnalyzeMisses(analyzeCacheMisses);
             lockManager.setVerbose(verbose);
             var artifactManager = new ArtifactManager(commonOptions.repositories, cacheManager, downloadManager, lockManager, commonOptions.launcherManifestUrl);
 
@@ -61,7 +66,6 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
                 engine.setVerbose(verbose);
-                engine.setDisableCache(disableCache);
                 applyBuildOptions(engine);
 
                 runWithNeoFormEngine(engine, closables);

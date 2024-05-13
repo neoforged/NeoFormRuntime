@@ -102,7 +102,8 @@ public class InjectZipContentAction extends BuiltInAction {
         for (int i = 0; i < injectedSources.size(); i++) {
             var injectedSource = injectedSources.get(i);
             try {
-                ck.add("injectSource." + i, injectedSource.getClass().getName() + " [" + injectedSource.getCacheKey(ck.getFileHashService()) + "]");
+                ck.add("injectSource[" + i + "].type", injectedSource.getClass().getName());
+                ck.add("injectSource[" + i + "].cache-key", injectedSource.getCacheKey(ck.getFileHashService()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

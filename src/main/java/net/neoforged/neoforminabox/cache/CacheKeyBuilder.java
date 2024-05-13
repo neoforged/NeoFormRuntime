@@ -1,36 +1,32 @@
 package net.neoforged.neoforminabox.cache;
 
 import net.neoforged.neoforminabox.cli.FileHashService;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class CacheKeyBuilder {
+    private final String type;
     private final FileHashService fileHashService;
 
-    private final Map<String, String> components = new HashMap<>();
+    private final Map<String, CacheKey.AnnotatedValue> components = new LinkedHashMap<>();
 
-    public CacheKeyBuilder(FileHashService fileHashService) {
+    public CacheKeyBuilder(String type, FileHashService fileHashService) {
+        this.type = type;
         this.fileHashService = fileHashService;
     }
 
-    public Map<String, String> getComponents() {
-        return components;
-    }
-
     public void addPaths(String component, Collection<Path> resultPath) {
-        record HashedPath(String path, String hashValue) {
-        }
-
         add(component, resultPath.parallelStream().map(path -> {
             try {
-                return new HashedPath(path.toString(), fileHashService.getHashValue(path));
+                return new CacheKey.AnnotatedValue(fileHashService.getHashValue(path), path.toString());
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -54,29 +50,44 @@ public class CacheKeyBuilder {
             prettifiedPath = path.toString();
         }
 
-        add(component, prettifiedPath + " [" + hashValue + "]");
+        add(component, hashValue, prettifiedPath);
     }
 
     public void add(String component, String text) {
+        add(component, text, null);
+    }
+
+    public void add(String component, String text, @Nullable String annotation) {
         if (components.containsKey(component)) {
             throw new IllegalArgumentException("Duplicate cache key component: " + component);
         }
-        components.put(component, text);
+        components.put(component, new CacheKey.AnnotatedValue(text, annotation));
     }
 
-    public void add(String component, Collection<?> objects) {
+    public void add(String component, CacheKey.AnnotatedValue value) {
+        add(component, value.value(), value.annotation());
+    }
+
+    public void addStrings(String component, List<String> values) {
         if (components.containsKey(component)) {
             throw new IllegalArgumentException("Duplicate cache key component: " + component);
         }
-        components.put(component, objects.stream().map(Object::toString).sorted().collect(Collectors.joining(", ")));
+        for (int i = 0; i < values.size(); i++) {
+            add(component + "[" + i + "]", values.get(i), null);
+        }
     }
 
-    public String buildCacheKey() {
-        return components.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> entry.getKey() + ": " + entry.getValue())
-                .collect(Collectors.joining("\n"));
+    private void add(String component, List<CacheKey.AnnotatedValue> values) {
+        if (components.containsKey(component)) {
+            throw new IllegalArgumentException("Duplicate cache key component: " + component);
+        }
+        for (int i = 0; i < values.size(); i++) {
+            components.put(component + "[" + i + "]", values.get(i));
+        }
+    }
+
+    public CacheKey build() {
+        return new CacheKey(type, components);
     }
 
     public FileHashService getFileHashService() {

@@ -30,7 +30,6 @@ import net.neoforged.neoforminabox.graph.ResultRepresentation;
 import net.neoforged.neoforminabox.graph.transforms.GraphTransform;
 import net.neoforged.neoforminabox.utils.AnsiColor;
 import net.neoforged.neoforminabox.utils.FileUtil;
-import net.neoforged.neoforminabox.utils.HashingUtil;
 import net.neoforged.neoforminabox.utils.MavenCoordinate;
 import net.neoforged.neoforminabox.utils.StringUtils;
 
@@ -68,7 +67,6 @@ public class NeoFormEngine implements AutoCloseable {
     private final LockManager lockManager;
     private final ExecutionGraph graph = new ExecutionGraph();
     private final BuildOptions buildOptions = new BuildOptions();
-    private boolean disableCache;
     private boolean verbose;
 
     /**
@@ -365,48 +363,25 @@ public class NeoFormEngine implements AutoCloseable {
         triggerAndWait(dependencies);
 
         // Prep node output cache
-        var ck = new CacheKeyBuilder(fileHashService);
-        ck.add("node action class", node.action().getClass().getName());
+        var ck = new CacheKeyBuilder(node.id(), fileHashService);
         for (var entry : node.inputs().entrySet()) {
             entry.getValue().collectCacheKeyComponent(ck);
         }
         node.action().computeCacheKey(ck);
 
         node.start();
-        var cacheKeyDescription = ck.buildCacheKey();
-        var cacheKey = node.id() + "_" + HashingUtil.sha1(ck.buildCacheKey());
+        var cacheKey = ck.build();
         if (verbose) {
-            System.out.println(" Cache Key:");
-            System.out.println(AnsiColor.BLACK_BRIGHT + StringUtils.indent(cacheKeyDescription, 2) + AnsiColor.RESET);
+            System.out.println(" Cache Key: " + cacheKey);
+            System.out.println(AnsiColor.BLACK_BRIGHT + StringUtils.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
         }
 
-        try (var lock = lockManager.lock(cacheKey)) {
+        try (var lock = lockManager.lock(cacheKey.toString())) {
             var outputValues = new HashMap<String, Path>();
 
-            var intermediateCacheDir = cacheManager.getCacheDir().resolve("intermediate_results");
-            var cacheMarkerFile = intermediateCacheDir.resolve(cacheKey + ".txt");
-            if (!disableCache) {
-                Files.createDirectories(intermediateCacheDir);
-                if (Files.isRegularFile(cacheMarkerFile)) {
-                    // Try to rebuild output values from cache
-                    boolean complete = true;
-                    for (var entry : node.outputs().entrySet()) {
-                        var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
-                        var cachedFile = intermediateCacheDir.resolve(filename);
-                        if (Files.isRegularFile(cachedFile)) {
-                            outputValues.put(entry.getKey(), cachedFile);
-                        } else {
-                            System.err.println("Cache for " + node.id() + " is incomplete. Missing: " + filename);
-                            outputValues.clear();
-                            complete = false;
-                            break;
-                        }
-                    }
-                    if (complete) {
-                        node.complete(outputValues, true);
-                        return;
-                    }
-                }
+            if (cacheManager.restoreOutputsFromCache(node, cacheKey, outputValues)) {
+                node.complete(outputValues, true);
+                return;
             }
 
             var workspace = processingStepManager.createWorkspace(node.id());
@@ -555,20 +530,10 @@ public class NeoFormEngine implements AutoCloseable {
             // Only cache if all outputs are in the workdir, otherwise
             // we assume some of them are artifacts and will always come from the
             // artifact cache
-            if (!disableCache && outputValues.values().stream().allMatch(p -> p.startsWith(workspace))) {
-                var finalOutputValues = new HashMap<String, Path>(outputValues.size());
-                for (var entry : outputValues.entrySet()) {
-                    var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
-                    var cachedPath = intermediateCacheDir.resolve(filename);
-                    FileUtil.atomicMove(entry.getValue(), cachedPath);
-                    finalOutputValues.put(entry.getKey(), cachedPath);
-                }
-                Files.writeString(cacheMarkerFile, cacheKeyDescription);
-
-                node.complete(finalOutputValues, false);
-            } else {
-                node.complete(outputValues, false);
+            if (outputValues.values().stream().allMatch(p -> p.startsWith(workspace))) {
+                cacheManager.saveOutputs(node, cacheKey, outputValues);
             }
+            node.complete(outputValues, false);
         } catch (Throwable t) {
             node.fail();
             throw new NodeExecutionException(node, t);
@@ -628,16 +593,7 @@ public class NeoFormEngine implements AutoCloseable {
         return buildOptions;
     }
 
-    public boolean isDisableCache() {
-        return disableCache;
-    }
-
-    public void setDisableCache(boolean disableCache) {
-        this.disableCache = disableCache;
-    }
-
     public void setVerbose(boolean verbose) {
         this.verbose = verbose;
     }
 }
-

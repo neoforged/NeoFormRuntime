@@ -80,6 +80,6 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
-        ck.add("deny patterns", denyListPatterns);
+        ck.addStrings("deny patterns", denyListPatterns.stream().map(Pattern::pattern).toList());
     }
 }

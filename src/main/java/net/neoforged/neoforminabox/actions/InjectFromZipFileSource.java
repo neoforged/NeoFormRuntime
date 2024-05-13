@@ -1,5 +1,6 @@
 package net.neoforged.neoforminabox.actions;
 
+import net.neoforged.neoforminabox.cache.CacheKey;
 import net.neoforged.neoforminabox.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +43,7 @@ public class InjectFromZipFileSource implements InjectSource {
     }
 
     @Override
-    public String getCacheKey(FileHashService fileHashService) throws IOException {
+    public CacheKey.AnnotatedValue getCacheKey(FileHashService fileHashService) throws IOException {
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA1");
@@ -62,7 +63,10 @@ public class InjectFromZipFileSource implements InjectSource {
             }
         }
 
-        return HexFormat.of().formatHex(digest.digest());
+        return new CacheKey.AnnotatedValue(
+                HexFormat.of().formatHex(digest.digest()),
+                sourcePath + " from " + zf.getName()
+        );
     }
 
     @Override
