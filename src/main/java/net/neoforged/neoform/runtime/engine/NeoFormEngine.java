@@ -14,7 +14,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
-import net.neoforged.neoform.runtime.cli.CacheManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.FileHashService;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
@@ -584,15 +584,15 @@ public class NeoFormEngine implements AutoCloseable {
         return graph;
     }
 
-    public Path getHome() {
-        return cacheManager.getCacheDir();
-    }
-
     public BuildOptions getBuildOptions() {
         return buildOptions;
     }
 
     public void setVerbose(boolean verbose) {
         this.verbose = verbose;
+    }
+
+    public CacheManager getCacheManager() {
+        return cacheManager;
     }
 }

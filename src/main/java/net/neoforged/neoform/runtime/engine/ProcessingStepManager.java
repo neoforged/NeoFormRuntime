@@ -1,7 +1,7 @@
 package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
-import net.neoforged.neoform.runtime.cli.CacheManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 
 import java.io.IOException;

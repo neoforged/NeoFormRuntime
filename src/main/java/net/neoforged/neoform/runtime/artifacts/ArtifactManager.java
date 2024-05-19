@@ -4,7 +4,7 @@ import net.neoforged.neoform.runtime.downloads.DownloadSpec;
 import net.neoforged.neoform.runtime.manifests.LauncherManifest;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
-import net.neoforged.neoform.runtime.cli.CacheManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.LockManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
@@ -45,7 +45,7 @@ public class ArtifactManager {
         this.downloadManager = downloadManager;
         this.lockManager = lockManager;
         this.launcherManifestUrl = launcherManifestUrl;
-        this.artifactsCache = cacheManager.getCacheDir().resolve("artifacts");
+        this.artifactsCache = cacheManager.getArtifactCacheDir();
     }
 
     public Artifact get(MinecraftLibrary library) throws IOException {

@@ -11,6 +11,7 @@ plugins {
     id 'maven-publish'
     id "com.github.johnrengelman.shadow" version '8.1.1'
     id "net.neoforged.gradleutils" version "3.0.0-alpha.13"
+    id "org.jetbrains.gradle.plugin.idea-ext" version "1.1.8"
 }
 
 group = 'net.neoforged'
@@ -110,5 +111,26 @@ publishing {
 
     repositories {
         maven gradleutils.publishingMaven
+    }
+}
+
+/**
+ * Convenience IDE runs for IntelliJ for testing purposes.
+ */
+
+import org.jetbrains.gradle.ext.Application;
+
+idea {
+    project {
+        settings {
+            runConfigurations {
+                "Run clean-cache"(Application) {
+                    // Create new run configuration "MyApp" that will run class foo.App
+                    mainClass = 'net.neoforged.neoform.runtime.cli.Main'
+                    programParameters = "clean-cache"
+                    moduleRef(project, sourceSets.main)
+                }
+            }
+        }
     }
 }

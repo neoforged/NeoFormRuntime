@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.engine.ProcessingStepManager;
@@ -50,8 +51,8 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
         var closables = new ArrayList<AutoCloseable>();
 
-        try (var lockManager = new LockManager(commonOptions.cacheDir);
-             var cacheManager = new CacheManager(commonOptions.cacheDir);
+        try (var lockManager = new LockManager(commonOptions.homeDir);
+             var cacheManager = new CacheManager(commonOptions.homeDir);
              var downloadManager = new DownloadManager()) {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
@@ -62,7 +63,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
                 artifactManager.loadArtifactManifest(commonOptions.artifactManifest);
             }
 
-            var processingStepManager = new ProcessingStepManager(commonOptions.cacheDir.resolve("work"), cacheManager, artifactManager);
+            var processingStepManager = new ProcessingStepManager(commonOptions.homeDir.resolve("work"), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
                 engine.setVerbose(verbose);

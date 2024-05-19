@@ -86,7 +86,8 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
         var assetIndexReference = versionManifest.assetIndex();
         System.out.println("Downloading asset index " + assetIndexReference.id());
 
-        var assetRoot = engine.getHome().resolve("assets");
+        var cacheManager = engine.getCacheManager();
+        var assetRoot = cacheManager.getAssetsDir();
         var indexFolder = assetRoot.resolve("indexes");
         Files.createDirectories(indexFolder);
         var objectsFolder = assetRoot.resolve("objects");

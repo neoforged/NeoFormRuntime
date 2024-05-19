@@ -10,10 +10,10 @@ import java.util.List;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
-@Command(name = "neoform-runtime", subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class}, mixinStandardHelpOptions = true)
+@Command(name = "neoform-runtime", subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class, CleanCacheCommand.class}, mixinStandardHelpOptions = true)
 public class Main {
     @Option(names = "--home-dir", scope = CommandLine.ScopeType.INHERIT)
-    Path cacheDir = Paths.get(System.getProperty("user.home")).resolve(".neoform");
+    Path homeDir = Paths.get(System.getProperty("user.home")).resolve(".neoform");
 
     @Option(names = "--repository", arity = "*", scope = CommandLine.ScopeType.INHERIT)
     List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());

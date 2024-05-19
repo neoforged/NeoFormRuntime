@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public record CacheKey(
@@ -19,7 +20,22 @@ public record CacheKey(
         String hashValue,
         Map<String, AnnotatedValue> components
 ) {
+    public static final String TYPE_REGEX = "[a-zA-Z0-9]{1,32}";
+    public static final Pattern TYPE_PATTERN = Pattern.compile(TYPE_REGEX);
+    public static final String HASH_VALUE_REGEX = "[0-9a-f]{40}";
+    public static final Pattern HASH_VALUE_PATTERN = Pattern.compile(HASH_VALUE_REGEX);
+    public static final Pattern FILENAME_PREFIX_PATTERN = Pattern.compile("^(" + TYPE_REGEX + "_" + HASH_VALUE_REGEX + ")");
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+    public CacheKey {
+        if (!TYPE_PATTERN.matcher(type).matches()) {
+            throw new IllegalArgumentException("Invalid type: " + type + ". Must conform to regular expression " + TYPE_REGEX);
+        }
+        if (!HASH_VALUE_PATTERN.matcher(hashValue).matches()) {
+            throw new IllegalArgumentException("Invalid hash value: " + type + ". Must be a lower-case SHA1 hash");
+        }
+    }
 
     public CacheKey(String type, Map<String, AnnotatedValue> components) {
         this(type, computeHashValue(components), components);
