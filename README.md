@@ -18,26 +18,25 @@ the NeoForge APIs.
 
 ## Usage
 
-```
-Usage: neoform-runtime [-hV] [--artifact-manifest=<artifactManifest>]
-                       [--home-dir=<cacheDir>]
-                       [--launcher-meta-uri=<launcherManifestUrl>] [--repository
-                       [=<repositories>...]]... [COMMAND]
-      --artifact-manifest=<artifactManifest>
+### run: Creating Minecraft Artifacts
 
-  -h, --help      Show this help message and exit.
-      --home-dir=<cacheDir>
+This is the primary use of the NeoForm Runtime. For a given NeoForge or NeoForm version, it will build
+an execution graph and allows the caller to retrieve various resulting artifacts from it.
 
-      --launcher-meta-uri=<launcherManifestUrl>
-
-      --repository[=<repositories>...]
-
-  -V, --version   Print version information and exit.
-Commands:
-  run              Run the NeoForm engine and produce Minecraft artifacts
-  download-assets  Download the client assets used to run a particular game
-                     version
-```
+| Option                        | Description                                                                                                                                                                                                                                             |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--dist` [required]           | Which distribution type to generate artifacts for. NeoForm defines these and usually `client`, `server` and `joined` are available.                                                                                                                     |
+| `--neoforge=<gav>`            | Pass the NeoForge artifact to use as `net.neoforged:neoforge:<version>`. When passing this, the NeoForm version is implied. It can still be overridden by passing `--neoform` as well.                                                                  |
+| `--neoform=<gav>`             | Pass the NeoForm artifact to use as `net.neoforged:neoform:<version>@zip`.                                                                                                                                                                              |
+| `--write-result=<id>:<path>`  | This option can be passed multiple times. It tells NFRT to write a result of the execution graph to the given path, such as the recompiled Minecraft jar-file, or the sources. If you pass no such option, NFRT will print which results are available. |
+| `--access-transformer=<path>` | Adds access transformers which will be applied to the source before recompiling it.                                                                                                                                                                     |
+| `--repository=<uri>`          | Adds additional repositories that NFRT will use when it downloads artifacts. By default, the NeoForge repository and local Maven are used.                                                                                                              |
+| `--launcher-meta-uri=<url>`   | Specifies a different URL to download the Launcher manifest from. The default is `https://launchermeta.mojang.com/mc/game/version_manifest_v2.json`                                                                                                     |                                                                                             |
+| `--disable-cache`             | Disables use of the intermediate result cache.                                                                                                                                                                                                          |
+| `--print-graph`               | Prints information about the execution graph used to create the artifacts.                                                                                                                                                                              |
+| `--use-eclipse-compiler`      | When recompiling Minecraft sources, use the Eclipse compiler rather than javac. The Eclipse compiler is able to compile in parallel, while javac is single-threaded.                                                                                    |
+| `--verbose`                   | Enables verbose output                                                                                                                                                                                                                                  |
+| `--compile-classpath`         | Specify a classpath as you would with `-cp` for java, which is used to compile the sources. Without specifying this option, NFRT will automatically download the libraries used by Minecraft and NeoForm and use those as the compile classpath.        |
 
 ## Caches
 
