@@ -23,6 +23,32 @@ the NeoForge APIs.
 This is the primary use of the NeoForm Runtime. For a given NeoForge or NeoForm version, it will build
 an execution graph and allows the caller to retrieve various resulting artifacts from it.
 
+Examples
+
+```
+# Produce NeoForge jars for 1.20.6
+
+> nfrt run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev
+No results requested. Available results: [compiled, clientResources, sources, serverResources]
+
+> nfrt run --neoforge net.neoforged:neoforge:20.6.72-beta:userdev \
+    --dist joined \
+    --write-result=compiled:minecraft.jar \
+    --write-result=clientResources:client-extra.jar \
+    --write-result=sources:minecraft-sources.jar 
+
+This produces the NeoForge userdev artifacts in build/
+
+> nfrt run --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip \
+    --dist joined \
+    --write-result=compiled:minecraft.jar \
+    --write-result=clientResources:client-extra.jar \
+    --write-result=sources:minecraft-sources.jar 
+
+This produces the Vanilla artifacts in build/
+
+```
+
 | Option                        | Description                                                                                                                                                                                                                                             |
 |-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--dist` [required]           | Which distribution type to generate artifacts for. NeoForm defines these and usually `client`, `server` and `joined` are available.                                                                                                                     |
