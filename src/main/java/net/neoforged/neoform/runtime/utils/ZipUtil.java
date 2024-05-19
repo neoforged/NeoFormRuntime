@@ -3,7 +3,7 @@ package net.neoforged.neoform.runtime.utils;
 import java.util.TimeZone;
 import java.util.zip.ZipEntry;
 
-public final class ZipUtils {
+public final class ZipUtil {
     /**
      * The constant time of a zip entry in milliseconds.
      */
@@ -14,7 +14,7 @@ public final class ZipUtils {
      */
     private static final TimeZone GMT = TimeZone.getTimeZone("GMT");
 
-    private ZipUtils() {
+    private ZipUtil() {
     }
 
     /**

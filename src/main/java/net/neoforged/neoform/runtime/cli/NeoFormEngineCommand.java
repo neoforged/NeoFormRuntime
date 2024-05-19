@@ -40,8 +40,8 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
     @CommandLine.Option(names = "--analyze-cache-misses")
     boolean analyzeCacheMisses;
 
-    @CommandLine.Option(names = "--verbose")
-    boolean verbose;
+    @CommandLine.Option(names = "--disable-cache-maintenance", description = "Skip automatically running cache maintenance from time to time")
+    boolean disableCacheMaintenance;
 
     protected abstract void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException;
 
@@ -56,17 +56,22 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
              var downloadManager = new DownloadManager()) {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
-            lockManager.setVerbose(verbose);
+
+            if (!disableCacheMaintenance) {
+                cacheManager.performMaintenance();
+            }
+
+            lockManager.setVerbose(commonOptions.verbose);
             var artifactManager = new ArtifactManager(commonOptions.repositories, cacheManager, downloadManager, lockManager, commonOptions.launcherManifestUrl);
 
             if (commonOptions.artifactManifest != null) {
                 artifactManager.loadArtifactManifest(commonOptions.artifactManifest);
             }
 
-            var processingStepManager = new ProcessingStepManager(commonOptions.homeDir.resolve("work"), cacheManager, artifactManager);
+            var processingStepManager = new ProcessingStepManager(commonOptions.getWorkDir(), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
-                engine.setVerbose(verbose);
+                engine.setVerbose(commonOptions.verbose);
                 applyBuildOptions(engine);
 
                 runWithNeoFormEngine(engine, closables);

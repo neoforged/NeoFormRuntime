@@ -6,10 +6,15 @@ import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.StringUtils;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -38,26 +43,81 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class CacheManager implements AutoCloseable {
+    private final Path homeDir;
     private final Path artifactCacheDir;
-
     private final Path intermediateResultsDir;
-
     private final Path assetsDir;
 
+    /**
+     * Maximum age of cache entries in the intermediate work cache in hours.
+     */
+    private long maxAgeInHours = 24 * 31;
+    /**
+     * Maximum overall size of the intermediate work cache.
+     */
+    private long maxSize = 1024 * 1024 * 1024;
+
     private boolean disabled;
-
     private boolean analyzeMisses;
-
     private boolean verbose;
 
     public CacheManager(Path homeDir) throws IOException {
+        this.homeDir = homeDir;
         Files.createDirectories(homeDir);
         this.artifactCacheDir = homeDir.resolve("artifacts");
         this.intermediateResultsDir = homeDir.resolve("intermediate_results");
         this.assetsDir = homeDir.resolve("assets");
     }
 
-    public void cleanUp(long maxAgeInHours, long maxSize) throws IOException {
+    public void performMaintenance() throws IOException {
+        var cacheLock = homeDir.resolve("nfrt_cache_cleanup.state");
+
+        try (var channel = FileChannel.open(cacheLock, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+            FileLock lock;
+            try {
+                lock = channel.tryLock();
+            } catch (OverlappingFileLockException ignored) {
+                lock = null;
+            }
+
+            if (lock != null) {
+                var lastModified = Files.getLastModifiedTime(cacheLock, LinkOption.NOFOLLOW_LINKS);
+                var age = Duration.between(lastModified.toInstant(), Instant.now());
+                var interval = Duration.ofHours(24);
+                if (age.compareTo(interval) < 0) {
+                    if (verbose) {
+                        System.out.println("Not performing routine maintenance since the last maintenance was "
+                                           + AnsiColor.BLACK_BOLD + StringUtils.formatDuration(age) + " ago" + AnsiColor.BLACK_BOLD);
+                    }
+                    return;
+                }
+
+                System.out.println("Performing periodic cache maintenance on " + homeDir);
+
+                cleanUpIntermediateResults();
+
+                Files.setLastModifiedTime(cacheLock, FileTime.from(Instant.now()));
+
+                return;
+            }
+
+            System.out.println("Cache maintenance is already performed by another process.");
+        }
+    }
+
+    public void cleanUpAll() throws IOException {
+        cleanUpIntermediateResults();
+    }
+
+    /**
+     * Cleans the cache of intermediate results based on two goals:
+     * <ol>
+     * <li>Removing cache entries that have not been used for a given number of hours. We use the last modification
+     * time of the cache key files as the indicator for their last use.</li>
+     * <li>Removing enough cache entries to keep the overall size under the given target.</li>
+     * </ul>
+     */
+    public void cleanUpIntermediateResults() throws IOException {
         System.out.println("Cleaning intermediate results cache in " + intermediateResultsDir);
         System.out.println(" Maximum age: " + maxAgeInHours + "h");
         System.out.println(" Maximum cache size: " + StringUtils.formatBytes(maxSize));
@@ -181,6 +241,10 @@ public class CacheManager implements AutoCloseable {
                     complete = false;
                     break;
                 }
+            }
+            if (complete) {
+                // Mark its use
+                Files.setLastModifiedTime(cacheMarkerFile, FileTime.from(Instant.now()));
             }
             return complete;
         } else if (analyzeMisses) {

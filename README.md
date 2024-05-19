@@ -38,3 +38,14 @@ Commands:
   download-assets  Download the client assets used to run a particular game
                      version
 ```
+
+## Caches
+
+NFRT has to store various files to speed up later runs. It does this in several cache
+directories.
+
+### Cache Directories
+
+On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoform`. If that variable is not set or not an
+absolute path, it falls back to `~/.cache/neoform`.
+

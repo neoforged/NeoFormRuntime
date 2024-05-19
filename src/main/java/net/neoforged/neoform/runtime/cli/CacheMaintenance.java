@@ -5,8 +5,8 @@ import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
-@CommandLine.Command(name = "clean-cache", description = "Perform cache maintenance")
-public class CleanCacheCommand implements Callable<Integer> {
+@CommandLine.Command(name = "cache-maintenance", description = "Perform periodic cache maintenance if required")
+public class CacheMaintenance implements Callable<Integer> {
     @CommandLine.ParentCommand
     Main commonOptions;
 
@@ -15,7 +15,7 @@ public class CleanCacheCommand implements Callable<Integer> {
         try (var cacheManager = new CacheManager(commonOptions.homeDir)) {
             cacheManager.setVerbose(commonOptions.verbose);
 
-            cacheManager.cleanUpAll();
+            cacheManager.performMaintenance();
         }
 
         return 0;

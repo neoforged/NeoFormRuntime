@@ -56,9 +56,11 @@ tasks.withType(JavaCompile).configureEach() {
     options.encoding = "UTF-8"
 }
 
+def mainClassName = 'net.neoforged.neoform.runtime.cli.Main'
+
 jar {
     manifest {
-        attributes 'Main-Class': 'net.neoforged.neoform.runtime.cli.Main'
+        attributes 'Main-Class': mainClassName
     }
 }
 
@@ -126,8 +128,14 @@ idea {
             runConfigurations {
                 "Run clean-cache"(Application) {
                     // Create new run configuration "MyApp" that will run class foo.App
-                    mainClass = 'net.neoforged.neoform.runtime.cli.Main'
-                    programParameters = "clean-cache"
+                    mainClass = mainClassName
+                    programParameters = "clean-cache --verbose"
+                    moduleRef(project, sourceSets.main)
+                }
+                "Run cache-maintenance"(Application) {
+                    // Create new run configuration "MyApp" that will run class foo.App
+                    mainClass = mainClassName
+                    programParameters = "cache-maintenance --verbose"
                     moduleRef(project, sourceSets.main)
                 }
             }

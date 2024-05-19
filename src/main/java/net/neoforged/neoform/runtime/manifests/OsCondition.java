@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.manifests;
 
+import net.neoforged.neoform.runtime.utils.OsUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.regex.Pattern;
@@ -9,12 +10,10 @@ public record OsCondition(@Nullable String name, @Nullable String version, @Null
         if (name == null) {
             return true;
         }
-        var osName = System.getProperty("os.name");
-        // The following matches the logic in Apache Commons Lang 3 SystemUtils
         return switch (name) {
-            case "linux" -> osName.startsWith("Linux") || osName.startsWith("LINUX");
-            case "osx" -> osName.startsWith("Mac OS X");
-            case "windows" -> osName.startsWith("Windows");
+            case "linux" -> OsUtil.isLinux();
+            case "osx" -> OsUtil.isMac();
+            case "windows" -> OsUtil.isWindows();
             default -> false;
         };
     }

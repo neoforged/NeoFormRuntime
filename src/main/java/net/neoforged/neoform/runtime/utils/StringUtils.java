@@ -3,6 +3,7 @@ package net.neoforged.neoform.runtime.utils;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -45,5 +46,39 @@ public final class StringUtils {
             size /= 1024;
         }
         return size * 1024 + " " + FILE_SIZE_SUFFIXES[FILE_SIZE_SUFFIXES.length - 1];
+    }
+
+    /**
+     * Format a java.time duration in a human-readable format.
+     */
+    public static String formatDuration(Duration duration) {
+        var result = new StringBuilder();
+
+        if (duration.toDaysPart() > 0) {
+            result.append(duration.toDaysPart()).append('d');
+        }
+
+        if (duration.toHoursPart() > 0) {
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(duration.toHoursPart()).append('h');
+        }
+
+        if (duration.toMinutesPart() > 0) {
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(duration.toMinutesPart()).append('m');
+        }
+
+        if (duration.toSecondsPart() > 0) {
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(duration.toSecondsPart()).append('s');
+        }
+
+        return result.toString();
     }
 }
