@@ -10,12 +10,6 @@ Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding
 apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produces the necessary artifacts to compile against
 the NeoForge APIs.
 
-## Examples
-
-```
---use-eclipse-compiler --neoform "net.neoforged:neoform:1.20.6-20240429.153634@zip" --dist joined
-```
-
 ## Usage
 
 ### run: Creating Minecraft Artifacts
@@ -63,6 +57,30 @@ This produces the Vanilla artifacts in build/
 | `--use-eclipse-compiler`      | When recompiling Minecraft sources, use the Eclipse compiler rather than javac. The Eclipse compiler is able to compile in parallel, while javac is single-threaded.                                                                                    |
 | `--verbose`                   | Enables verbose output                                                                                                                                                                                                                                  |
 | `--compile-classpath`         | Specify a classpath as you would with `-cp` for java, which is used to compile the sources. Without specifying this option, NFRT will automatically download the libraries used by Minecraft and NeoForm and use those as the compile classpath.        |
+
+### download-assets: Download Minecraft Assets
+
+The game needs a particular directory layout of its assets to run properly.
+NFRT helps with this by downloading the assets required to run a particular version of the game.
+
+```
+# Download Assets for a specific version of Minecraft
+nfrt download-assets --minecraft-version 1.20.6 --output-properties-to assets.properties
+
+# Download Assets for the Minecraft version used by the given NeoForm version
+nfrt download-assets --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip --output-properties-to assets.properties
+
+# Download Assets for the Minecraft version used by the given NeoForge version
+nfrt download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --output-properties-to assets.properties
+
+# In all three cases, a properties file will be written to assets.properties containing the following,
+# which can be used to pass the required command line arguments for starting a Minecraft client.
+asset_index=16
+assets_root=...path to assets...
+```
+
+While it may seem odd that NFRT supports passing NeoForm or NeoForge versions to this command, this is in service
+of potential Gradle plugins never having to actually read and parse the NeoForm configuration file.
 
 ## Caches
 
