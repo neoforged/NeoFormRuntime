@@ -3,12 +3,14 @@ package net.neoforged.neoform.runtime.cache;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FileUtil;
+import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.StringUtils;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -19,12 +21,15 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -43,10 +48,13 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class CacheManager implements AutoCloseable {
+    private static final DateTimeFormatter WORKSPACE_NAME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
     private final Path homeDir;
     private final Path artifactCacheDir;
     private final Path intermediateResultsDir;
     private final Path assetsDir;
+    private final Path workspacesDir;
 
     /**
      * Maximum age of cache entries in the intermediate work cache in hours.
@@ -61,12 +69,13 @@ public class CacheManager implements AutoCloseable {
     private boolean analyzeMisses;
     private boolean verbose;
 
-    public CacheManager(Path homeDir) throws IOException {
+    public CacheManager(Path homeDir, Path workspacesDir) throws IOException {
         this.homeDir = homeDir;
         Files.createDirectories(homeDir);
         this.artifactCacheDir = homeDir.resolve("artifacts");
         this.intermediateResultsDir = homeDir.resolve("intermediate_results");
         this.assetsDir = homeDir.resolve("assets");
+        this.workspacesDir = workspacesDir;
     }
 
     public void performMaintenance() throws IOException {
@@ -335,6 +344,26 @@ public class CacheManager implements AutoCloseable {
         } catch (IOException ignored) {
             return List.of();
         }
+    }
+
+    public Path createWorkspace(String stepName) throws IOException {
+        Files.createDirectories(workspacesDir);
+        // Set up a workspace directory
+        var timestamp = WORKSPACE_NAME_FORMAT.format(LocalDateTime.now());
+        var workspaceBasename = timestamp + "_" + FilenameUtil.sanitizeForFilename(stepName);
+        var workspaceDir = workspacesDir.resolve(workspaceBasename);
+        for (var i = 1; i <= 999; i++) {
+            try {
+                Files.createDirectory(workspaceDir);
+                break;
+            } catch (FileAlreadyExistsException e) {
+                workspaceDir = workspaceDir.resolveSibling(workspaceBasename + "_" + String.format(Locale.ROOT, "%03d", i));
+            }
+        }
+        if (!Files.isDirectory(workspaceDir)) {
+            throw new IOException("Failed to create a suitable workspace directory " + workspaceDir);
+        }
+        return workspaceDir;
     }
 
     public boolean isDisabled() {

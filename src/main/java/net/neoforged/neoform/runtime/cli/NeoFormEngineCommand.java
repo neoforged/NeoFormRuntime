@@ -5,7 +5,6 @@ import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
-import net.neoforged.neoform.runtime.engine.ProcessingStepManager;
 import picocli.CommandLine;
 
 import java.io.File;
@@ -52,7 +51,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         var closables = new ArrayList<AutoCloseable>();
 
         try (var lockManager = new LockManager(commonOptions.homeDir);
-             var cacheManager = new CacheManager(commonOptions.homeDir);
+             var cacheManager = new CacheManager(commonOptions.homeDir, commonOptions.getWorkDir());
              var downloadManager = new DownloadManager()) {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
@@ -68,9 +67,8 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
                 artifactManager.loadArtifactManifest(commonOptions.artifactManifest);
             }
 
-            var processingStepManager = new ProcessingStepManager(commonOptions.getWorkDir(), cacheManager, artifactManager);
             var fileHashService = new FileHashService();
-            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, processingStepManager, lockManager)) {
+            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
                 engine.setVerbose(commonOptions.verbose);
                 applyBuildOptions(engine);
 

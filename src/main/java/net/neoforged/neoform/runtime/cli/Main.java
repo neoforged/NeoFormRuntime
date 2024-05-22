@@ -33,7 +33,7 @@ public class Main {
     boolean verbose;
 
     public Path getWorkDir() {
-        return Objects.requireNonNullElse(workDir, homeDir);
+        return Objects.requireNonNullElseGet(workDir, () -> homeDir.resolve("work"));
     }
 
     private static Path getDefaultHomeDir() {

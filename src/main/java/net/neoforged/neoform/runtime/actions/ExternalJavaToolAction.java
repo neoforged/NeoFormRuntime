@@ -52,7 +52,6 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
                 .orElseThrow();
 
         var workingDir = environment.getWorkspace();
-        var toolPath = workingDir.relativize(toolArtifact.path());
 
         var command = new ArrayList<String>();
         command.add(javaExecutablePath);
@@ -63,7 +62,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
 
         command.add("-jar");
-        command.add(toolPath.toString());
+        command.add(environment.getPathArgument(toolArtifact.path()));
 
         // Program Arguments
         for (var arg : args) {

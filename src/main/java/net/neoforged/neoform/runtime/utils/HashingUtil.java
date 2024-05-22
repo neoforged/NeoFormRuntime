@@ -52,7 +52,7 @@ public final class HashingUtil {
                     .sorted()
                     .map(p -> {
                         try {
-                            return p.toString() + " " + HashingUtil.hashFile(p, algorithm);
+                            return p + " " + HashingUtil.hashFile(p, algorithm);
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }

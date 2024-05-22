@@ -12,12 +12,14 @@ import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
+import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -158,6 +160,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             if (result == null) {
                 throw new IllegalStateException("Result " + entry.getKey() + " was requested but not produced");
             }
+            var resultFileHash = HashingUtil.hashFile(result, "SHA-1");
+            try {
+                if (HashingUtil.hashFile(entry.getValue(), "SHA-1").equals(resultFileHash)) {
+                    continue; // Nothing to do the file already matches
+                }
+            } catch (NoSuchFileException ignored) {
+            }
+
             var tmpFile = Paths.get(entry.getValue() + ".tmp");
             Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
             FileUtil.atomicMove(tmpFile, entry.getValue());

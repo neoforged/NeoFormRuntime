@@ -1,7 +1,7 @@
 package net.neoforged.neoform.runtime.engine;
 
-import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
+import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -47,4 +47,15 @@ public interface ProcessingEnvironment {
     void setOutput(String id, Path resultPath);
 
     boolean isVerbose();
+
+    /**
+     * Format a path as a command-line argument, trying to keep it terse.
+     */
+    default String getPathArgument(Path path) {
+        // Assume that our working directory is the work directory
+        if (path.startsWith(getWorkspace())) {
+            return path.relativize(path).toString();
+        }
+        return path.toString();
+    }
 }

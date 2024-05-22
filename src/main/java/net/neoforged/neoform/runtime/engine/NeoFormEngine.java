@@ -60,7 +60,6 @@ public class NeoFormEngine implements AutoCloseable {
     private final ArtifactManager artifactManager;
     private final FileHashService fileHashService;
     private final CacheManager cacheManager;
-    private final ProcessingStepManager processingStepManager;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Map<ExecutionNode, CompletableFuture<Void>> executingNodes = new IdentityHashMap<>();
     private final LockManager lockManager;
@@ -77,11 +76,9 @@ public class NeoFormEngine implements AutoCloseable {
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
-                         ProcessingStepManager processingStepManager,
                          LockManager lockManager) {
         this.artifactManager = artifactManager;
         this.fileHashService = fileHashService;
-        this.processingStepManager = processingStepManager;
         this.cacheManager = cacheManager;
         this.lockManager = lockManager;
     }
@@ -383,7 +380,7 @@ public class NeoFormEngine implements AutoCloseable {
                 return;
             }
 
-            var workspace = processingStepManager.createWorkspace(node.id());
+            var workspace = cacheManager.createWorkspace(node.id());
             node.action().run(new ProcessingEnvironment() {
                 @Override
                 public ArtifactManager getArtifactManager() {

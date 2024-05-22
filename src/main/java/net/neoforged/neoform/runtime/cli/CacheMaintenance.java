@@ -12,7 +12,7 @@ public class CacheMaintenance implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        try (var cacheManager = new CacheManager(commonOptions.homeDir)) {
+        try (var cacheManager = new CacheManager(commonOptions.homeDir, commonOptions.getWorkDir())) {
             cacheManager.setVerbose(commonOptions.verbose);
 
             cacheManager.performMaintenance();

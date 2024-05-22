@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.utils.HashingUtil;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -33,6 +34,9 @@ public class LockManager implements AutoCloseable {
             throw new RuntimeException("Failed to obtain lock for " + key, e);
         }
 
+        boolean hadToWait = false;
+        String[] spinners = {"   ", ".  ", ".. ", "..."};
+        int spinnerIndex = 0;
         FileLock fileLock;
         while (true) {
             try {
@@ -40,6 +44,8 @@ public class LockManager implements AutoCloseable {
                 if (fileLock != null) {
                     break;
                 }
+            } catch (OverlappingFileLockException ignored) {
+                // This VM currently holds the lock in another thread
             } catch (IOException e) {
                 try {
                     channel.close();
@@ -48,13 +54,24 @@ public class LockManager implements AutoCloseable {
                 throw new RuntimeException(e);
             }
 
-            System.out.println("Waiting for lock on " + key);
+            if (!hadToWait) {
+                System.out.print("Waiting for lock on " + key + spinners[spinnerIndex]);
+                hadToWait = true;
+            } else {
+                System.out.print("\b\b\b"); // clear the last spinner
+                System.out.print(spinners[++spinnerIndex % spinners.length]);
+            }
+
             try {
                 Thread.sleep(1000L);
             } catch (InterruptedException e) {
+                System.out.println();
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
+        }
+        if (hadToWait) {
+            System.out.println(); // Remember to end the line
         }
 
         if (verbose) {
