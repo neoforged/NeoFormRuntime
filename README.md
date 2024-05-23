@@ -89,6 +89,11 @@ directories.
 
 ### Cache Directories
 
-On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoform`. If that variable is not set or not an
-absolute path, it falls back to `~/.cache/neoform`.
+On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoformruntime`. If that variable is not set or not an
+absolute path, it falls back to `~/.cache/neoformruntime`.
+
+For other operating systems (Windows, Mac), it defaults to `.neoformruntime` in your home directory.
+
+Please note that Gradle plugins using this runtime may set different cache directories.
+
 

@@ -42,12 +42,12 @@ public class Main {
         if (OsUtil.isLinux()) {
             var xdgCacheHome = System.getenv("XDG_CACHE_DIR");
             if (xdgCacheHome != null && xdgCacheHome.startsWith("/")) {
-                return Paths.get(xdgCacheHome).resolve("neoform");
+                return Paths.get(xdgCacheHome).resolve("neoformruntime");
             } else {
-                return userHomeDir.resolve(".cache/neoform");
+                return userHomeDir.resolve(".cache/neoformruntime");
             }
         }
-        return userHomeDir.resolve(".neoform");
+        return userHomeDir.resolve(".neoformruntime");
 
     }
 
