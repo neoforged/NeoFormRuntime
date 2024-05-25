@@ -1,6 +1,8 @@
 package net.neoforged.neoform.runtime.graph;
 
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -11,6 +13,8 @@ import java.util.Objects;
 import java.util.Set;
 
 public final class ExecutionNode {
+    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+
     private final String id;
     private final Map<String, NodeInput> inputs;
     private final Map<String, NodeOutput> outputs;
@@ -52,7 +56,7 @@ public final class ExecutionNode {
         started = System.currentTimeMillis();
         state = NodeState.STARTED;
         var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
-        System.out.println(AnsiColor.BLACK_BOLD + "*** Started working on " + underlinedId + AnsiColor.RESET);
+        LOG.println(AnsiColor.BLACK_BOLD + "*** Started working on " + underlinedId + AnsiColor.RESET);
     }
 
     public void fail() {
@@ -87,9 +91,9 @@ public final class ExecutionNode {
         var elapsedStr = String.format(Locale.ROOT, "%.02f", elapsedMs / 1000.0) + "s";
         var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
         if (fromCache) {
-            System.out.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "♻" + AnsiColor.RESET + " Used cache of " + underlinedId + " in " + elapsedStr);
+            LOG.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "♻" + AnsiColor.RESET + " Used cache of " + underlinedId + " in " + elapsedStr);
         } else {
-            System.out.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "✓" + AnsiColor.RESET + " Completed " + underlinedId + " in " + elapsedStr);
+            LOG.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "✓" + AnsiColor.RESET + " Completed " + underlinedId + " in " + elapsedStr);
         }
     }
 

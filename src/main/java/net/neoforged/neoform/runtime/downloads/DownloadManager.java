@@ -2,6 +2,8 @@ package net.neoforged.neoform.runtime.downloads;
 
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class DownloadManager implements AutoCloseable {
+    private static final Logger LOG = Logger.create(LoggerCategory.DOWNLOADS);
+
     private static final String USER_AGENT = "NeoFormRuntime";
     private final ExecutorService executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual()
             .name("download", 1).factory());
@@ -44,7 +48,7 @@ public class DownloadManager implements AutoCloseable {
     public boolean download(DownloadSpec spec, Path finalLocation, boolean silent) throws IOException {
         var url = spec.uri();
         if (!silent) {
-            System.out.println("Downloading " + url);
+            LOG.println("  ↓ " + url);
         }
 
         // Don't re-download the file if we can avoid it

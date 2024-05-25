@@ -8,7 +8,10 @@ import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.manifests.AssetIndex;
 import net.neoforged.neoform.runtime.manifests.AssetObject;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.StringUtil;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
@@ -25,11 +28,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "download-assets", description = "Download the client assets used to run a particular game version")
 public class DownloadAssetsCommand extends NeoFormEngineCommand {
+    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+
     private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = r -> Thread.ofVirtual().name("download-asset", 1).unstarted(r);
 
     @CommandLine.ArgGroup(multiplicity = "1")
@@ -84,7 +90,7 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
 
         var versionManifest = MinecraftVersionManifest.from(artifactManager.getVersionManifest(minecraftVersion).path());
         var assetIndexReference = versionManifest.assetIndex();
-        System.out.println("Downloading asset index " + assetIndexReference.id());
+        LOG.println("Downloading asset index " + assetIndexReference.id());
 
         var cacheManager = engine.getCacheManager();
         var assetRoot = cacheManager.getAssetsDir();
@@ -103,6 +109,7 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
         }
 
         AtomicInteger downloadsDone = new AtomicInteger();
+        AtomicLong bytesDownloaded = new AtomicLong();
         var errors = new ArrayList<Exception>();
         var assetIndex = AssetIndex.from(assetIndexPath);
         // The same object can be referenced multiple times
@@ -124,7 +131,9 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
                     try {
                         semaphore.acquire();
                         hasAcquired = true;
-                        downloadManager.download(spec, objectLocation, true);
+                        if (downloadManager.download(spec, objectLocation, true)) {
+                            bytesDownloaded.addAndGet(spec.size());
+                        }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     } catch (Exception e) {
@@ -137,13 +146,13 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
                         }
                         var finished = downloadsDone.incrementAndGet();
                         if (finished % 100 == 0) {
-                            System.out.println(finished + "/" + objectsToDownload.size() + " downloads");
+                            LOG.println(finished + "/" + objectsToDownload.size() + " downloads");
                         }
                     }
                 });
             }
         }
-        System.out.println(downloadsDone.get() + "/" + objectsToDownload.size() + " downloads");
+        LOG.println("Downloaded " + objectsToDownload.size() + " files with a size of " + StringUtil.formatBytes(bytesDownloaded.get()));
 
         if (!errors.isEmpty()) {
             System.err.println(errors.size() + " files failed to download");

@@ -4,6 +4,8 @@ import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -28,7 +30,7 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
 
         var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
 
-        System.out.println(" " + classpath.size() + " items on the compile classpath");
+        LOG.println(" " + classpath.size() + " items on the compile classpath");
 
         return classpath;
     }

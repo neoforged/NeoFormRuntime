@@ -88,7 +88,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
                 if (result.hasErrors()) {
                     System.err.println("ERRORS FOUND in " + new String(result.compilationUnit.getFileName()));
                     for (var error : result.getErrors()) {
-                        System.out.println("ERROR: " + error);
+                        LOG.println("ERROR: " + error);
                     }
                 }
 
@@ -148,9 +148,9 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
             }
         }
 
-        System.out.println("Compiling " + compilationUnits.length + " source files...");
+        LOG.println("Compiling " + compilationUnits.length + " source files...");
         compiler.compile(compilationUnits);
-        System.out.println("Wrote " + requestor.classFileContent.size() + " class files (" + requestor.totalSize.get() + " bytes total)");
+        LOG.println("Wrote " + requestor.classFileContent.size() + " class files (" + requestor.totalSize.get() + " bytes total)");
 
         var outputPath = environment.getOutputPath("output");
         try (var fileOut = Files.newOutputStream(outputPath); var jos = new JarOutputStream(fileOut)) {
@@ -171,7 +171,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
                 jos.write(entry.getValue());
                 jos.closeEntry();
             }
-            System.out.println("Copied " + nonSourceContent.size() + " resource files");
+            LOG.println("Copied " + nonSourceContent.size() + " resource files");
         }
     }
 
