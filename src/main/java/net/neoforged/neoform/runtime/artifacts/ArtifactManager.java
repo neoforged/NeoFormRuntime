@@ -9,7 +9,6 @@ import net.neoforged.neoform.runtime.cli.LockManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 
 import java.io.FileNotFoundException;
@@ -30,7 +29,7 @@ import java.util.Map;
 import java.util.Properties;
 
 public class ArtifactManager {
-    private static final Logger LOG = Logger.create(LoggerCategory.DOWNLOADS);
+    private static final Logger LOG = Logger.create();
 
     private static final URI MINECRAFT_LIBRARIES_URI = URI.create("https://libraries.minecraft.net");
     private final List<URI> repositoryBaseUrls;

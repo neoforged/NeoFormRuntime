@@ -8,8 +8,8 @@ import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.manifests.AssetIndex;
 import net.neoforged.neoform.runtime.manifests.AssetObject;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
+import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import org.jetbrains.annotations.Nullable;
@@ -34,7 +34,7 @@ import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "download-assets", description = "Download the client assets used to run a particular game version")
 public class DownloadAssetsCommand extends NeoFormEngineCommand {
-    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    private static final Logger LOG = Logger.create();
 
     private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = r -> Thread.ofVirtual().name("download-asset", 1).unstarted(r);
 
@@ -152,7 +152,7 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
                 });
             }
         }
-        LOG.println("Downloaded " + objectsToDownload.size() + " files with a size of " + StringUtil.formatBytes(bytesDownloaded.get()));
+        LOG.println("Downloaded " + objectsToDownload.size() + " assets with a total size of " + StringUtil.formatBytes(bytesDownloaded.get()));
 
         if (!errors.isEmpty()) {
             System.err.println(errors.size() + " files failed to download");

@@ -5,7 +5,6 @@ import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 
 import java.io.IOException;
@@ -50,7 +49,7 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class CacheManager implements AutoCloseable {
-    private static final Logger LOG = Logger.create(LoggerCategory.CACHE);
+    private static final Logger LOG = Logger.create();
 
     private static final DateTimeFormatter WORKSPACE_NAME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -100,7 +99,7 @@ public class CacheManager implements AutoCloseable {
                 if (age.compareTo(interval) < 0) {
                     if (verbose) {
                         LOG.println("Not performing routine maintenance since the last maintenance was "
-                                           + AnsiColor.BLACK_BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.BLACK_BOLD);
+                                           + AnsiColor.BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.RESET);
                     }
                     return;
                 }
@@ -169,9 +168,9 @@ public class CacheManager implements AutoCloseable {
 
         var totalSize = entries.stream().mapToLong(CacheEntry::size).sum();
 
-        LOG.println(" " + AnsiColor.BLACK_BRIGHT + entries.size() + " files found" + AnsiColor.RESET);
-        LOG.println(" " + AnsiColor.BLACK_BRIGHT + StringUtil.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
-        LOG.println(" " + AnsiColor.BLACK_BRIGHT + expiredEntryPrefixes.size() + " expired keys found" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.MUTED + entries.size() + " files found" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.MUTED + StringUtil.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.MUTED + expiredEntryPrefixes.size() + " expired keys found" + AnsiColor.RESET);
 
         // Nothing to expire
         if (!expiredEntryPrefixes.isEmpty()) {
@@ -197,7 +196,7 @@ public class CacheManager implements AutoCloseable {
                 }
             }
 
-            LOG.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
+            LOG.println("Freed up " + AnsiColor.BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
             totalSize -= freedSpace;
         }
 
@@ -233,7 +232,7 @@ public class CacheManager implements AutoCloseable {
             }
         }
 
-        LOG.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " entries" + AnsiColor.RESET);
+        LOG.println("Freed up " + AnsiColor.BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BOLD + deletedEntries + " entries" + AnsiColor.RESET);
     }
 
     public boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {
@@ -319,16 +318,16 @@ public class CacheManager implements AutoCloseable {
         if (!cacheEntries.isEmpty()) {
             LOG.println("  Detailed delta for cache entry with best match:");
             for (var delta : deltasByCacheEntry.get(cacheEntries.getFirst())) {
-                LOG.println("    " + AnsiColor.BLACK_UNDERLINED + delta.key() + AnsiColor.RESET);
-                LOG.println(AnsiColor.BLACK_BRIGHT + "      New: " + AnsiColor.RESET + print(delta.ours()));
-                LOG.println(AnsiColor.BLACK_BRIGHT + "      Old: " + AnsiColor.RESET + print(delta.theirs()));
+                LOG.println("    " + AnsiColor.UNDERLINE + delta.key() + AnsiColor.RESET);
+                LOG.println(AnsiColor.MUTED + "      New: " + AnsiColor.RESET + print(delta.ours()));
+                LOG.println(AnsiColor.MUTED + "      Old: " + AnsiColor.RESET + print(delta.theirs()));
             }
         }
     }
 
     private static String print(CacheKey.AnnotatedValue value) {
         if (value.annotation() != null) {
-            return value.value() + AnsiColor.BLACK_BRIGHT + " (" + value.annotation() + ")" + AnsiColor.RESET;
+            return value.value() + AnsiColor.MUTED + " (" + value.annotation() + ")" + AnsiColor.RESET;
         }
         return value.value();
     }

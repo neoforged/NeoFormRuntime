@@ -3,7 +3,6 @@ package net.neoforged.neoform.runtime.cli;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -12,10 +11,9 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.concurrent.locks.Lock;
 
 public class LockManager implements AutoCloseable {
-    private static final Logger LOG = Logger.create(LoggerCategory.LOCKS);
+    private static final Logger LOG = Logger.create();
 
     private final Path lockDirectory;
     private boolean verbose;
@@ -78,7 +76,7 @@ public class LockManager implements AutoCloseable {
         }
 
         if (verbose) {
-            LOG.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
+            LOG.println(AnsiColor.MUTED + " Acquired lock for " + key + AnsiColor.RESET);
         }
         return new Lock(fileLock);
     }

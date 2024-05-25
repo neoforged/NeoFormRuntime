@@ -6,7 +6,6 @@ import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import picocli.CommandLine;
 
 import java.io.File;
@@ -20,7 +19,7 @@ import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
 public abstract class NeoFormEngineCommand implements Callable<Integer> {
-    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    private static final Logger LOG = Logger.create();
 
     @CommandLine.ParentCommand
     Main commonOptions;

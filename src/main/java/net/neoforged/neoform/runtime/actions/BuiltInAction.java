@@ -3,7 +3,6 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.nio.file.Paths;
 
@@ -12,7 +11,7 @@ import java.nio.file.Paths;
  * the version of this tool itself.
  */
 public abstract class BuiltInAction implements ExecutionNodeAction {
-    protected static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    protected static final Logger LOG = Logger.create();
 
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
