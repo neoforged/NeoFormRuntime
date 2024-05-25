@@ -1,12 +1,12 @@
 package net.neoforged.neoform.runtime.artifacts;
 
+import net.neoforged.neoform.runtime.cache.CacheManager;
+import net.neoforged.neoform.runtime.cli.LockManager;
+import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.downloads.DownloadSpec;
 import net.neoforged.neoform.runtime.manifests.LauncherManifest;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
-import net.neoforged.neoform.runtime.cache.CacheManager;
-import net.neoforged.neoform.runtime.cli.LockManager;
-import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -84,7 +84,14 @@ public class ArtifactManager {
     }
 
     public Artifact get(String location) throws IOException {
-        return get(MavenCoordinate.parse(location));
+        MavenCoordinate coordinate;
+        try {
+            coordinate = MavenCoordinate.parse(location);
+        } catch (IllegalArgumentException ignored) {
+            return getArtifactFromPath(location);
+        }
+
+        return get(coordinate);
     }
 
     public Artifact get(MavenCoordinate mavenCoordinate) throws IOException {
@@ -185,22 +192,25 @@ public class ArtifactManager {
         for (var artifactId : properties.stringPropertyNames()) {
             var value = properties.getProperty(artifactId);
             try {
-                var path = Paths.get(value);
-                if (!Files.isRegularFile(path)) {
-                    throw new NoSuchFileException(value);
-                }
-                var attrView = Files.getFileAttributeView(artifactManifestPath, BasicFileAttributeView.class).readAttributes();
-                externallyProvided.put(MavenCoordinate.parse(artifactId), new Artifact(
-                        path,
-                        attrView.lastModifiedTime().toMillis(),
-                        attrView.size()
-                ));
+                externallyProvided.put(MavenCoordinate.parse(artifactId), getArtifactFromPath(value));
             } catch (Exception e) {
                 System.err.println("Failed to pre-load artifact '" + artifactId + "' from path '" + value + "': " + e);
                 System.exit(1);
             }
         }
         LOG.println("Loaded " + properties.size() + " artifacts from " + artifactManifestPath);
+    }
+
+    private Artifact getArtifactFromPath(String path) throws IOException {
+        return getArtifactFromPath(Paths.get(path));
+    }
+
+    private Artifact getArtifactFromPath(Path path) throws IOException {
+        if (!Files.isRegularFile(path)) {
+            throw new NoSuchFileException(path.toString());
+        }
+        var attrView = Files.getFileAttributeView(path, BasicFileAttributeView.class).readAttributes();
+        return new Artifact(path, attrView.lastModifiedTime().toMillis(), attrView.size());
     }
 
     public DownloadManager getDownloadManager() {
