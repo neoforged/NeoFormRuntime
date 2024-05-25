@@ -44,6 +44,9 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--asset-repository")
     public URI assetRepository = URI.create("https://resources.download.minecraft.net/");
 
+    @CommandLine.Option(names = "--concurrent-downloads")
+    public int concurrentDownloads = 25;
+
     /**
      * Properties file that will receive the metadata of the asset index.
      */
@@ -118,8 +121,11 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
                 .filter(obj -> Files.notExists(objectsFolder.resolve(getObjectPath(obj))))
                 .toList();
 
-        // At most 50 concurrent downloads
-        var semaphore = new Semaphore(50);
+        if (concurrentDownloads < 1) {
+            throw new IllegalStateException("Cannot set concurrent downloads to less than 1: " + concurrentDownloads);
+        }
+
+        var semaphore = new Semaphore(concurrentDownloads);
         try (var executor = Executors.newThreadPerTaskExecutor(DOWNLOAD_THREAD_FACTORY)) {
             for (var object : objectsToDownload) {
                 var spec = new AssetDownloadSpec(object);

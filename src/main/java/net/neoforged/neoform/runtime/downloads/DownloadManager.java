@@ -13,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -85,18 +86,31 @@ public class DownloadManager implements AutoCloseable {
                         .header("User-Agent", USER_AGENT)
                         .build();
 
-                HttpResponse<Path> response;
-                try {
-                    response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(partialFile));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("Download interrupted", e);
-                }
+                while (true) {
+                    HttpResponse<Path> response;
+                    try {
+                        response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(partialFile));
+                    } catch (IOException e) {
+                        // We do not have an API to get this information
+                        if ("too many concurrent streams".equals(e.getMessage())) {
+                            waitForRetry(1);
+                            continue;
+                        }
+                        throw e;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Download interrupted", e);
+                    }
 
-                if (response.statusCode() == 404) {
-                    throw new FileNotFoundException(url.toString());
-                } else if (response.statusCode() != 200) {
-                    throw new IOException("Failed to download " + url + ": " + response.statusCode());
+                    if (response.statusCode() == 200) {
+                        break;
+                    } else if (response.statusCode() == 404) {
+                        throw new FileNotFoundException(url.toString());
+                    } else if (canRetryStatusCode(response.statusCode())) {
+                        waitForRetry(response);
+                    } else {
+                        throw new IOException("Failed to download " + url + ": " + response.statusCode());
+                    }
                 }
 
                 // Validate file
@@ -124,5 +138,34 @@ public class DownloadManager implements AutoCloseable {
             }
         }
         return true;
+    }
+
+    private static void waitForRetry(HttpResponse<?> response) throws IOException {
+        // We only support the version of this that specifies the delay in seconds
+        var retryAfter = response.headers().firstValueAsLong("Retry-After").orElse(5);
+        // Clamp some unreasonable delays to 5 minutes
+        waitForRetry(Math.clamp(retryAfter, 0, 300));
+    }
+
+    private static void waitForRetry(int seconds) throws IOException {
+        var waitUntil = Instant.now().plusSeconds(seconds);
+
+        while (Instant.now().isBefore(waitUntil)) {
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for retry.", e);
+            }
+        }
+    }
+
+    private static boolean canRetryStatusCode(int statusCode) {
+        return statusCode == 408 // Request timeout
+               || statusCode == 425 // Too early
+               || statusCode == 429 // Rate-limit exceeded
+               || statusCode == 502
+               || statusCode == 503
+               || statusCode == 504;
     }
 }
