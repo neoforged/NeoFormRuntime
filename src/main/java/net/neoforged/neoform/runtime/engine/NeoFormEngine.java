@@ -29,7 +29,6 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import net.neoforged.neoform.runtime.cli.LockManager;
@@ -59,7 +58,7 @@ import java.util.regex.Matcher;
 import java.util.zip.ZipFile;
 
 public class NeoFormEngine implements AutoCloseable {
-    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    private static final Logger LOG = Logger.create();
 
     private final ArtifactManager artifactManager;
     private final FileHashService fileHashService;
@@ -373,7 +372,7 @@ public class NeoFormEngine implements AutoCloseable {
         var cacheKey = ck.build();
         if (verbose) {
             LOG.println(" Cache Key: " + cacheKey);
-            LOG.println(AnsiColor.BLACK_BRIGHT + StringUtil.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
+            LOG.println(AnsiColor.MUTED + StringUtil.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
         }
 
         try (var lock = lockManager.lock(cacheKey.toString())) {

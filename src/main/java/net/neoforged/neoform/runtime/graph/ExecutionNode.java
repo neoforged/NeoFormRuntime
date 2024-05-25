@@ -2,7 +2,6 @@ package net.neoforged.neoform.runtime.graph;
 
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -13,7 +12,7 @@ import java.util.Objects;
 import java.util.Set;
 
 public final class ExecutionNode {
-    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    private static final Logger LOG = Logger.create();
 
     private final String id;
     private final Map<String, NodeInput> inputs;
@@ -55,8 +54,8 @@ public final class ExecutionNode {
         }
         started = System.currentTimeMillis();
         state = NodeState.STARTED;
-        var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
-        LOG.println(AnsiColor.BLACK_BOLD + "*** Started working on " + underlinedId + AnsiColor.RESET);
+        var underlinedId = AnsiColor.UNDERLINE + id() + AnsiColor.RESET;
+        LOG.println(AnsiColor.BOLD + "*** Started working on " + underlinedId + AnsiColor.RESET);
     }
 
     public void fail() {
@@ -89,11 +88,11 @@ public final class ExecutionNode {
         state = NodeState.COMPLETED;
         elapsedMs = System.currentTimeMillis() - started;
         var elapsedStr = String.format(Locale.ROOT, "%.02f", elapsedMs / 1000.0) + "s";
-        var underlinedId = AnsiColor.BLACK_UNDERLINED + id() + AnsiColor.RESET;
+        var underlinedId = AnsiColor.UNDERLINE + id() + AnsiColor.RESET;
         if (fromCache) {
-            LOG.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "♻" + AnsiColor.RESET + " Used cache of " + underlinedId + " in " + elapsedStr);
+            LOG.println(" " + AnsiColor.BOLD + AnsiColor.BRIGHT_GREEN + "♻" + AnsiColor.RESET + " Used cache of " + underlinedId + " in " + elapsedStr);
         } else {
-            LOG.println(" " + AnsiColor.GREEN_BOLD_BRIGHT + "✓" + AnsiColor.RESET + " Completed " + underlinedId + " in " + elapsedStr);
+            LOG.println(" " + AnsiColor.BOLD + AnsiColor.BRIGHT_GREEN + "✓" + AnsiColor.RESET + " Completed " + underlinedId + " in " + elapsedStr);
         }
     }
 

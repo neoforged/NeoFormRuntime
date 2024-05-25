@@ -1,17 +1,10 @@
 package net.neoforged.neoform.runtime.utils;
 
-import javax.swing.plaf.SpinnerUI;
-
 public final class Logger {
-    private final LoggerCategory category;
     private static IndeterminateSpinner spinner;
 
-    public Logger(LoggerCategory category) {
-        this.category = category;
-    }
-
-    public static Logger create(LoggerCategory category) {
-        return new Logger(category);
+    public static Logger create() {
+        return new Logger();
     }
 
     public void println(String text) {
@@ -35,22 +28,30 @@ public final class Logger {
         return spinner = new IndeterminateSpinner();
     }
 
+    /**
+     * Shows a very basic animation when the user has to wait for an operation of indeterminate length.
+     */
     public static class IndeterminateSpinner {
-        String[] spinners = {"   ", ".  ", ".. ", "..."};
+        String[] spinners = {"", ".", "..", "..."};
+        String lastTextPrinted = "";
         int spinnerIndex = 0;
 
         public IndeterminateSpinner() {
-            System.out.println(spinners[spinnerIndex]);
+            tick();
         }
 
         public void tick() {
-            System.out.print("\b\b\b"); // clear the last spinner
-            System.out.print(spinners[++spinnerIndex % spinners.length]);
+            if (!lastTextPrinted.isEmpty()) {
+                System.out.print("\b".repeat(lastTextPrinted.length())); // clear the last spinner
+            }
+            lastTextPrinted = spinners[++spinnerIndex % spinners.length];
+            System.out.print(lastTextPrinted);
         }
 
         public void end() {
             if (spinner == this) {
-                System.out.print("\b\b\b"); // clear the last spinner
+                System.out.print("\b".repeat(lastTextPrinted.length())); // clear the last spinner
+                lastTextPrinted = "";
                 spinner = null;
             }
         }

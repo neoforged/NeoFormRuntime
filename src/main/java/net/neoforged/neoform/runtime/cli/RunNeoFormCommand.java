@@ -14,7 +14,6 @@ import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
-import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import picocli.CommandLine;
 
@@ -33,7 +32,7 @@ import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "run", description = "Run the NeoForm engine and produce Minecraft artifacts")
 public class RunNeoFormCommand extends NeoFormEngineCommand {
-    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+    private static final Logger LOG = Logger.create();
 
     @CommandLine.ParentCommand
     Main commonOptions;
