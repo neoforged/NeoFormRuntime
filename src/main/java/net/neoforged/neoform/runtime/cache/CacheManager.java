@@ -4,7 +4,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
-import net.neoforged.neoform.runtime.utils.StringUtils;
+import net.neoforged.neoform.runtime.utils.StringUtil;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -96,7 +96,7 @@ public class CacheManager implements AutoCloseable {
                 if (age.compareTo(interval) < 0) {
                     if (verbose) {
                         System.out.println("Not performing routine maintenance since the last maintenance was "
-                                           + AnsiColor.BLACK_BOLD + StringUtils.formatDuration(age) + " ago" + AnsiColor.BLACK_BOLD);
+                                           + AnsiColor.BLACK_BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.BLACK_BOLD);
                     }
                     return;
                 }
@@ -129,7 +129,7 @@ public class CacheManager implements AutoCloseable {
     public void cleanUpIntermediateResults() throws IOException {
         System.out.println("Cleaning intermediate results cache in " + intermediateResultsDir);
         System.out.println(" Maximum age: " + maxAgeInHours + "h");
-        System.out.println(" Maximum cache size: " + StringUtils.formatBytes(maxSize));
+        System.out.println(" Maximum cache size: " + StringUtil.formatBytes(maxSize));
 
         record CacheEntry(Path file, String filename, String cacheKey, long lastModified, long size) {
         }
@@ -166,7 +166,7 @@ public class CacheManager implements AutoCloseable {
         var totalSize = entries.stream().mapToLong(CacheEntry::size).sum();
 
         System.out.println(" " + AnsiColor.BLACK_BRIGHT + entries.size() + " files found" + AnsiColor.RESET);
-        System.out.println(" " + AnsiColor.BLACK_BRIGHT + StringUtils.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
+        System.out.println(" " + AnsiColor.BLACK_BRIGHT + StringUtil.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
         System.out.println(" " + AnsiColor.BLACK_BRIGHT + expiredEntryPrefixes.size() + " expired keys found" + AnsiColor.RESET);
 
         // Nothing to expire
@@ -193,7 +193,7 @@ public class CacheManager implements AutoCloseable {
                 }
             }
 
-            System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtils.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
+            System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
             totalSize -= freedSpace;
         }
 
@@ -229,7 +229,7 @@ public class CacheManager implements AutoCloseable {
             }
         }
 
-        System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtils.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " entries" + AnsiColor.RESET);
+        System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " entries" + AnsiColor.RESET);
     }
 
     public boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {

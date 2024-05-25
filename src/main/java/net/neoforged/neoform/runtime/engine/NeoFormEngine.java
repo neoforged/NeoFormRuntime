@@ -29,7 +29,7 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
-import net.neoforged.neoform.runtime.utils.StringUtils;
+import net.neoforged.neoform.runtime.utils.StringUtil;
 import net.neoforged.neoform.runtime.cli.LockManager;
 
 import java.io.IOException;
@@ -369,7 +369,7 @@ public class NeoFormEngine implements AutoCloseable {
         var cacheKey = ck.build();
         if (verbose) {
             System.out.println(" Cache Key: " + cacheKey);
-            System.out.println(AnsiColor.BLACK_BRIGHT + StringUtils.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
+            System.out.println(AnsiColor.BLACK_BRIGHT + StringUtil.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
         }
 
         try (var lock = lockManager.lock(cacheKey.toString())) {

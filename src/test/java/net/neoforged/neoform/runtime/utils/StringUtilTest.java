@@ -5,7 +5,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class StringUtilsTest {
+class StringUtilTest {
     @ParameterizedTest
     @CsvSource(textBlock = """
             0,0 B
@@ -23,6 +23,6 @@ class StringUtilsTest {
             1073741824,1 GiB
             """)
     void testFormatSize(long size, String expected) {
-        assertEquals(expected, StringUtils.formatBytes(size));
+        assertEquals(expected, StringUtil.formatBytes(size));
     }
 }

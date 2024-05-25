@@ -8,8 +8,8 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-public final class StringUtils {
-    private StringUtils() {
+public final class StringUtil {
+    private StringUtil() {
     }
 
     public static String capitalize(String text) {

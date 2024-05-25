@@ -1,6 +1,6 @@
 package net.neoforged.neoform.runtime.graph;
 
-import net.neoforged.neoform.runtime.utils.StringUtils;
+import net.neoforged.neoform.runtime.utils.StringUtil;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintWriter;
@@ -67,7 +67,7 @@ public class ExecutionGraph {
     }
 
     private static String getGlobalNodeOutputId(ExecutionNode node, String outputId) {
-        return node.id() + StringUtils.capitalize(outputId);
+        return node.id() + StringUtil.capitalize(outputId);
     }
 
     @Nullable
