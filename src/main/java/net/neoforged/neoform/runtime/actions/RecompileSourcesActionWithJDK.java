@@ -55,8 +55,12 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
             var diagnostics = new DiagnosticListener<JavaFileObject>() {
                 @Override
                 public void report(Diagnostic<? extends JavaFileObject> d) {
+                    if (!environment.isVerbose() && d.getKind() != Diagnostic.Kind.ERROR) {
+                        return; // Ignore anything but errors unless we're in verbose mode
+                    }
+
                     var location = d.getSource() != null ? d.getSource().getName() : "<unknown>";
-                    LOG.println("Line: " + d.getLineNumber() + ", " + d.getMessage(null) + " in " + location + "\n");
+                    LOG.println(" " + d.getKind() + " Line: " + d.getLineNumber() + ", " + d.getMessage(null) + " in " + location);
                 }
             };
 
