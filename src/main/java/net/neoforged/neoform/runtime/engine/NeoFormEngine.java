@@ -7,6 +7,7 @@ import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
+import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
@@ -24,6 +25,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeExecutionException;
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
@@ -121,6 +123,28 @@ public class NeoFormEngine implements AutoCloseable {
 
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
+        var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
+
+        var compiledWithSourcesOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
+
+        // Register the sources and the compiled binary as results
+        graph.setResult("sources", sourcesOutput);
+        graph.setResult("compiled", compiledOutput);
+        graph.setResult("compiledWithSources", compiledWithSourcesOutput);
+
+        // The split-off resources must also be made available. The steps are not consistently named across dists
+        if (graph.hasOutput("stripClient", "resourcesOutput")) {
+            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+        }
+        if (graph.hasOutput("stripServer", "resourcesOutput")) {
+            graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
+        }
+        if (graph.hasOutput("strip", "resourcesOutput")) {
+            graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
+        }
+    }
+
+    private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
         // Add a recompile step
         var builder = graph.nodeBuilder("recompile");
         builder.input("sources", sourcesOutput.asInput());
@@ -138,21 +162,18 @@ public class NeoFormEngine implements AutoCloseable {
         compileAction.getClasspath().addMavenLibraries(distConfig.libraries());
         builder.action(compileAction);
         builder.build();
+        return compiledOutput;
+    }
 
-        // Register the sources and the compiled binary as results
-        graph.setResult("sources", sourcesOutput);
-        graph.setResult("compiled", compiledOutput);
+    private NodeOutput addMergeWithSourcesStep(NodeOutput compiledOutput, NodeOutput sourcesOutput) {
+        var builder = graph.nodeBuilder("mergeWithSources");
+        builder.input("classes", compiledOutput.asInput());
+        builder.input("sources", sourcesOutput.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources including sources");
+        builder.action(new MergeWithSourcesAction());
+        builder.build();
 
-        // The split-off resources must also be made available. The steps are not consistently named across dists
-        if (graph.hasOutput("stripClient", "resourcesOutput")) {
-            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
-        }
-        if (graph.hasOutput("stripServer", "resourcesOutput")) {
-            graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
-        }
-        if (graph.hasOutput("strip", "resourcesOutput")) {
-            graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
-        }
+        return output;
     }
 
     private void addNodeForStep(ExecutionGraph graph, NeoFormDistConfig config, NeoFormStep step) {
