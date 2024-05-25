@@ -50,14 +50,13 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                 });
             }
 
-            System.out.println("Compiling " + sourcePaths.size() + " source files");
+            LOG.println("Compiling " + sourcePaths.size() + " source files");
 
             var diagnostics = new DiagnosticListener<JavaFileObject>() {
                 @Override
                 public void report(Diagnostic<? extends JavaFileObject> d) {
-                    System.out.format("Line: %d, %s in %s\n",
-                            d.getLineNumber(), d.getMessage(null),
-                            d.getSource() != null ? d.getSource().getName() : "<unknown>");
+                    var location = d.getSource() != null ? d.getSource().getName() : "<unknown>";
+                    LOG.println("Line: " + d.getLineNumber() + ", " + d.getMessage(null) + " in " + location + "\n");
                 }
             };
 
@@ -83,7 +82,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                     Files.createDirectories(destination.getParent());
                     Files.copy(nonSourcePath, destination);
                 }
-                System.out.println("Copied " + nonSourcePaths.size() + " resource files");
+                LOG.println("Copied " + nonSourcePaths.size() + " resource files");
             }
         }
     }

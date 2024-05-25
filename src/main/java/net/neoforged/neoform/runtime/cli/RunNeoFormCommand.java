@@ -13,11 +13,14 @@ import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
@@ -30,6 +33,8 @@ import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "run", description = "Run the NeoForm engine and produce Minecraft artifacts")
 public class RunNeoFormCommand extends NeoFormEngineCommand {
+    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+
     @CommandLine.ParentCommand
     Main commonOptions;
 
@@ -64,7 +69,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 MavenCoordinate neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
                 // Allow it to be overridden
                 if (sourceArtifacts.neoform != null) {
-                    System.out.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
+                    LOG.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
                     neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
                 }
 
@@ -133,7 +138,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
         if (printGraph) {
-            engine.dumpGraph(new PrintWriter(System.out));
+            var stringWriter = new StringWriter();
+            engine.dumpGraph(new PrintWriter(stringWriter));
+            LOG.println(stringWriter.toString());
         }
 
         var neededResults = writeResults.stream().map(encodedResult -> {

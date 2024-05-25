@@ -5,6 +5,8 @@ import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,6 +23,8 @@ import java.util.Objects;
  * Runs an external standalone Java-based tool from a standalone executable jar-file.
  */
 public class ExternalJavaToolAction implements ExecutionNodeAction {
+    private static final Logger LOG = Logger.create(LoggerCategory.EXECUTION);
+
     /**
      * The Maven coordinate of the tool
      */
@@ -74,9 +78,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             command.add(environment.interpolateString(arg));
         }
 
-        System.out.println(" ↳ Running external tool " + toolArtifactId);
+        LOG.println(" ↳ Running external tool " + toolArtifactId);
         if (environment.isVerbose()) {
-            System.out.println(" " + AnsiColor.BLACK_BRIGHT + String.join(" ", command) + AnsiColor.RESET);
+            LOG.println(" " + AnsiColor.BLACK_BRIGHT + String.join(" ", command) + AnsiColor.RESET);
         }
 
         var logFile = workingDir.resolve("console_output.txt").toFile();

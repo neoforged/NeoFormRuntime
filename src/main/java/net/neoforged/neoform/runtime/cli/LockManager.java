@@ -2,6 +2,8 @@ package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -10,8 +12,11 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.locks.Lock;
 
 public class LockManager implements AutoCloseable {
+    private static final Logger LOG = Logger.create(LoggerCategory.LOCKS);
+
     private final Path lockDirectory;
     private boolean verbose;
 
@@ -34,9 +39,7 @@ public class LockManager implements AutoCloseable {
             throw new RuntimeException("Failed to obtain lock for " + key, e);
         }
 
-        boolean hadToWait = false;
-        String[] spinners = {"   ", ".  ", ".. ", "..."};
-        int spinnerIndex = 0;
+        Logger.IndeterminateSpinner spinner = null;
         FileLock fileLock;
         while (true) {
             try {
@@ -54,28 +57,28 @@ public class LockManager implements AutoCloseable {
                 throw new RuntimeException(e);
             }
 
-            if (!hadToWait) {
-                System.out.print("Waiting for lock on " + key + spinners[spinnerIndex]);
-                hadToWait = true;
+            if (spinner == null) {
+                spinner = LOG.spinner("Waiting for lock on " + key);
             } else {
-                System.out.print("\b\b\b"); // clear the last spinner
-                System.out.print(spinners[++spinnerIndex % spinners.length]);
+                spinner.tick();
             }
 
             try {
                 Thread.sleep(1000L);
             } catch (InterruptedException e) {
-                System.out.println();
+                if (spinner != null) {
+                    spinner.end();
+                }
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
         }
-        if (hadToWait) {
-            System.out.println(); // Remember to end the line
+        if (spinner != null) {
+            spinner.end();
         }
 
         if (verbose) {
-            System.out.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
+            LOG.println(AnsiColor.BLACK_BRIGHT + " Acquired lock for " + key + AnsiColor.RESET);
         }
         return new Lock(fileLock);
     }

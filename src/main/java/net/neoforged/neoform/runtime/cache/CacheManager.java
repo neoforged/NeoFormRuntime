@@ -4,6 +4,8 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
+import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.LoggerCategory;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 
 import java.io.IOException;
@@ -48,6 +50,8 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class CacheManager implements AutoCloseable {
+    private static final Logger LOG = Logger.create(LoggerCategory.CACHE);
+
     private static final DateTimeFormatter WORKSPACE_NAME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     private final Path homeDir;
@@ -95,13 +99,13 @@ public class CacheManager implements AutoCloseable {
                 var interval = Duration.ofHours(24);
                 if (age.compareTo(interval) < 0) {
                     if (verbose) {
-                        System.out.println("Not performing routine maintenance since the last maintenance was "
+                        LOG.println("Not performing routine maintenance since the last maintenance was "
                                            + AnsiColor.BLACK_BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.BLACK_BOLD);
                     }
                     return;
                 }
 
-                System.out.println("Performing periodic cache maintenance on " + homeDir);
+                LOG.println("Performing periodic cache maintenance on " + homeDir);
 
                 cleanUpIntermediateResults();
 
@@ -110,7 +114,7 @@ public class CacheManager implements AutoCloseable {
                 return;
             }
 
-            System.out.println("Cache maintenance is already performed by another process.");
+            LOG.println("Cache maintenance is already performed by another process.");
         }
     }
 
@@ -127,9 +131,9 @@ public class CacheManager implements AutoCloseable {
      * </ul>
      */
     public void cleanUpIntermediateResults() throws IOException {
-        System.out.println("Cleaning intermediate results cache in " + intermediateResultsDir);
-        System.out.println(" Maximum age: " + maxAgeInHours + "h");
-        System.out.println(" Maximum cache size: " + StringUtil.formatBytes(maxSize));
+        LOG.println("Cleaning intermediate results cache in " + intermediateResultsDir);
+        LOG.println(" Maximum age: " + maxAgeInHours + "h");
+        LOG.println(" Maximum cache size: " + StringUtil.formatBytes(maxSize));
 
         record CacheEntry(Path file, String filename, String cacheKey, long lastModified, long size) {
         }
@@ -156,7 +160,7 @@ public class CacheManager implements AutoCloseable {
                             }
                         }
                     } else {
-                        System.out.println("  Unrecognized file in cache: " + file);
+                        LOG.println("  Unrecognized file in cache: " + file);
                     }
                 }
                 return FileVisitResult.CONTINUE;
@@ -165,9 +169,9 @@ public class CacheManager implements AutoCloseable {
 
         var totalSize = entries.stream().mapToLong(CacheEntry::size).sum();
 
-        System.out.println(" " + AnsiColor.BLACK_BRIGHT + entries.size() + " files found" + AnsiColor.RESET);
-        System.out.println(" " + AnsiColor.BLACK_BRIGHT + StringUtil.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
-        System.out.println(" " + AnsiColor.BLACK_BRIGHT + expiredEntryPrefixes.size() + " expired keys found" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.BLACK_BRIGHT + entries.size() + " files found" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.BLACK_BRIGHT + StringUtil.formatBytes(totalSize) + " overall size" + AnsiColor.RESET);
+        LOG.println(" " + AnsiColor.BLACK_BRIGHT + expiredEntryPrefixes.size() + " expired keys found" + AnsiColor.RESET);
 
         // Nothing to expire
         if (!expiredEntryPrefixes.isEmpty()) {
@@ -179,7 +183,7 @@ public class CacheManager implements AutoCloseable {
                 var item = it.next();
                 if (expiredEntryPrefixes.contains(item.cacheKey)) {
                     if (verbose) {
-                        System.out.println(" Deleting " + item.filename);
+                        LOG.println(" Deleting " + item.filename);
                     }
                     try {
                         Files.delete(item.file);
@@ -193,7 +197,7 @@ public class CacheManager implements AutoCloseable {
                 }
             }
 
-            System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
+            LOG.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " expired entries" + AnsiColor.RESET);
             totalSize -= freedSpace;
         }
 
@@ -201,7 +205,7 @@ public class CacheManager implements AutoCloseable {
             return;
         }
 
-        System.out.println("Cache size exceeds target size. Deleting oldest entries first.");
+        LOG.println("Cache size exceeds target size. Deleting oldest entries first.");
 
         // If the total size still exceeds the target, group remaining cache entries by key and find the biggest impact
         var groupedEntries = new ArrayList<>(entries.stream().collect(Collectors.groupingBy(CacheEntry::cacheKey)).values());
@@ -215,7 +219,7 @@ public class CacheManager implements AutoCloseable {
 
             for (var item : group) {
                 if (verbose) {
-                    System.out.println(" Deleting " + item.filename);
+                    LOG.println(" Deleting " + item.filename);
                 }
                 try {
                     Files.delete(item.file);
@@ -229,7 +233,7 @@ public class CacheManager implements AutoCloseable {
             }
         }
 
-        System.out.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " entries" + AnsiColor.RESET);
+        LOG.println("Freed up " + AnsiColor.BLACK_BOLD + StringUtil.formatBytes(freedSpace) + AnsiColor.RESET + " by deleting " + AnsiColor.BLACK_BOLD + deletedEntries + " entries" + AnsiColor.RESET);
     }
 
     public boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {
@@ -297,7 +301,7 @@ public class CacheManager implements AutoCloseable {
     private void analyzeCacheMiss(CacheKey cacheKey) {
         var intermediateCacheDir = getIntermediateResultsDir();
         var cacheEntries = new ArrayList<>(getCacheEntries(intermediateCacheDir, cacheKey.type()));
-        System.out.println("  " + cacheEntries.size() + " existing cache entries for " + cacheKey.type());
+        LOG.println("  " + cacheEntries.size() + " existing cache entries for " + cacheKey.type());
 
         // Calculate distances
         var deltasByCacheEntry = new IdentityHashMap<CacheEntry, List<CacheKey.Delta>>(cacheEntries.size());
@@ -309,15 +313,15 @@ public class CacheManager implements AutoCloseable {
 
         for (var cacheEntry : cacheEntries) {
             var diffCount = deltasByCacheEntry.get(cacheEntry).size();
-            System.out.println("    " + cacheEntry.filename + " " + cacheEntry.lastModified + " " + diffCount + " deltas");
+            LOG.println("    " + cacheEntry.filename + " " + cacheEntry.lastModified + " " + diffCount + " deltas");
         }
 
         if (!cacheEntries.isEmpty()) {
-            System.out.println("  Detailed delta for cache entry with best match:");
+            LOG.println("  Detailed delta for cache entry with best match:");
             for (var delta : deltasByCacheEntry.get(cacheEntries.getFirst())) {
-                System.out.println("    " + AnsiColor.BLACK_UNDERLINED + delta.key() + AnsiColor.RESET);
-                System.out.println(AnsiColor.BLACK_BRIGHT + "      New: " + AnsiColor.RESET + print(delta.ours()));
-                System.out.println(AnsiColor.BLACK_BRIGHT + "      Old: " + AnsiColor.RESET + print(delta.theirs()));
+                LOG.println("    " + AnsiColor.BLACK_UNDERLINED + delta.key() + AnsiColor.RESET);
+                LOG.println(AnsiColor.BLACK_BRIGHT + "      New: " + AnsiColor.RESET + print(delta.ours()));
+                LOG.println(AnsiColor.BLACK_BRIGHT + "      Old: " + AnsiColor.RESET + print(delta.theirs()));
             }
         }
     }
