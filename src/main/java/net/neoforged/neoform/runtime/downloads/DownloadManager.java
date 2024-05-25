@@ -86,11 +86,16 @@ public class DownloadManager implements AutoCloseable {
                         .header("User-Agent", USER_AGENT)
                         .build();
 
-                while (true) {
+                var attempts = 0;
+                IOException lastError = null;
+                while (attempts++ < 5) {
                     HttpResponse<Path> response;
                     try {
                         response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(partialFile));
+                        lastError = null;
                     } catch (IOException e) {
+                        lastError = e;
+
                         if ("too many concurrent streams".equals(e.getMessage())) {
                             // We do not have an API to get this limit from the connection and just retry :(
                             waitForRetry(1);
@@ -109,11 +114,18 @@ public class DownloadManager implements AutoCloseable {
                         break;
                     } else if (response.statusCode() == 404) {
                         throw new FileNotFoundException(url.toString());
-                    } else if (canRetryStatusCode(response.statusCode())) {
-                        waitForRetry(response);
                     } else {
-                        throw new IOException("Failed to download " + url + ": " + response.statusCode());
+                        lastError = new IOException("Failed to download " + url + ": " + response.statusCode());
+                        if (canRetryStatusCode(response.statusCode())) {
+                            waitForRetry(response);
+                            continue;
+                        }
+                        break;
                     }
+                }
+
+                if (lastError != null) {
+                    throw lastError;
                 }
 
                 // Validate file
