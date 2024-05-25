@@ -91,9 +91,12 @@ public class DownloadManager implements AutoCloseable {
                     try {
                         response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(partialFile));
                     } catch (IOException e) {
-                        // We do not have an API to get this information
                         if ("too many concurrent streams".equals(e.getMessage())) {
+                            // We do not have an API to get this limit from the connection and just retry :(
                             waitForRetry(1);
+                            continue;
+                        } else if (e.getMessage() != null && e.getMessage().endsWith(" GOAWAY received")) {
+                            // Retry this immediately, since it usually indicates we've reached max requests per connection
                             continue;
                         }
                         throw e;
