@@ -49,6 +49,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--access-transformer", arity = "*")
     List<String> additionalAccessTransformers = new ArrayList<>();
 
+    @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
+    String parchmentData;
+
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
         String neoform;
@@ -60,79 +63,72 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
 
-        List<GraphTransform> transforms = new ArrayList<>();
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
-            try (var neoforgeZipFile = new JarFile(neoforgeArtifact.path().toFile())) {
-                var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
-                MavenCoordinate neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
-                // Allow it to be overridden
-                if (sourceArtifacts.neoform != null) {
-                    LOG.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
-                    neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
-                }
-
-                engine.loadNeoFormData(neoformArtifact, dist);
-
-                // Add NeoForge specific data sources
-                engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
-
-                // Build the graph transformations needed to apply NeoForge to the NeoForm execution
-
-                // Add NeoForge libraries to the list of libraries
-                transforms.add(new ModifyAction<>(
-                        "recompile",
-                        RecompileSourcesAction.class,
-                        action -> {
-                            action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
-                        }
-                ));
-
-                // Also inject NeoForge sources, which we can get from the sources file
-                var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
-                var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
-                closables.add(neoforgeSourcesZip);
-
-                transforms.add(new ReplaceNodeOutput(
-                        "patch",
-                        "output",
-                        "transformSources",
-                        (builder, previousNodeOutput) -> {
-                            builder.input("input", previousNodeOutput.asInput());
-                            builder.inputFromNodeOutput("libraries", "listLibraries", "output");
-                            var action = new ApplySourceAccessTransformersAction("neoForgeAccessTransformers");
-                            action.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
-                            builder.action(action);
-                            return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
-                        }
-                ));
-
-                transforms.add(new ModifyAction<>(
-                        "inject",
-                        InjectZipContentAction.class,
-                        action -> {
-                            action.getInjectedSources().add(
-                                    new InjectFromZipFileSource(neoforgeSourcesZip, "/")
-                            );
-                        }
-                ));
-
-                // Append a patch step to the NeoForge patches
-                transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
-                        (builder, previousOutput) -> {
-                            return PatchActionFactory.makeAction(builder, neoforgeArtifact.path(), neoforgeConfig.patchesFolder(), previousOutput);
-                        }
-                ));
-
-                engine.applyTransforms(transforms);
-
-                execute(engine);
+            var neoforgeZipFile = engine.addManagedResource(new JarFile(neoforgeArtifact.path().toFile()));
+            var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
+            var neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
+            // Allow it to be overridden
+            if (sourceArtifacts.neoform != null) {
+                LOG.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
+                neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
             }
+
+            engine.loadNeoFormData(neoformArtifact, dist);
+
+            // Add NeoForge specific data sources
+            engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
+
+            // Build the graph transformations needed to apply NeoForge to the NeoForm execution
+            List<GraphTransform> transforms = new ArrayList<>();
+
+            // Add NeoForge libraries to the list of libraries
+            transforms.add(new ModifyAction<>(
+                    "recompile",
+                    RecompileSourcesAction.class,
+                    action -> {
+                        action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
+                    }
+            ));
+
+            // Also inject NeoForge sources, which we can get from the sources file
+            var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
+            var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
+            closables.add(neoforgeSourcesZip);
+
+            var transformSources = getOrAddTransformSourcesNode(engine);
+            transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
+            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+
+            transforms.add(new ModifyAction<>(
+                    "inject",
+                    InjectZipContentAction.class,
+                    action -> {
+                        action.getInjectedSources().add(
+                                new InjectFromZipFileSource(neoforgeSourcesZip, "/")
+                        );
+                    }
+            ));
+
+            // Append a patch step to the NeoForge patches
+            transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+                    (builder, previousOutput) -> {
+                        return PatchActionFactory.makeAction(builder, neoforgeArtifact.path(), neoforgeConfig.patchesFolder(), previousOutput);
+                    }
+            ));
+
+            engine.applyTransforms(transforms);
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
-
-            execute(engine);
         }
+
+        if (parchmentData != null) {
+            var transformSources = getOrAddTransformSourcesNode(engine);
+            var parchmentDataFile = artifactManager.get(parchmentData);
+            transformSources.setParchmentData(parchmentDataFile.path());
+        }
+
+        execute(engine);
     }
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
@@ -179,5 +175,32 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             FileUtil.atomicMove(tmpFile, entry.getValue());
         }
     }
-}
 
+    private static ApplySourceAccessTransformersAction getOrAddTransformSourcesNode(NeoFormEngine engine) {
+        var graph = engine.getGraph();
+        var transformNode = graph.getNode("transformSources");
+        if (transformNode != null) {
+            if (transformNode.action() instanceof ApplySourceAccessTransformersAction action) {
+                return action;
+            } else {
+                throw new IllegalStateException("Node transformSources has a different action type than expected. Expected: "
+                                                + ApplySourceAccessTransformersAction.class + " but got " + transformNode.action().getClass());
+            }
+        }
+
+        new ReplaceNodeOutput(
+                "patch",
+                "output",
+                "transformSources",
+                (builder, previousNodeOutput) -> {
+                    builder.input("input", previousNodeOutput.asInput());
+                    builder.inputFromNodeOutput("libraries", "listLibraries", "output");
+                    var action = new ApplySourceAccessTransformersAction();
+                    builder.action(action);
+                    return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
+                }
+        ).apply(engine, graph);
+
+        return getOrAddTransformSourcesNode(engine);
+    }
+}

@@ -89,9 +89,12 @@ public class InjectFromZipFileSource implements InjectSource {
                 try (var in = zf.getInputStream(entry)) {
                     // Relocate the entry
                     var copiedEntry = new ZipEntry(entry.getName().substring(sourcePath.length()));
+                    if (copiedEntry.getName().isEmpty()) {
+                        continue;
+                    }
                     copiedEntry.setMethod(entry.getMethod());
 
-                    out.putNextEntry(entry);
+                    out.putNextEntry(copiedEntry);
                     in.transferTo(out);
                     out.closeEntry();
                 } catch (ZipException e) {

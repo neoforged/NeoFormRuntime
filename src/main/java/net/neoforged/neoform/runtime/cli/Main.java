@@ -6,6 +6,7 @@ import picocli.CommandLine;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -20,8 +21,11 @@ public class Main {
     @Option(names = "--work-dir", scope = CommandLine.ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
     Path workDir;
 
-    @Option(names = "--repository", arity = "*", scope = CommandLine.ScopeType.INHERIT, description = "Add a Maven repository for downloading artifacts.")
+    @Option(names = "--repository", arity = "*", scope = CommandLine.ScopeType.INHERIT, description = "Overriddes Maven repositories used for downloading artifacts.")
     List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());
+
+    @Option(names = "--add-repository", arity = "*", scope = CommandLine.ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
+    List<URI> additionalRepositories = new ArrayList<>();
 
     @Option(names = "--artifact-manifest", scope = CommandLine.ScopeType.INHERIT)
     Path artifactManifest;
@@ -55,5 +59,11 @@ public class Main {
         var commandLine = new CommandLine(new Main());
         int exitCode = commandLine.execute(args);
         System.exit(exitCode);
+    }
+
+    public List<URI> getEffectiveRepositories() {
+        var result = new ArrayList<>(repositories);
+        result.addAll(additionalRepositories);
+        return result;
     }
 }

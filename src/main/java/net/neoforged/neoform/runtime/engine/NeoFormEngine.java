@@ -17,6 +17,7 @@ import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.FileHashService;
+import net.neoforged.neoform.runtime.cli.LockManager;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormFunction;
@@ -33,7 +34,6 @@ import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.StringUtil;
-import net.neoforged.neoform.runtime.cli.LockManager;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -76,7 +76,12 @@ public class NeoFormEngine implements AutoCloseable {
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
      * from external sources. This map maintains the id -> location mapping to find this data.
      */
-    private Map<String, DataSource> dataSources = new HashMap<>();
+    private final Map<String, DataSource> dataSources = new HashMap<>();
+
+    /**
+     * Resources owned by the engine which will be closed when the engine closes.
+     */
+    private final List<AutoCloseable> managedResources = new ArrayList<>();
 
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
@@ -89,10 +94,41 @@ public class NeoFormEngine implements AutoCloseable {
     }
 
     public void close() throws IOException {
+        List<Exception> suppressedExceptions = new ArrayList<>();
         for (var location : dataSources.values()) {
-            location.archive().close();
+            try {
+                location.archive().close();
+            } catch (Exception e) {
+                suppressedExceptions.add(e);
+            }
         }
-        executor.close();
+        for (var resource : managedResources) {
+            try {
+                resource.close();
+            } catch (Exception e) {
+                suppressedExceptions.add(e);
+            }
+        }
+        try {
+            executor.close();
+        } catch (Exception e) {
+            suppressedExceptions.add(e);
+        }
+        if (!suppressedExceptions.isEmpty()) {
+            var e = new IOException("Failed to close one or more resources.");
+            for (var suppressedException : suppressedExceptions) {
+                e.addSuppressed(suppressedException);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Adds a resource to be closed when the engine closes.
+     */
+    public <T extends AutoCloseable> T addManagedResource(T resource) {
+        managedResources.add(resource);
+        return resource;
     }
 
     public void addDataSource(String id, ZipFile zipFile, String sourceFolder) {
