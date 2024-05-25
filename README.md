@@ -96,4 +96,20 @@ For other operating systems (Windows, Mac), it defaults to `.neoformruntime` in 
 
 Please note that Gradle plugins using this runtime may set different cache directories.
 
+### Reusing Gradle Artifacts
 
+To prevent NFRT from re-downloading all the libraries and artifacts **again** when it is being used through Gradle,
+it supports passing an "artifact manifest". This property file maps from Maven coordinates to the full path of
+those files on disk.
+
+The path to this manifest is passed to NFRT via the `--artifact-manifest` command-line option.
+
+Example:
+
+```properties
+net.neoforged.fancymodloader\:loader\:3.0.53-pr-54-junit=C\:\\Gradle Home\\caches\\modules-2\\files-2.1\\net.neoforged.fancymodloader\\loader\\3.0.53-pr-54-junit\\eacd6fc41449ff1dc84b1a4593c7e6c96599374f\\loader-3.0.53-pr-54-junit.jar
+[...]
+```
+
+The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild is used on the 
+containing project.
