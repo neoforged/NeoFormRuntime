@@ -24,18 +24,21 @@ import java.util.Map;
  * Uses the current JDKs java compiler interface to recompile the sources.
  */
 public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
+    private final List<String> compilerOptions = new ArrayList<>();
+
+    public RecompileSourcesActionWithJDK() {
+        compilerOptions.add("--release");
+        compilerOptions.add("21");
+        compilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources
+        compilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
+        compilerOptions.add("-g"); // Gradle compiles with debug by default, so we replicate this
+        compilerOptions.add("-XDuseUnsharedTable=true"); // Gradle also adds this unconditionally
+    }
+
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
         var classpath = getEffectiveClasspath(environment);
-
-        var javaCompilerOptions = new ArrayList<String>();
-        javaCompilerOptions.add("--release");
-        javaCompilerOptions.add("21");
-        javaCompilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources
-        javaCompilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
-        javaCompilerOptions.add("-g"); // Gradle compiles with debug by default, so we replicate this
-        javaCompilerOptions.add("-XDuseUnsharedTable=true"); // Gradle also adds this unconditionally
 
         URI uri = URI.create("jar:" + sources.toUri());
         try (var sourceFs = FileSystems.newFileSystem(uri, Map.of())) {
@@ -55,7 +58,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                 });
             }
 
-            LOG.println("Compiling " + sourcePaths.size() + " source files");
+            LOG.println(" Compiling " + sourcePaths.size() + " source files");
 
             var diagnostics = new DiagnosticListener<JavaFileObject>() {
                 @Override
@@ -78,7 +81,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                     fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
 
                     var sourceJavaFiles = fileManager.getJavaFileObjectsFromPaths(sourcePaths);
-                    var task = compiler.getTask(null, fileManager, diagnostics, javaCompilerOptions, null, sourceJavaFiles);
+                    var task = compiler.getTask(null, fileManager, diagnostics, compilerOptions, null, sourceJavaFiles);
                     if (!task.call()) {
                         throw new IOException("Compilation failed");
                     }
@@ -100,5 +103,6 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
         ck.add("compiler type", "javac");
+        ck.addStrings("compiler options", compilerOptions);
     }
 }
