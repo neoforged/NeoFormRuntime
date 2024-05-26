@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.actions;
 
+import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 
 import javax.tools.Diagnostic;
@@ -89,5 +90,11 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                 LOG.println("Copied " + nonSourcePaths.size() + " resource files");
             }
         }
+    }
+
+    @Override
+    public void computeCacheKey(CacheKeyBuilder ck) {
+        super.computeCacheKey(ck);
+        ck.add("compiler type", "javac");
     }
 }

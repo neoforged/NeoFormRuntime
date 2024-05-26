@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.actions;
 
+import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
@@ -173,6 +174,12 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
             }
             LOG.println("Copied " + nonSourceContent.size() + " resource files");
         }
+    }
+
+    @Override
+    public void computeCacheKey(CacheKeyBuilder ck) {
+        super.computeCacheKey(ck);
+        ck.add("compiler type", "eclipse");
     }
 
     static class ECJFilesystem extends FileSystem {
