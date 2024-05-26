@@ -69,7 +69,11 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
                 CompilerOptions.OPTION_Compliance, "21",
                 CompilerOptions.OPTION_ReportDeprecation, CompilerOptions.IGNORE,
                 CompilerOptions.OPTION_ReportDeprecationInDeprecatedCode, CompilerOptions.DISABLED,
-                CompilerOptions.OPTION_ReportDeprecationWhenOverridingDeprecatedMethod, CompilerOptions.DISABLED
+                CompilerOptions.OPTION_ReportDeprecationWhenOverridingDeprecatedMethod, CompilerOptions.DISABLED,
+                // Replicates -g javac option
+                CompilerOptions.OPTION_LocalVariableAttribute, CompilerOptions.GENERATE,
+                CompilerOptions.OPTION_LineNumberAttribute, CompilerOptions.GENERATE,
+                CompilerOptions.OPTION_SourceFileAttribute, CompilerOptions.GENERATE
         ));
         // These are set by the ECJ batch compiler too
         options.performMethodsFullRecovery = false;
