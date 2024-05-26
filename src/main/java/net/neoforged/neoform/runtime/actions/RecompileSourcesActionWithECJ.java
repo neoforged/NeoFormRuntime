@@ -65,8 +65,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
         var policy = DefaultErrorHandlingPolicies.exitOnFirstError();
 
         var options = new CompilerOptions(Map.of(
-                CompilerOptions.OPTION_Source, "21",
-                CompilerOptions.OPTION_Compliance, "21",
+                CompilerOptions.OPTION_Release, "21",
                 CompilerOptions.OPTION_ReportDeprecation, CompilerOptions.IGNORE,
                 CompilerOptions.OPTION_ReportDeprecationInDeprecatedCode, CompilerOptions.DISABLED,
                 CompilerOptions.OPTION_ReportDeprecationWhenOverridingDeprecatedMethod, CompilerOptions.DISABLED,
