@@ -32,6 +32,8 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
         var javaCompilerOptions = new ArrayList<String>();
         javaCompilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources
         javaCompilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
+        javaCompilerOptions.add("-g"); // Gradle compiles with debug by default, so we replicate this
+        javaCompilerOptions.add("-XDuseUnsharedTable=true"); // Gradle also adds this unconditionally
 
         URI uri = URI.create("jar:" + sources.toUri());
         try (var sourceFs = FileSystems.newFileSystem(uri, Map.of())) {
