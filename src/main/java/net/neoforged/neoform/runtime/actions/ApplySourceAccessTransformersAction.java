@@ -55,14 +55,14 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
                 try (var stream = Files.walk(accessTransformers)) {
                     stream.filter(Files::isRegularFile).forEach(path -> {
                         args.add("--access-transformer");
-                        args.add(environment.getWorkspace().relativize(path).toString());
+                        args.add(environment.getPathArgument(path));
                     });
                 }
             }
 
             for (var path : additionalAccessTransformers) {
                 args.add("--access-transformer");
-                args.add(environment.getWorkspace().relativize(path).toString());
+                args.add(environment.getPathArgument(path));
             }
         }
 

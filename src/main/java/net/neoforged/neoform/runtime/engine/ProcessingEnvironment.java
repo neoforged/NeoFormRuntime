@@ -54,7 +54,11 @@ public interface ProcessingEnvironment {
     default String getPathArgument(Path path) {
         // Assume that our working directory is the work directory
         if (path.startsWith(getWorkspace())) {
-            return path.relativize(path).toString();
+            path = getWorkspace().relativize(path);
+        }
+        if (path.getParent() == null) {
+            // Some tooling can't deal with paths that do not have directories
+            return "./" + path;
         }
         return path.toString();
     }

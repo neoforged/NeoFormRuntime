@@ -441,147 +441,7 @@ public class NeoFormEngine implements AutoCloseable {
             }
 
             var workspace = cacheManager.createWorkspace(node.id());
-            node.action().run(new ProcessingEnvironment() {
-                @Override
-                public ArtifactManager getArtifactManager() {
-                    return artifactManager;
-                }
-
-                @Override
-                public Path getWorkspace() {
-                    return workspace;
-                }
-
-                @Override
-                public String interpolateString(String text) throws IOException {
-                    var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
-
-                    var result = new StringBuilder();
-                    while (matcher.find()) {
-                        var variableValue = getVariableValue(matcher.group(1));
-                        var replacement = Matcher.quoteReplacement(variableValue);
-                        matcher.appendReplacement(result, replacement);
-                    }
-                    matcher.appendTail(result);
-
-                    return result.toString();
-                }
-
-                private String getVariableValue(String variable) throws IOException {
-                    Path resultPath; // All results are paths
-
-                    var nodeInput = node.inputs().get(variable);
-                    if (nodeInput != null) {
-                        resultPath = nodeInput.getValue(ResultRepresentation.PATH);
-                    } else if (node.outputs().containsKey(variable)) {
-                        resultPath = getOutputPath(variable);
-                    } else if (dataSources.containsKey(variable)) {
-                        // We can also access data-files defined in the NeoForm archive via the `data` indirection
-                        resultPath = extractData(variable);
-                    } else if ("log".equals(variable)) {
-                        // Old MCP versions support "log" to point to a path
-                        resultPath = workspace.resolve("log.txt");
-                    } else {
-                        throw new IllegalArgumentException("Variable " + variable + " is neither an input, output or configuration data");
-                    }
-
-                    return representPath(resultPath);
-                }
-
-                public Path extractData(String dataId) throws IOException {
-                    var dataSource = dataSources.get(dataId);
-                    var archive = dataSource.archive();
-                    var dataPath = dataSource.folder();
-                    var rootEntry = archive.getEntry(dataPath);
-                    if (rootEntry == null) {
-                        throw new IllegalArgumentException("NeoForm archive entry " + dataPath + " does not exist in " + archive.getName() + ".");
-                    }
-
-                    if (rootEntry.getName().startsWith("/") || rootEntry.getName().contains("..")) {
-                        throw new IllegalArgumentException("Unsafe ZIP path: " + rootEntry.getName());
-                    }
-
-                    // Determine if an entire directory or only a file needs to be extracted
-                    if (rootEntry.isDirectory()) {
-                        var targetDirPath = workspace.resolve(rootEntry.getName());
-                        if (!Files.exists(targetDirPath)) {
-                            try {
-                                Files.createDirectories(targetDirPath);
-                                var entryIter = archive.entries().asIterator();
-                                while (entryIter.hasNext()) {
-                                    var entry = entryIter.next();
-                                    if (!entry.isDirectory() && entry.getName().startsWith(rootEntry.getName())) {
-                                        var relativePath = entry.getName().substring(rootEntry.getName().length());
-                                        var targetPath = targetDirPath.resolve(relativePath).normalize();
-                                        if (!targetPath.startsWith(targetDirPath)) {
-                                            throw new IllegalArgumentException("Directory escape: " + targetPath);
-                                        }
-                                        Files.createDirectories(targetPath.getParent());
-
-                                        try (var in = archive.getInputStream(entry)) {
-                                            Files.copy(in, targetPath);
-                                        }
-                                    }
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException("Failed to extract referenced NeoForm data " + dataPath + " to " + targetDirPath, e);
-                            }
-                        }
-                        return targetDirPath;
-                    } else {
-                        var path = workspace.resolve(rootEntry.getName());
-                        if (!Files.exists(path)) {
-                            try {
-                                Files.createDirectories(path.getParent());
-                                try (var in = archive.getInputStream(rootEntry)) {
-                                    Files.copy(in, path);
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException("Failed to extract referenced NeoForm data " + dataPath + " to " + path, e);
-                            }
-                        }
-                        return path;
-                    }
-                }
-
-                private String representPath(Path path) {
-                    var result = workspace.relativize(path);
-                    if (result.getParent() == null) {
-                        // Some tooling can't deal with paths that do not have directories
-                        return "./" + result;
-                    } else {
-                        return result.toString();
-                    }
-                }
-
-                @Override
-                public <T> T getRequiredInput(String id, ResultRepresentation<T> representation) throws IOException {
-                    return node.getRequiredInput(id).getValue(representation);
-                }
-
-                @Override
-                public Path getOutputPath(String id) {
-                    var output = node.getRequiredOutput(id);
-                    var filename = id + output.type().getExtension();
-                    var path = workspace.resolve(filename);
-                    setOutput(id, path);
-                    return path;
-                }
-
-                @Override
-                public void setOutput(String id, Path resultPath) {
-                    node.getRequiredOutput(id); // This will throw if id is unknown
-                    if (outputValues.containsKey(id)) {
-                        throw new IllegalStateException("Path for node output " + id + " is already set.");
-                    }
-                    outputValues.put(id, resultPath);
-                }
-
-                @Override
-                public boolean isVerbose() {
-                    return verbose;
-                }
-            });
+            node.action().run(new NodeProcessingEnvironment(workspace, node, outputValues));
 
             // Only cache if all outputs are in the workdir, otherwise
             // we assume some of them are artifacts and will always come from the
@@ -651,5 +511,152 @@ public class NeoFormEngine implements AutoCloseable {
 
     public CacheManager getCacheManager() {
         return cacheManager;
+    }
+
+    private class NodeProcessingEnvironment implements ProcessingEnvironment {
+        private final Path workspace;
+        private final ExecutionNode node;
+        private final Map<String, Path> outputValues;
+
+        public NodeProcessingEnvironment(Path workspace, ExecutionNode node, Map<String, Path> outputValues) {
+            this.workspace = workspace;
+            this.node = node;
+            this.outputValues = outputValues;
+        }
+
+        @Override
+        public ArtifactManager getArtifactManager() {
+            return artifactManager;
+        }
+
+        @Override
+        public Path getWorkspace() {
+            return workspace;
+        }
+
+        @Override
+        public String interpolateString(String text) throws IOException {
+            var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
+
+            var result = new StringBuilder();
+            while (matcher.find()) {
+                var variableValue = getVariableValue(matcher.group(1));
+                var replacement = Matcher.quoteReplacement(variableValue);
+                matcher.appendReplacement(result, replacement);
+            }
+            matcher.appendTail(result);
+
+            return result.toString();
+        }
+
+        private String getVariableValue(String variable) throws IOException {
+            Path resultPath; // All results are paths
+
+            var nodeInput = node.inputs().get(variable);
+            if (nodeInput != null) {
+                resultPath = nodeInput.getValue(ResultRepresentation.PATH);
+            } else if (node.outputs().containsKey(variable)) {
+                resultPath = getOutputPath(variable);
+            } else if (dataSources.containsKey(variable)) {
+                // We can also access data-files defined in the NeoForm archive via the `data` indirection
+                resultPath = extractData(variable);
+            } else if ("log".equals(variable)) {
+                // Old MCP versions support "log" to point to a path
+                resultPath = workspace.resolve("log.txt");
+            } else {
+                throw new IllegalArgumentException("Variable " + variable + " is neither an input, output or configuration data");
+            }
+
+            return getPathArgument(resultPath);
+        }
+
+        public Path extractData(String dataId) throws IOException {
+            var dataSource = dataSources.get(dataId);
+            if (dataSource == null) {
+                throw new IllegalArgumentException("Could not find data source " + dataId
+                                                   + ". Available: " + dataSources.keySet());
+            }
+
+            var archive = dataSource.archive();
+            var dataPath = dataSource.folder();
+            var rootEntry = archive.getEntry(dataPath);
+            if (rootEntry == null) {
+                throw new IllegalArgumentException("NeoForm archive entry " + dataPath + " does not exist in " + archive.getName() + ".");
+            }
+
+            if (rootEntry.getName().startsWith("/") || rootEntry.getName().contains("..")) {
+                throw new IllegalArgumentException("Unsafe ZIP path: " + rootEntry.getName());
+            }
+
+            // Determine if an entire directory or only a file needs to be extracted
+            if (rootEntry.isDirectory()) {
+                var targetDirPath = workspace.resolve(rootEntry.getName());
+                if (!Files.exists(targetDirPath)) {
+                    try {
+                        Files.createDirectories(targetDirPath);
+                        var entryIter = archive.entries().asIterator();
+                        while (entryIter.hasNext()) {
+                            var entry = entryIter.next();
+                            if (!entry.isDirectory() && entry.getName().startsWith(rootEntry.getName())) {
+                                var relativePath = entry.getName().substring(rootEntry.getName().length());
+                                var targetPath = targetDirPath.resolve(relativePath).normalize();
+                                if (!targetPath.startsWith(targetDirPath)) {
+                                    throw new IllegalArgumentException("Directory escape: " + targetPath);
+                                }
+                                Files.createDirectories(targetPath.getParent());
+
+                                try (var in = archive.getInputStream(entry)) {
+                                    Files.copy(in, targetPath);
+                                }
+                            }
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to extract referenced NeoForm data " + dataPath + " to " + targetDirPath, e);
+                    }
+                }
+                return targetDirPath;
+            } else {
+                var path = workspace.resolve(rootEntry.getName());
+                if (!Files.exists(path)) {
+                    try {
+                        Files.createDirectories(path.getParent());
+                        try (var in = archive.getInputStream(rootEntry)) {
+                            Files.copy(in, path);
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to extract referenced NeoForm data " + dataPath + " to " + path, e);
+                    }
+                }
+                return path;
+            }
+        }
+
+        @Override
+        public <T> T getRequiredInput(String id, ResultRepresentation<T> representation) throws IOException {
+            return node.getRequiredInput(id).getValue(representation);
+        }
+
+        @Override
+        public Path getOutputPath(String id) {
+            var output = node.getRequiredOutput(id);
+            var filename = id + output.type().getExtension();
+            var path = workspace.resolve(filename);
+            setOutput(id, path);
+            return path;
+        }
+
+        @Override
+        public void setOutput(String id, Path resultPath) {
+            node.getRequiredOutput(id); // This will throw if id is unknown
+            if (outputValues.containsKey(id)) {
+                throw new IllegalStateException("Path for node output " + id + " is already set.");
+            }
+            outputValues.put(id, resultPath);
+        }
+
+        @Override
+        public boolean isVerbose() {
+            return verbose;
+        }
     }
 }

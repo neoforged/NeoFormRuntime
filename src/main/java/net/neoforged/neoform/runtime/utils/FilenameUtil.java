@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.utils;
 
+
 public final class FilenameUtil {
     private FilenameUtil() {
     }
