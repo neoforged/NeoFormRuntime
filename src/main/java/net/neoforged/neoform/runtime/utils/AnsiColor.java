@@ -5,6 +5,8 @@ public enum AnsiColor {
     //Color end string, color reset
     RESET("0"),
 
+    YELLOW("33"),
+
     BOLD("1"),
     ITALIC("3"),
     UNDERLINE("4"),

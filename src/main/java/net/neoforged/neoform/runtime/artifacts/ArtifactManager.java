@@ -7,6 +7,7 @@ import net.neoforged.neoform.runtime.downloads.DownloadSpec;
 import net.neoforged.neoform.runtime.manifests.LauncherManifest;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
+import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -38,6 +39,7 @@ public class ArtifactManager {
     private final URI launcherManifestUrl;
     private final Path artifactsCache;
     private final Map<MavenCoordinate, Artifact> externallyProvided = new HashMap<>();
+    private boolean warnOnArtifactManifestMiss;
 
     public ArtifactManager(List<URI> repositoryBaseUrls,
                            CacheManager cacheManager,
@@ -62,6 +64,8 @@ public class ArtifactManager {
         var artifactCoordinate = MavenCoordinate.parse(library.artifactId());
         if (externallyProvided.containsKey(artifactCoordinate)) {
             return externallyProvided.get(artifactCoordinate);
+        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
+            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + library.artifactId() + " is not present in the artifact manifest");
         }
 
         var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
@@ -254,5 +258,13 @@ public class ArtifactManager {
 
     private Artifact download(Path finalLocation, DownloadSpec spec) throws IOException {
         return download(finalLocation, () -> downloadManager.download(spec, finalLocation));
+    }
+
+    public boolean isWarnOnArtifactManifestMiss() {
+        return warnOnArtifactManifestMiss;
+    }
+
+    public void setWarnOnArtifactManifestMiss(boolean warnOnArtifactManifestMiss) {
+        this.warnOnArtifactManifestMiss = warnOnArtifactManifestMiss;
     }
 }

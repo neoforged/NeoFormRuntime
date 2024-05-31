@@ -65,6 +65,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
             lockManager.setVerbose(commonOptions.verbose);
             var artifactManager = new ArtifactManager(commonOptions.getEffectiveRepositories(), cacheManager, downloadManager, lockManager, commonOptions.launcherManifestUrl);
+            artifactManager.setWarnOnArtifactManifestMiss(commonOptions.warnOnArtifactManifestMiss);
 
             if (commonOptions.artifactManifest != null) {
                 artifactManager.loadArtifactManifest(commonOptions.artifactManifest);

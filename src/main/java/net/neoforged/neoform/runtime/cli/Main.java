@@ -32,7 +32,10 @@ public class Main {
     @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
     Path artifactManifest;
 
-    @CommandLine.Option(names = "--launcher-meta-uri", scope = CommandLine.ScopeType.INHERIT)
+    @Option(names = "--warn-on-artifact-manifest-miss", scope = ScopeType.INHERIT, description = "Warns when an artifact manifest is given, but a file is being downloaded that is not in the manifest.")
+    boolean warnOnArtifactManifestMiss;
+
+    @Option(names = "--launcher-meta-uri", scope = ScopeType.INHERIT)
     URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
 
     @Option(names = "--verbose", description = "Enable verbose output", scope = ScopeType.INHERIT)
