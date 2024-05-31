@@ -65,7 +65,7 @@ public class ArtifactManager {
         if (externallyProvided.containsKey(artifactCoordinate)) {
             return externallyProvided.get(artifactCoordinate);
         } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
-            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + library.artifactId() + " is not present in the artifact manifest");
+            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
         }
 
         var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
