@@ -82,6 +82,10 @@ public class CacheManager implements AutoCloseable {
     }
 
     public void performMaintenance() throws IOException {
+        if (!Files.exists(homeDir)) {
+            return;
+        }
+
         var cacheLock = homeDir.resolve("nfrt_cache_cleanup.state");
 
         try (var channel = FileChannel.open(cacheLock, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
@@ -130,6 +134,10 @@ public class CacheManager implements AutoCloseable {
      * </ul>
      */
     public void cleanUpIntermediateResults() throws IOException {
+        if (!Files.exists(intermediateResultsDir)) {
+            return;
+        }
+
         LOG.println("Cleaning intermediate results cache in " + intermediateResultsDir);
         LOG.println(" Maximum age: " + maxAgeInHours + "h");
         LOG.println(" Maximum cache size: " + StringUtil.formatBytes(maxSize));
