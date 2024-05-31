@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import picocli.CommandLine;
 
@@ -12,29 +13,36 @@ import java.util.Objects;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
+import static picocli.CommandLine.ScopeType;
 
 @Command(name = "neoform-runtime", subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class, CleanCacheCommand.class, CacheMaintenance.class}, mixinStandardHelpOptions = true)
 public class Main {
-    @Option(names = "--home-dir", scope = CommandLine.ScopeType.INHERIT, description = "Where NFRT should store caches.")
+    @Option(names = "--home-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store caches.")
     Path homeDir = getDefaultHomeDir();
 
-    @Option(names = "--work-dir", scope = CommandLine.ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
+    @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
     Path workDir;
 
-    @Option(names = "--repository", arity = "*", scope = CommandLine.ScopeType.INHERIT, description = "Overriddes Maven repositories used for downloading artifacts.")
+    @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overriddes Maven repositories used for downloading artifacts.")
     List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());
 
-    @Option(names = "--add-repository", arity = "*", scope = CommandLine.ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
+    @Option(names = "--add-repository", arity = "*", scope = ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
     List<URI> additionalRepositories = new ArrayList<>();
 
-    @Option(names = "--artifact-manifest", scope = CommandLine.ScopeType.INHERIT)
+    @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
     Path artifactManifest;
 
     @CommandLine.Option(names = "--launcher-meta-uri", scope = CommandLine.ScopeType.INHERIT)
     URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
 
-    @CommandLine.Option(names = "--verbose", description = "Enable verbose output", scope = CommandLine.ScopeType.INHERIT)
+    @Option(names = "--verbose", description = "Enable verbose output", scope = ScopeType.INHERIT)
     boolean verbose;
+
+    @Option(names = "--no-color", description = "Disable color console output", scope = ScopeType.INHERIT)
+    boolean noColor = System.getenv("NO_COLOR") != null && !System.getenv("NO_COLOR").isEmpty();
+
+    @Option(names = "--no-emojis", description = "Disable use of emojis in console output", scope = ScopeType.INHERIT)
+    boolean noEmojis = false;
 
     public Path getWorkDir() {
         return Objects.requireNonNullElseGet(workDir, () -> homeDir.resolve("work"));
@@ -56,7 +64,11 @@ public class Main {
     }
 
     public static void main(String... args) {
-        var commandLine = new CommandLine(new Main());
+        var baseCommand = new Main();
+        var commandLine = new CommandLine(baseCommand);
+        commandLine.parseArgs(args);
+        Logger.NO_COLOR = baseCommand.noColor;
+        Logger.NO_EMOJIS = baseCommand.noEmojis;
         int exitCode = commandLine.execute(args);
         System.exit(exitCode);
     }

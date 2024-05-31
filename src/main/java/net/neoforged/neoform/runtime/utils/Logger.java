@@ -1,6 +1,18 @@
 package net.neoforged.neoform.runtime.utils;
 
+import java.util.Map;
+
 public final class Logger {
+    // Replacement Map for Emojis
+    private static final Map<Character, String> EMOJI_MAP = Map.of(
+            '↓', "DL",
+            '♻', "CACHE",
+            '✓', "OK",
+            '↳', "EXEC"
+    );
+
+    public static boolean NO_COLOR;
+    public static boolean NO_EMOJIS;
     private static IndeterminateSpinner spinner;
 
     public static Logger create() {
@@ -10,7 +22,7 @@ public final class Logger {
     public void println(String text) {
         closeSpinner();
 
-        System.out.println(text);
+        System.out.println(cleanText(text));
     }
 
     private void closeSpinner() {
@@ -24,8 +36,30 @@ public final class Logger {
     public IndeterminateSpinner spinner(String message) {
         closeSpinner();
 
-        System.out.print(message);
+        System.out.print(cleanText(message));
         return spinner = new IndeterminateSpinner();
+    }
+
+    private static String cleanText(String text) {
+        if (!NO_COLOR && !NO_EMOJIS) {
+            return text;
+        }
+
+        var result = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            var ch = text.charAt(i);
+            // Strip ANSI Escape Sequences
+            if (NO_COLOR && ch == '\033') {
+                i++;
+                for (; i < text.length() && text.charAt(i) != 'm'; i++) {
+                }
+            } else if (NO_EMOJIS && ch >= 0x7f) {
+                result.append(EMOJI_MAP.getOrDefault(ch, "."));
+            } else {
+                result.append(ch);
+            }
+        }
+        return result.toString();
     }
 
     /**
