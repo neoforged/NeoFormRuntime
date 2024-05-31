@@ -80,6 +80,8 @@ public class ArtifactManager {
     public Artifact get(MavenCoordinate artifactCoordinate, URI repositoryBaseUrl) throws IOException {
         if (externallyProvided.containsKey(artifactCoordinate)) {
             return externallyProvided.get(artifactCoordinate);
+        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
+            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
         }
 
         var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
@@ -101,6 +103,8 @@ public class ArtifactManager {
     public Artifact get(MavenCoordinate mavenCoordinate) throws IOException {
         if (externallyProvided.containsKey(mavenCoordinate)) {
             return externallyProvided.get(mavenCoordinate);
+        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
+            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + mavenCoordinate + " is not present in the artifact manifest");
         }
 
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
