@@ -62,10 +62,9 @@ public class ArtifactManager {
         // TODO: if we identify where the Minecraft installation is, we could try to copy the library from there
 
         var artifactCoordinate = MavenCoordinate.parse(library.artifactId());
-        if (externallyProvided.containsKey(artifactCoordinate)) {
-            return externallyProvided.get(artifactCoordinate);
-        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
-            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
+        var externalArtifact = getFromExternalManifest(artifactCoordinate);
+        if (externalArtifact != null) {
+            return externalArtifact;
         }
 
         var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
@@ -78,10 +77,9 @@ public class ArtifactManager {
     }
 
     public Artifact get(MavenCoordinate artifactCoordinate, URI repositoryBaseUrl) throws IOException {
-        if (externallyProvided.containsKey(artifactCoordinate)) {
-            return externallyProvided.get(artifactCoordinate);
-        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
-            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
+        var externalArtifact = getFromExternalManifest(artifactCoordinate);
+        if (externalArtifact != null) {
+            return externalArtifact;
         }
 
         var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
@@ -101,10 +99,9 @@ public class ArtifactManager {
     }
 
     public Artifact get(MavenCoordinate mavenCoordinate) throws IOException {
-        if (externallyProvided.containsKey(mavenCoordinate)) {
-            return externallyProvided.get(mavenCoordinate);
-        } else if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
-            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + mavenCoordinate + " is not present in the artifact manifest");
+        var externalArtifact = getFromExternalManifest(mavenCoordinate);
+        if (externalArtifact != null) {
+            return externalArtifact;
         }
 
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
@@ -200,7 +197,8 @@ public class ArtifactManager {
         for (var artifactId : properties.stringPropertyNames()) {
             var value = properties.getProperty(artifactId);
             try {
-                externallyProvided.put(MavenCoordinate.parse(artifactId), getArtifactFromPath(value));
+                var parse = normalizeExtension(MavenCoordinate.parse(artifactId));
+                externallyProvided.put(parse, getArtifactFromPath(value));
             } catch (Exception e) {
                 System.err.println("Failed to pre-load artifact '" + artifactId + "' from path '" + value + "': " + e);
                 System.exit(1);
@@ -228,6 +226,20 @@ public class ArtifactManager {
     @FunctionalInterface
     public interface DownloadAction {
         void run() throws IOException;
+    }
+
+    private Artifact getFromExternalManifest(MavenCoordinate artifactCoordinate) {
+        artifactCoordinate = normalizeExtension(artifactCoordinate);
+
+        var artifact = externallyProvided.get(artifactCoordinate);
+        if (artifact != null) {
+            return artifact;
+        }
+
+        if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
+            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
+        }
+        return null;
     }
 
     private Artifact download(Path finalLocation, DownloadAction downloadAction) throws IOException {
@@ -270,5 +282,19 @@ public class ArtifactManager {
 
     public void setWarnOnArtifactManifestMiss(boolean warnOnArtifactManifestMiss) {
         this.warnOnArtifactManifestMiss = warnOnArtifactManifestMiss;
+    }
+
+    // Normalize "jar" extensions to "" since they're the default
+    private static MavenCoordinate normalizeExtension(MavenCoordinate coordinate) {
+        if (coordinate.extension().equals("jar")) {
+            return new MavenCoordinate(
+                    coordinate.groupId(),
+                    coordinate.artifactId(),
+                    "",
+                    coordinate.classifier(),
+                    coordinate.version()
+            );
+        }
+        return coordinate;
     }
 }
