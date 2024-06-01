@@ -103,7 +103,7 @@ public class CacheManager implements AutoCloseable {
                 if (age.compareTo(interval) < 0) {
                     if (verbose) {
                         LOG.println("Not performing routine maintenance since the last maintenance was "
-                                           + AnsiColor.BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.RESET);
+                                    + AnsiColor.BOLD + StringUtil.formatDuration(age) + " ago" + AnsiColor.RESET);
                     }
                     return;
                 }
@@ -244,6 +244,10 @@ public class CacheManager implements AutoCloseable {
     }
 
     public boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {
+        if (disabled) {
+            return false;
+        }
+
         var intermediateCacheDir = getIntermediateResultsDir();
         var cacheMarkerFile = getCacheMarkerFile(cacheKey);
         Files.createDirectories(intermediateCacheDir);
@@ -274,6 +278,10 @@ public class CacheManager implements AutoCloseable {
     }
 
     public void saveOutputs(ExecutionNode node, CacheKey cacheKey, HashMap<String, Path> outputValues) throws IOException {
+        if (disabled) {
+            return;
+        }
+
         var intermediateCacheDir = getIntermediateResultsDir();
         var finalOutputValues = new HashMap<String, Path>(outputValues.size());
         for (var entry : outputValues.entrySet()) {
