@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.StringUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -341,7 +342,10 @@ public class CacheManager implements AutoCloseable {
         }
     }
 
-    private static String print(CacheKey.AnnotatedValue value) {
+    private static String print(@Nullable CacheKey.AnnotatedValue value) {
+        if (value == null) {
+            return AnsiColor.MUTED + "absent" + AnsiColor.RESET;
+        }
         if (value.annotation() != null) {
             return value.value() + AnsiColor.MUTED + " (" + value.annotation() + ")" + AnsiColor.RESET;
         }

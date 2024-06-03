@@ -109,6 +109,6 @@ public record CacheKey(
         }
     }
 
-    public record Delta(String key, AnnotatedValue ours, AnnotatedValue theirs) {
+    public record Delta(String key, @Nullable AnnotatedValue ours, @Nullable AnnotatedValue theirs) {
     }
 }
