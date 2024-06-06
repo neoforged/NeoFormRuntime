@@ -8,6 +8,8 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import net.neoforged.neoform.runtime.graph.ExecutionGraph;
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
@@ -116,34 +118,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             var graph = engine.getGraph();
 
-            // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
-            var sourcesWithNeoForgeBuilder = graph.nodeBuilder("sourcesWithNeoForge");
-            sourcesWithNeoForgeBuilder.input("input", graph.getRequiredOutput("inject", "output").asInput());
-            var sourcesWithNeoForgeOutput = sourcesWithNeoForgeBuilder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
-            sourcesWithNeoForgeBuilder.action(new InjectZipContentAction(List.of(
-                    new InjectFromZipFileSource(neoforgeSourcesZip, "/")
-            )));
-            sourcesWithNeoForgeBuilder.build();
-            graph.setResult("sourcesWithNeoForge", sourcesWithNeoForgeOutput);
+            var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(graph, neoforgeSourcesZip);
 
-            // Add a step that produces a classes-zip containing both Minecraft and NeoForge classes
-            var compiledWithNeoForgeBuilder = graph.nodeBuilder("compiledWithNeoForge");
-            compiledWithNeoForgeBuilder.input("input", graph.getRequiredOutput("recompile", "output").asInput());
-            var compiledWithNeoForgeOutput = compiledWithNeoForgeBuilder.output("output", NodeOutputType.JAR, "JAR containing NeoForge classes, resources and Minecraft classes");
-            compiledWithNeoForgeBuilder.action(new InjectZipContentAction(List.of(
-                    new InjectFromZipFileSource(neoforgeClassesZip, "/")
-            )));
-            compiledWithNeoForgeBuilder.build();
-            graph.setResult("compiledWithNeoForge", compiledWithNeoForgeOutput);
+            var compiledWithNeoForgeOutput = createCompiledWithNeoForge(graph, neoforgeClassesZip);
 
-            // Add a step that merges sources and compiled classes to satisfy IntelliJ
-            var mergeWithSourcesAndNeoForge = graph.nodeBuilder("sourcesAndCompiledWithNeoForge");
-            mergeWithSourcesAndNeoForge.input("classes", compiledWithNeoForgeOutput.asInput());
-            mergeWithSourcesAndNeoForge.input("sources", sourcesWithNeoForgeOutput.asInput());
-            var mergeWithSourcesAndNeoForgeOutput = mergeWithSourcesAndNeoForge.output("output", NodeOutputType.JAR, "Combined output of sourcesWithNeoForge and compiledWithNeoForge");
-            mergeWithSourcesAndNeoForge.action(new MergeWithSourcesAction());
-            mergeWithSourcesAndNeoForge.build();
-            graph.setResult("sourcesAndCompiledWithNeoForge", mergeWithSourcesAndNeoForgeOutput);
+            createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
         }
@@ -155,6 +134,43 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         execute(engine);
+    }
+
+    private static NodeOutput createCompiledWithNeoForge(ExecutionGraph graph, ZipFile neoforgeClassesZip) {
+        // Add a step that produces a classes-zip containing both Minecraft and NeoForge classes
+        var builder = graph.nodeBuilder("compiledWithNeoForge");
+        builder.input("input", graph.getRequiredOutput("recompile", "output").asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "JAR containing NeoForge classes, resources and Minecraft classes");
+        builder.action(new InjectZipContentAction(List.of(
+                new InjectFromZipFileSource(neoforgeClassesZip, "/")
+        )));
+        builder.build();
+        graph.setResult("compiledWithNeoForge", output);
+        return output;
+    }
+
+    private static NodeOutput createSourcesWithNeoForge(ExecutionGraph graph, ZipFile neoforgeSourcesZip) {
+        // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
+        var builder = graph.nodeBuilder("sourcesWithNeoForge");
+        builder.input("input", graph.getRequiredOutput("inject", "output").asInput());
+        var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
+        builder.action(new InjectZipContentAction(List.of(
+                new InjectFromZipFileSource(neoforgeSourcesZip, "/")
+        )));
+        builder.build();
+        graph.setResult("sourcesWithNeoForge", output);
+        return output;
+    }
+
+    private static void createSourcesAndCompiledWithNeoForge(ExecutionGraph graph, NodeOutput compiledWithNeoForgeOutput, NodeOutput sourcesWithNeoForgeOutput) {
+        // Add a step that merges sources and compiled classes to satisfy IntelliJ
+        var builder = graph.nodeBuilder("sourcesAndCompiledWithNeoForge");
+        builder.input("classes", compiledWithNeoForgeOutput.asInput());
+        builder.input("sources", sourcesWithNeoForgeOutput.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "Combined output of sourcesWithNeoForge and compiledWithNeoForge");
+        builder.action(new MergeWithSourcesAction());
+        builder.build();
+        graph.setResult("sourcesAndCompiledWithNeoForge", output);
     }
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
