@@ -112,6 +112,10 @@ public final class ExecutionNode {
         return result;
     }
 
+    public void setInput(String id, NodeInput input) {
+        inputs.put(id, Objects.requireNonNull(input, "input"));
+    }
+
     public Map<String, NodeInput> inputs() {
         return inputs;
     }

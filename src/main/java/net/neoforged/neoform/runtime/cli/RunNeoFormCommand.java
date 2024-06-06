@@ -3,10 +3,13 @@ package net.neoforged.neoform.runtime.cli;
 import net.neoforged.neoform.runtime.actions.ApplySourceAccessTransformersAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
+import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import net.neoforged.neoform.runtime.graph.ExecutionGraph;
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
@@ -82,31 +85,25 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // Build the graph transformations needed to apply NeoForge to the NeoForm execution
             List<GraphTransform> transforms = new ArrayList<>();
 
+            // Also inject NeoForge sources, which we can get from the sources file
+            var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
+            var neoforgeClasses = artifactManager.get(neoforgeConfig.universalArtifact()).path();
+            var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
+            var neoforgeClassesZip = new ZipFile(neoforgeClasses.toFile());
+            engine.addManagedResource(neoforgeSourcesZip);
+            engine.addManagedResource(neoforgeClassesZip);
+
+            var transformSources = getOrAddTransformSourcesNode(engine);
+            transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
+            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+
             // Add NeoForge libraries to the list of libraries
             transforms.add(new ModifyAction<>(
                     "recompile",
                     RecompileSourcesAction.class,
                     action -> {
                         action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
-                    }
-            ));
-
-            // Also inject NeoForge sources, which we can get from the sources file
-            var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
-            var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
-            closables.add(neoforgeSourcesZip);
-
-            var transformSources = getOrAddTransformSourcesNode(engine);
-            transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
-            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
-
-            transforms.add(new ModifyAction<>(
-                    "inject",
-                    InjectZipContentAction.class,
-                    action -> {
-                        action.getInjectedSources().add(
-                                new InjectFromZipFileSource(neoforgeSourcesZip, "/")
-                        );
+                        action.getClasspath().addPaths(List.of(neoforgeClasses));
                     }
             ));
 
@@ -118,6 +115,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             ));
 
             engine.applyTransforms(transforms);
+
+            var graph = engine.getGraph();
+
+            var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(graph, neoforgeSourcesZip);
+
+            var compiledWithNeoForgeOutput = createCompiledWithNeoForge(graph, neoforgeClassesZip);
+
+            createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
         }
@@ -129,6 +134,43 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         execute(engine);
+    }
+
+    private static NodeOutput createCompiledWithNeoForge(ExecutionGraph graph, ZipFile neoforgeClassesZip) {
+        // Add a step that produces a classes-zip containing both Minecraft and NeoForge classes
+        var builder = graph.nodeBuilder("compiledWithNeoForge");
+        builder.input("input", graph.getRequiredOutput("recompile", "output").asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "JAR containing NeoForge classes, resources and Minecraft classes");
+        builder.action(new InjectZipContentAction(List.of(
+                new InjectFromZipFileSource(neoforgeClassesZip, "/")
+        )));
+        builder.build();
+        graph.setResult("compiledWithNeoForge", output);
+        return output;
+    }
+
+    private static NodeOutput createSourcesWithNeoForge(ExecutionGraph graph, ZipFile neoforgeSourcesZip) {
+        // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
+        var builder = graph.nodeBuilder("sourcesWithNeoForge");
+        builder.input("input", graph.getRequiredOutput("inject", "output").asInput());
+        var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
+        builder.action(new InjectZipContentAction(List.of(
+                new InjectFromZipFileSource(neoforgeSourcesZip, "/")
+        )));
+        builder.build();
+        graph.setResult("sourcesWithNeoForge", output);
+        return output;
+    }
+
+    private static void createSourcesAndCompiledWithNeoForge(ExecutionGraph graph, NodeOutput compiledWithNeoForgeOutput, NodeOutput sourcesWithNeoForgeOutput) {
+        // Add a step that merges sources and compiled classes to satisfy IntelliJ
+        var builder = graph.nodeBuilder("sourcesAndCompiledWithNeoForge");
+        builder.input("classes", compiledWithNeoForgeOutput.asInput());
+        builder.input("sources", sourcesWithNeoForgeOutput.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "Combined output of sourcesWithNeoForge and compiledWithNeoForge");
+        builder.action(new MergeWithSourcesAction());
+        builder.build();
+        graph.setResult("sourcesAndCompiledWithNeoForge", output);
     }
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
