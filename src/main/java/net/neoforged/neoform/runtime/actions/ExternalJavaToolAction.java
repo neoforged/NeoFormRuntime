@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Runs an external standalone Java-based tool from a standalone executable jar-file.
@@ -79,7 +80,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
         LOG.println(" ↳ Running external tool " + toolArtifactId);
         if (environment.isVerbose()) {
-            LOG.println(" " + AnsiColor.MUTED + String.join(" ", command) + AnsiColor.RESET);
+            LOG.println(" " + AnsiColor.MUTED + printableCommand(command) + AnsiColor.RESET);
         }
 
         var logFile = workingDir.resolve("console_output.txt").toFile();
@@ -98,6 +99,16 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             throw new RuntimeException("Failed to execute tool");
         }
 
+    }
+
+    private static String printableCommand(List<String> command) {
+        return command.stream().map(arg -> {
+            if (arg.contains("\"")) {
+                return "\"" + arg + "\"";
+            } else {
+                return arg;
+            }
+        }).collect(Collectors.joining(" "));
     }
 
     private void tailLogFile(File logFile) {
