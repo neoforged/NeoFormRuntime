@@ -74,6 +74,10 @@ public class ExtensibleClasspath {
         }
     }
 
+    public boolean isEmpty() {
+        return getEffectiveClasspath().isEmpty();
+    }
+
     public void computeCacheKey(String prefix, CacheKeyBuilder ck) {
         List<ClasspathItem> effectiveItems;
         if (overriddenClasspath != null) {

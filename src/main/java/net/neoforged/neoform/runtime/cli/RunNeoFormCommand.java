@@ -1,6 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
-import net.neoforged.neoform.runtime.actions.ApplySourceAccessTransformersAction;
+import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
@@ -218,15 +218,15 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
     }
 
-    private static ApplySourceAccessTransformersAction getOrAddTransformSourcesNode(NeoFormEngine engine) {
+    private static ApplySourceTransformAction getOrAddTransformSourcesNode(NeoFormEngine engine) {
         var graph = engine.getGraph();
         var transformNode = graph.getNode("transformSources");
         if (transformNode != null) {
-            if (transformNode.action() instanceof ApplySourceAccessTransformersAction action) {
+            if (transformNode.action() instanceof ApplySourceTransformAction action) {
                 return action;
             } else {
                 throw new IllegalStateException("Node transformSources has a different action type than expected. Expected: "
-                                                + ApplySourceAccessTransformersAction.class + " but got " + transformNode.action().getClass());
+                                                + ApplySourceTransformAction.class + " but got " + transformNode.action().getClass());
             }
         }
 
@@ -237,7 +237,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 (builder, previousNodeOutput) -> {
                     builder.input("input", previousNodeOutput.asInput());
                     builder.inputFromNodeOutput("libraries", "listLibraries", "output");
-                    var action = new ApplySourceAccessTransformersAction();
+                    var action = new ApplySourceTransformAction();
                     builder.action(action);
                     return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
                 }

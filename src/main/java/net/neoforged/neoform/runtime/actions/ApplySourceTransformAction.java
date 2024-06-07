@@ -5,16 +5,35 @@ import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
-public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction {
-    private static final MavenCoordinate JST_TOOL_COORDINATE = MavenCoordinate.parse("net.neoforged.jst:jst-cli-bundle:1.0.37");
+/**
+ * Uses <a href="https://github.com/neoforged/JavaSourceTransformer">Java Source Transformer</a> to apply
+ * transforms to Java Source code.
+ * <p>
+ * Transforms such as:
+ * <ul>
+ *     <li>Widening the access level of methods, fields and classes using access transformers</li>
+ *     <li>Applying method parameter names and Javadoc using data from the parchment project.</li>
+ * </ul>
+ */
+public class ApplySourceTransformAction extends ExternalJavaToolAction {
+    private static final MavenCoordinate JST_TOOL_COORDINATE = MavenCoordinate.parse("net.neoforged.jst:jst-cli-bundle:1.0.39");
+
+    /**
+     * Additional libraries to be added to the classpath for parsing the sources.
+     * Minecraft libraries are pulled in automatically from the same source used by the
+     * decompiler.
+     */
+    private final ExtensibleClasspath parserClasspath = new ExtensibleClasspath();
 
     /**
      * names of {@linkplain net.neoforged.neoform.runtime.engine.NeoFormEngine#addDataSource(String, ZipFile, String) data sources} containing
@@ -33,7 +52,7 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
     @Nullable
     private Path parchmentData;
 
-    public ApplySourceAccessTransformersAction() {
+    public ApplySourceTransformAction() {
         super(JST_TOOL_COORDINATE);
     }
 
@@ -71,6 +90,14 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
             args.add("--parchment-mappings=" + environment.getPathArgument(parchmentData.toAbsolutePath()));
         }
 
+        if (!parserClasspath.isEmpty()) {
+            var classpath = environment.getArtifactManager().resolveClasspath(parserClasspath.getEffectiveClasspath());
+            args.add("--classpath");
+            args.add(classpath.stream()
+                    .map(environment::getPathArgument)
+                    .collect(Collectors.joining(File.pathSeparator)));
+        }
+
         Collections.addAll(args, "{input}", "{output}");
         setArgs(args);
 
@@ -85,6 +112,7 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
         }
+        parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
     public List<String> getAccessTransformersData() {
@@ -109,5 +137,9 @@ public class ApplySourceAccessTransformersAction extends ExternalJavaToolAction 
 
     public void setParchmentData(@Nullable Path parchmentData) {
         this.parchmentData = parchmentData;
+    }
+
+    public ExtensibleClasspath getParserClasspath() {
+        return parserClasspath;
     }
 }
