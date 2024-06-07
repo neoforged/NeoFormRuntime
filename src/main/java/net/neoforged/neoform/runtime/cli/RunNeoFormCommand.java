@@ -152,7 +152,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     private static NodeOutput createSourcesWithNeoForge(ExecutionGraph graph, ZipFile neoforgeSourcesZip) {
         // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
         var builder = graph.nodeBuilder("sourcesWithNeoForge");
-        builder.input("input", graph.getRequiredOutput("inject", "output").asInput());
+        builder.input("input", graph.getRequiredOutput("transformSources", "output").asInput());
         var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
         builder.action(new InjectZipContentAction(List.of(
                 new InjectFromZipFileSource(neoforgeSourcesZip, "/")
