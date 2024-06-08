@@ -10,6 +10,8 @@ Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding
 apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produces the necessary artifacts to compile against
 the NeoForge APIs.
 
+You'll find the [latest releases](https://projects.neoforged.net/neoforged/neoformruntime) on the NeoForged Project Listing.
+
 ## Usage
 
 ### run: Creating Minecraft Artifacts
