@@ -5,10 +5,10 @@ import java.util.Map;
 public final class Logger {
     // Replacement Map for Emojis
     private static final Map<Character, String> EMOJI_MAP = Map.of(
-            '↓', "DL",
-            '♻', "CACHE",
-            '✓', "OK",
-            '↳', "EXEC"
+            '↓', "DL   ",
+            '♻', "REUSE",
+            '✓', "DONE ",
+            '↳', "RUN  "
     );
 
     public static boolean NO_COLOR;
