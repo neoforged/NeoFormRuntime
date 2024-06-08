@@ -86,11 +86,22 @@ public class ExecutionGraph {
 
             var sortedNodes = TopologicalSort.topologicalSort(this);
 
+            writer.println("%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%");
+            writer.println("flowchart LR");
+
             for (var node : sortedNodes) {
-                writer.println("*** NODE " + node.id());
-                for (var predecessor : node.getPredecessors()) {
-                    writer.println("  needs " + predecessor.id());
+                writer.println("  " + node.id() + "[[" + node.id() + "]]");
+
+                for (var input : node.inputs().values()) {
+                    for (var inputNode : input.getNodeDependencies()) {
+                        writer.println("  " + inputNode.id() + "-->|" + input.getId() + "|" + node.id());
+                    }
                 }
+            }
+
+            for (var entry : results.entrySet()) {
+                writer.println("  result-" + entry.getKey() + "(\"`**Result**\n" + entry.getKey() + "`\")");
+                writer.println("  " + entry.getValue().getNode().id() + " --o " + "result-" + entry.getKey());
             }
 
         } finally {

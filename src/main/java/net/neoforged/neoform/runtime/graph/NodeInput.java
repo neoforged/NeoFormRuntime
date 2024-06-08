@@ -48,6 +48,7 @@ public abstract class NodeInput {
         public void replaceReferences(NodeOutput oldOutput, NodeOutput newOutput) {
             if (this.output == oldOutput) {
                 this.output = newOutput;
+                this.getNode().updatePredecessors();
             }
         }
 

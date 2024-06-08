@@ -18,7 +18,7 @@ public final class ExecutionNode {
     private final Map<String, NodeInput> inputs;
     private final Map<String, NodeOutput> outputs;
     private ExecutionNodeAction action;
-    private final Set<ExecutionNode> predecessors;
+    private Set<ExecutionNode> predecessors = Set.of();
     private Long started;
     private long elapsedMs;
     private NodeState state = NodeState.NOT_STARTED;
@@ -40,6 +40,10 @@ public final class ExecutionNode {
         this.outputs = outputs;
         this.action = action;
 
+        updatePredecessors();
+    }
+
+    void updatePredecessors() {
         // Our predecessor nodes are nodes that our inputs depend on
         Set<ExecutionNode> predecessors = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var value : inputs.values()) {
@@ -114,6 +118,7 @@ public final class ExecutionNode {
 
     public void setInput(String id, NodeInput input) {
         inputs.put(id, Objects.requireNonNull(input, "input"));
+        updatePredecessors();
     }
 
     public Map<String, NodeInput> inputs() {

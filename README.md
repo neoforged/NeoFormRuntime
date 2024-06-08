@@ -113,3 +113,96 @@ net.neoforged.fancymodloader\:loader\:3.0.53-pr-54-junit=C\:\\Gradle Home\\cache
 
 The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild is used on the 
 containing project.
+
+
+## Example Execution Graphs
+
+### NeoForge, Parchment, ATs
+
+```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+flowchart LR
+  downloadManifest[[downloadManifest]]
+  downloadJson[[downloadJson]]
+  downloadServer[[downloadServer]]
+  downloadJson-->|versionManifest|downloadServer
+  listLibraries[[listLibraries]]
+  downloadJson-->|versionManifest|listLibraries
+  downloadClient[[downloadClient]]
+  downloadJson-->|versionManifest|downloadClient
+  downloadClientMappings[[downloadClientMappings]]
+  downloadJson-->|versionManifest|downloadClientMappings
+  extractServer[[extractServer]]
+  downloadServer-->|downloadServerOutput|extractServer
+  downloadServer-->|input|extractServer
+  stripClient[[stripClient]]
+  downloadClient-->|input|stripClient
+  mergeMappings[[mergeMappings]]
+  downloadClientMappings-->|downloadClientMappingsOutput|mergeMappings
+  downloadClientMappings-->|official|mergeMappings
+  stripServer[[stripServer]]
+  extractServer-->|input|stripServer
+  merge[[merge]]
+  stripServer-->|server|merge
+  stripServer-->|stripServerOutput|merge
+  stripClient-->|client|merge
+  stripClient-->|stripClientOutput|merge
+  rename[[rename]]
+  merge-->|mergeOutput|rename
+  merge-->|input|rename
+  listLibraries-->|listLibrariesOutput|rename
+  mergeMappings-->|mappings|rename
+  listLibraries-->|libraries|rename
+  mergeMappings-->|mergeMappingsOutput|rename
+  decompile[[decompile]]
+  listLibraries-->|libraries|decompile
+  rename-->|input|decompile
+  listLibraries-->|listLibrariesOutput|decompile
+  rename-->|renameOutput|decompile
+  inject[[inject]]
+  decompile-->|input|inject
+  patch[[patch]]
+  inject-->|input|patch
+  applyNeoforgePatches[[applyNeoforgePatches]]
+  patch-->|input|applyNeoforgePatches
+  transformSources[[transformSources]]
+  listLibraries-->|libraries|transformSources
+  applyNeoforgePatches-->|input|transformSources
+  recompile[[recompile]]
+  transformSources-->|sources|recompile
+  downloadJson-->|versionManifest|recompile
+  sourcesWithNeoForge[[sourcesWithNeoForge]]
+  transformSources-->|input|sourcesWithNeoForge
+  mergeWithSources[[mergeWithSources]]
+  transformSources-->|sources|mergeWithSources
+  recompile-->|classes|mergeWithSources
+  compiledWithNeoForge[[compiledWithNeoForge]]
+  recompile-->|input|compiledWithNeoForge
+  sourcesAndCompiledWithNeoForge[[sourcesAndCompiledWithNeoForge]]
+  sourcesWithNeoForge-->|sources|sourcesAndCompiledWithNeoForge
+  compiledWithNeoForge-->|classes|sourcesAndCompiledWithNeoForge
+  result-compiled("`**Result**
+compiled`")
+  recompile --o result-compiled
+  result-clientResources("`**Result**
+clientResources`")
+  stripClient --o result-clientResources
+  result-sources("`**Result**
+sources`")
+  transformSources --o result-sources
+  result-compiledWithNeoForge("`**Result**
+compiledWithNeoForge`")
+  compiledWithNeoForge --o result-compiledWithNeoForge
+  result-compiledWithSources("`**Result**
+compiledWithSources`")
+  mergeWithSources --o result-compiledWithSources
+  result-serverResources("`**Result**
+serverResources`")
+  stripServer --o result-serverResources
+  result-sourcesAndCompiledWithNeoForge("`**Result**
+sourcesAndCompiledWithNeoForge`")
+  sourcesAndCompiledWithNeoForge --o result-sourcesAndCompiledWithNeoForge
+  result-sourcesWithNeoForge("`**Result**
+sourcesWithNeoForge`")
+  sourcesWithNeoForge --o result-sourcesWithNeoForge
+```
