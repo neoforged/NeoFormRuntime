@@ -44,8 +44,15 @@ public class Main {
     @Option(names = "--no-color", description = "Disable color console output", scope = ScopeType.INHERIT)
     boolean noColor = System.getenv("NO_COLOR") != null && !System.getenv("NO_COLOR").isEmpty();
 
-    @Option(names = "--no-emojis", description = "Disable use of emojis in console output", scope = ScopeType.INHERIT)
-    boolean noEmojis = false;
+    @Option(names = "--emojis", description = "Enable use of emojis in console output", scope = ScopeType.INHERIT)
+    boolean emojis = shouldEnableEmojis();
+
+    /**
+     * Windows console is sadly too finicky for now.
+     */
+    private boolean shouldEnableEmojis() {
+        return OsUtil.isLinux() || OsUtil.isMac();
+    }
 
     public Path getWorkDir() {
         return Objects.requireNonNullElseGet(workDir, () -> homeDir.resolve("work"));
@@ -71,7 +78,7 @@ public class Main {
         var commandLine = new CommandLine(baseCommand);
         commandLine.parseArgs(args);
         Logger.NO_COLOR = baseCommand.noColor;
-        Logger.NO_EMOJIS = baseCommand.noEmojis;
+        Logger.NO_EMOJIS = !baseCommand.emojis;
         int exitCode = commandLine.execute(args);
         System.exit(exitCode);
     }
