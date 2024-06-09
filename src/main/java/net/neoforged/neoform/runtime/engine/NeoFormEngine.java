@@ -161,12 +161,12 @@ public class NeoFormEngine implements AutoCloseable {
 
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
 
-        var compiledWithSourcesOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
+        var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
-        graph.setResult("compiledWithSources", compiledWithSourcesOutput);
+        graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
