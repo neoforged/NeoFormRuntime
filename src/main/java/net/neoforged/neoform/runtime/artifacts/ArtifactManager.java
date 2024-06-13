@@ -167,7 +167,14 @@ public class ArtifactManager {
      */
     public Artifact getLauncherManifest() throws IOException {
         var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
-        return download(finalLocation, launcherManifestUrl);
+
+        downloadManager.download(DownloadSpec.of(launcherManifestUrl), finalLocation);
+
+        return new Artifact(
+                finalLocation,
+                Files.getLastModifiedTime(finalLocation).toMillis(),
+                Files.size(finalLocation)
+        );
     }
 
     /**
