@@ -57,6 +57,8 @@ public class LockManager implements AutoCloseable {
             }
         }
 
+        // Now that we have an open file handle (in form of a FileChannel)
+        // We try to get an exclusive lock on it. If that fails, we wait 1s and try again endlessly
         Logger.IndeterminateSpinner spinner = null;
         FileLock fileLock;
         while (true) {
