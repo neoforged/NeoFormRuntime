@@ -40,7 +40,7 @@ public class LockManager implements AutoCloseable {
                 channel = FileChannel.open(lockFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
             } catch (AccessDeniedException e) {
                 if (attempt > 5) {
-                    throw new RuntimeException("Failed to obtain lock for " + key, e);
+                    throw new RuntimeException("Failed to create lock-file " + lockFile + ": " + e.getMessage(), e);
                 }
                 try {
                     Thread.sleep(1000L);
@@ -49,7 +49,7 @@ public class LockManager implements AutoCloseable {
                     throw new RuntimeException(e);
                 }
             } catch (IOException e) {
-                throw new RuntimeException("Failed to obtain lock for " + key, e);
+                throw new RuntimeException("Failed to create lock-file " + lockFile + ": " + e.getMessage(), e);
             }
         }
 
