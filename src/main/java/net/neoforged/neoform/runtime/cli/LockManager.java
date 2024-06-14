@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.locks.Lock;
 
 public class LockManager implements AutoCloseable {
     private static final Logger LOG = Logger.create();
@@ -30,13 +32,33 @@ public class LockManager implements AutoCloseable {
 
     public Lock lock(String key) {
         var lockFile = getLockFile(key);
-        FileChannel channel;
-        try {
-            channel = FileChannel.open(lockFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.DELETE_ON_CLOSE);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to obtain lock for " + key, e);
+
+        // We need an open FileChannel to actually get an exclusive lock on the file,
+        // So we create/open the existing one here. Opening the same file by two processes will itself not
+        // cause blocking.
+        FileChannel channel = null;
+        int attempt = 0;
+        while (channel == null) {
+            try {
+                attempt++;
+                channel = FileChannel.open(lockFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            } catch (AccessDeniedException e) {
+                if (attempt > 5) {
+                    throw new RuntimeException("Failed to create lock-file " + lockFile + ": " + e.getMessage(), e);
+                }
+                try {
+                    Thread.sleep(1000L);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create lock-file " + lockFile + ": " + e.getMessage(), e);
+            }
         }
 
+        // Now that we have an open file handle (in form of a FileChannel)
+        // We try to get an exclusive lock on it. If that fails, we wait 1s and try again endlessly
         Logger.IndeterminateSpinner spinner = null;
         FileLock fileLock;
         while (true) {
