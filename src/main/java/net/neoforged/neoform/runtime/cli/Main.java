@@ -79,6 +79,7 @@ public class Main {
         commandLine.parseArgs(args);
         Logger.NO_COLOR = baseCommand.noColor;
         Logger.NO_EMOJIS = !baseCommand.emojis;
+        Logger.PRINT_THREAD = baseCommand.verbose;
         int exitCode = commandLine.execute(args);
         System.exit(exitCode);
     }
