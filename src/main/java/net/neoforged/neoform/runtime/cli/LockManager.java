@@ -32,6 +32,10 @@ public class LockManager implements AutoCloseable {
 
     public Lock lock(String key) {
         var lockFile = getLockFile(key);
+
+        // We need an open FileChannel to actually get an exclusive lock on the file,
+        // So we create/open the existing one here. Opening the same file by two processes will itself not
+        // cause blocking.
         FileChannel channel = null;
         int attempt = 0;
         while (channel == null) {
