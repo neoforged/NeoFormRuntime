@@ -13,6 +13,7 @@ public final class Logger {
 
     public static boolean NO_COLOR;
     public static boolean NO_EMOJIS;
+    public static boolean PRINT_THREAD;
     private static IndeterminateSpinner spinner;
 
     public static Logger create() {
@@ -21,6 +22,13 @@ public final class Logger {
 
     public void println(String text) {
         closeSpinner();
+
+        // Print a process-id and thread-id to help identify concurrently running instances of NFRT in verbose mode
+        if (PRINT_THREAD) {
+            System.out.print(
+                    cleanText(AnsiColor.MUTED + "[" + ProcessHandle.current().pid() + ":" + Thread.currentThread().threadId() + "] " + AnsiColor.RESET)
+            );
+        }
 
         System.out.println(cleanText(text));
     }
