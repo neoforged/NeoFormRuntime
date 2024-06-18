@@ -95,7 +95,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             var transformSources = getOrAddTransformSourcesNode(engine);
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
-            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
 
             // Add NeoForge libraries to the list of libraries
             transforms.add(new ModifyAction<>(
@@ -125,6 +124,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
+        }
+
+        if (!additionalAccessTransformers.isEmpty()) {
+            var transformSources = getOrAddTransformSourcesNode(engine);
+            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
         }
 
         if (parchmentData != null) {
