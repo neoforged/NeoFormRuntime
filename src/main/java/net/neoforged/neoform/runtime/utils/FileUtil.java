@@ -15,7 +15,12 @@ public final class FileUtil {
     /**
      * The maximum number of tries that the system will try to atomically move a file.
      */
-    private static final int MAX_TRIES = 2;
+    private static final int MAX_TRIES = 10;
+
+    /**
+     * Time in milliseconds to wait after each attempt.
+     */
+    private static final long WAIT_PER_TRY = 500L;
 
     private FileUtil() {
     }
@@ -37,12 +42,16 @@ public final class FileUtil {
         try {
             atomicMoveIfPossible(source, destination);
         } catch (AccessDeniedException ex) {
-            // Sometimes because of file locking this will fail... Let's just try again and hope for the best
-            // Thanks Windows!
+            // Sometimes because of file-locking, this will fail...
+            // Let's try again and hope for the best. Thanks, Windows!
+            if (!OsUtil.isWindows()) {
+                throw ex; // On non-windows, don't make people wait
+            }
+
             for (int tries = 0; true; ++tries) {
                 // Pause for a bit
                 try {
-                    Thread.sleep(10L * tries);
+                    Thread.sleep(WAIT_PER_TRY);
                     atomicMoveIfPossible(source, destination);
                     return;
                 } catch (final AccessDeniedException ex2) {
