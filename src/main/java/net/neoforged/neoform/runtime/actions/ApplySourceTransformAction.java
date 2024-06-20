@@ -26,7 +26,7 @@ import java.util.zip.ZipFile;
  * </ul>
  */
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
-    private static final MavenCoordinate JST_TOOL_COORDINATE = MavenCoordinate.parse("net.neoforged.jst:jst-cli-bundle:1.0.39");
+    private static final MavenCoordinate JST_TOOL_COORDINATE = MavenCoordinate.parse("net.neoforged.jst:jst-cli-bundle:1.0.42");
 
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
