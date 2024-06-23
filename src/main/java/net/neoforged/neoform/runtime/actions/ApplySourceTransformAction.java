@@ -2,7 +2,7 @@ package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
-import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -26,8 +26,6 @@ import java.util.zip.ZipFile;
  * </ul>
  */
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
-    private static final MavenCoordinate JST_TOOL_COORDINATE = MavenCoordinate.parse("net.neoforged.jst:jst-cli-bundle:1.0.42");
-
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -53,7 +51,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     private Path parchmentData;
 
     public ApplySourceTransformAction() {
-        super(JST_TOOL_COORDINATE);
+        super(ToolCoordinate.JAVA_SOURCE_TRANSFORMER);
     }
 
     @Override
