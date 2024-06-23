@@ -18,14 +18,14 @@ public enum ToolCoordinate {
     private MavenCoordinate version;
 
     static {
-        try (var in = ToolCoordinate.class.getResourceAsStream("Tools.properties")) {
+        try (var in = ToolCoordinate.class.getResourceAsStream("/tools.properties")) {
             if (in == null) {
-                throw new IllegalStateException("Packaging error: ToolVersions.properties is missing.");
+                throw new IllegalStateException("Packaging error: tools.properties is missing.");
             }
             VERSIONS = new Properties();
             VERSIONS.load(in);
         } catch (IOException e) {
-            throw new IllegalStateException("ToolVersions.properties failed to be read.", e);
+            throw new IllegalStateException("Could ont read tools.properties", e);
         }
 
         for (var value : values()) {
@@ -40,7 +40,7 @@ public enum ToolCoordinate {
             try {
                 valueOf(property);
             } catch (IllegalArgumentException ignored) {
-                throw new IllegalStateException("ToolVersions.properties contains invalid key: " + property);
+                throw new IllegalStateException("tools.properties contains invalid key: " + property);
             }
         }
     }

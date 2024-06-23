@@ -107,7 +107,7 @@ dependencies {
 
 // Add dependencies to external tools
 var toolVersions = new java.util.Properties()
-file("src/main/resources/net/neoforged/neoform/runtime/utils/Tools.properties").withInputStream {
+file("src/main/resources/tools.properties").withInputStream {
     toolVersions.load(it)
 }
 for (var toolDependency : toolVersions.values()) {
