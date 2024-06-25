@@ -55,6 +55,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
     String parchmentData;
 
+    @CommandLine.Option(names = "--parchment-conflict-prefix", description = "Setting this option enables automatic Parchment parameter conflict resolution and uses this prefix for parameter names that clash.")
+    String parchmentConflictPrefix;
+
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
         String neoform;
@@ -135,6 +138,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var transformSources = getOrAddTransformSourcesNode(engine);
             var parchmentDataFile = artifactManager.get(parchmentData);
             transformSources.setParchmentData(parchmentDataFile.path());
+
+            if (parchmentConflictPrefix != null) {
+                transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
+            }
         }
 
         execute(engine);
