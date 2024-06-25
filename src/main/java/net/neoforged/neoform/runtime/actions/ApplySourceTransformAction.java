@@ -50,6 +50,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     @Nullable
     private Path parchmentData;
 
+    /**
+     * Additional options to pass to the source transformer tool.
+     */
+    private List<String> additionalArguments = new ArrayList<>();
+
     public ApplySourceTransformAction() {
         super(ToolCoordinate.JAVA_SOURCE_TRANSFORMER);
     }
@@ -96,6 +101,8 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                     .collect(Collectors.joining(File.pathSeparator)));
         }
 
+        args.addAll(additionalArguments);
+
         Collections.addAll(args, "{input}", "{output}");
         setArgs(args);
 
@@ -110,6 +117,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
         }
+        ck.addStrings("additional arguments", additionalArguments);
         parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
@@ -139,5 +147,17 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public ExtensibleClasspath getParserClasspath() {
         return parserClasspath;
+    }
+
+    public List<String> getAdditionalArguments() {
+        return additionalArguments;
+    }
+
+    public void setAdditionalArguments(List<String> additionalArguments) {
+        this.additionalArguments = additionalArguments;
+    }
+
+    public void addArg(String arg) {
+        additionalArguments.add(arg);
     }
 }
