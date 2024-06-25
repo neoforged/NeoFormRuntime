@@ -76,6 +76,20 @@ configurations {
         }
         javaComponent.addVariantsFromConfiguration(it) {}
     }
+    externalTools {
+        canBeConsumed = true
+        canBeResolved = false
+        // NFRT generally ignores transitive dependencies when downloading tools, so we should too
+        transitive = false
+        attributes {
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        }
+        outgoing {
+            capability "net.neoforged:neoform-runtime-external-tools:${project.version}"
+        }
+        components.java.addVariantsFromConfiguration(it) {}
+    }
 }
 
 dependencies {
@@ -89,6 +103,17 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
+}
+
+// Add dependencies to external tools
+var toolVersions = new java.util.Properties()
+file("src/main/resources/tools.properties").withInputStream {
+    toolVersions.load(it)
+}
+for (var toolDependency : toolVersions.values()) {
+    dependencies {
+        externalTools(toolDependency)
+    }
 }
 
 artifacts {

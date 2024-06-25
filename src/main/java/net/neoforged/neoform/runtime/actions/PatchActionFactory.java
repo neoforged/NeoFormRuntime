@@ -4,6 +4,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -20,7 +21,7 @@ public final class PatchActionFactory {
         var mainOutput = builder.output("output", NodeOutputType.ZIP, "ZIP file containing the patched sources");
         builder.output("outputRejects", NodeOutputType.ZIP, "ZIP file containing the rejected patches");
 
-        var action = new ExternalJavaToolAction(MavenCoordinate.parse("codechicken:DiffPatch:1.5.0.29:all"));
+        var action = new ExternalJavaToolAction(ToolCoordinate.DIFF_PATCH);
         action.setArgs(List.of(
                 "{input}", patchesArchive.toString(),
                 "--prefix", patchesInZip,

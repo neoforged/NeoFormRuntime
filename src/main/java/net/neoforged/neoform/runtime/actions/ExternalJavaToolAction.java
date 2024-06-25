@@ -7,6 +7,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -39,6 +40,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public ExternalJavaToolAction(MavenCoordinate toolArtifactId) {
         this.toolArtifactId = toolArtifactId;
+    }
+
+    public ExternalJavaToolAction(ToolCoordinate toolCoordinate) {
+        this.toolArtifactId = toolCoordinate.version();
     }
 
     @Override
