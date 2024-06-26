@@ -52,6 +52,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--access-transformer", arity = "*")
     List<String> additionalAccessTransformers = new ArrayList<>();
 
+    @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if they target members that do not exist")
+    boolean validateAccessTransformers;
+
     @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
     String parchmentData;
 
@@ -132,6 +135,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (!additionalAccessTransformers.isEmpty()) {
             var transformSources = getOrAddTransformSourcesNode(engine);
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+            if (validateAccessTransformers) {
+                transformSources.addArg("--access-transformer-validation=error");
+            }
         }
 
         if (parchmentData != null) {
