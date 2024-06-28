@@ -10,7 +10,7 @@ plugins {
     id 'java'
     id 'maven-publish'
     id "com.github.johnrengelman.shadow" version '8.1.1'
-    id "net.neoforged.gradleutils" version "3.0.0-alpha.13"
+    id "net.neoforged.gradleutils" version "3.0.0"
     id "org.jetbrains.gradle.plugin.idea-ext" version "1.1.8"
 }
 
