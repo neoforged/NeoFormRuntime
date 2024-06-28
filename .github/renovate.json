@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>neoforged/actions:renovate_preset"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "tools\\.properties$"
+      ],
+      "matchStrings": [
+        "[A-Z_]+=(?<depName>[\\w:\\.-]+):(?<currentValue>[\\d\\.]+)(:(?<depClassifier>[a-z]+))?"
+      ],
+      "datasourceTemplate": "maven"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": ["maven"],
+      "matchPackagePatterns": ["^net\\.fabricmc\\."],
+      "registryUrls": ["https://maven.fabricmc.net/"]
+    }
+   ]
+}
