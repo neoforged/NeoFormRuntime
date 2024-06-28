@@ -14,5 +14,12 @@
       ],
       "datasourceTemplate": "maven"
     }
-  ]
+  ],
+  "packageRules": [
+      {
+          "matchDatasources": ["maven"],
+          "matchPackagePatterns": ["^net\\.fabricmc\\."],
+          "registryUrls": ["https://maven.fabricmc.net/"]
+      }
+   ],
 }
