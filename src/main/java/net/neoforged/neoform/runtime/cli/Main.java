@@ -26,6 +26,10 @@ public class Main {
     @Option(names = "--home-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store caches.")
     Path homeDir = getDefaultHomeDir();
 
+    @Option(names = "--assets-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store Minecraft client assets. Defaults to a subdirectory of the home-dir.")
+    @Nullable
+    Path assetsDir;
+
     @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
     @Nullable
     Path workDir;
@@ -130,7 +134,7 @@ public class Main {
     }
 
     public CacheManager createCacheManager() throws IOException {
-        var cacheManager = new CacheManager(homeDir, getWorkDir());
+        var cacheManager = new CacheManager(homeDir, assetsDir, getWorkDir());
         cacheManager.setVerbose(verbose);
         return cacheManager;
     }
