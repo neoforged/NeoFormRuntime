@@ -1,9 +1,12 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.OsUtil;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,6 +22,10 @@ import static picocli.CommandLine.ScopeType;
 public class Main {
     @Option(names = "--home-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store caches.")
     Path homeDir = getDefaultHomeDir();
+
+    @Option(names = "--assets-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store Minecraft client assets. Defaults to a subdirectory of the home-dir.")
+    @Nullable
+    Path assetsDir;
 
     @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
     Path workDir;
@@ -88,5 +95,11 @@ public class Main {
         var result = new ArrayList<>(repositories);
         result.addAll(additionalRepositories);
         return result;
+    }
+
+    public CacheManager createCacheManager() throws IOException {
+        var cacheManager = new CacheManager(homeDir, assetsDir, getWorkDir());
+        cacheManager.setVerbose(verbose);
+        return cacheManager;
     }
 }

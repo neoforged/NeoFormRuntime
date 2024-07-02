@@ -90,11 +90,21 @@ public final class FileUtil {
      * @param destination The destination file
      * @throws IOException If an I/O error occurs
      */
-    private static void atomicMoveIfPossible(final Path source, final Path destination) throws IOException {
+    private static void atomicMoveIfPossible(Path source, Path destination) throws IOException {
         try {
             Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (final AtomicMoveNotSupportedException ex) {
             Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    /**
+     * Copies the given source to a tmp-file in the destination folder and then performs an atomic move.
+     */
+    public static void safeCopy(Path source, Path destination) throws IOException {
+        var suffix = ProcessHandle.current().pid() + "." + Thread.currentThread().threadId() + ".tmp";
+        var tempDestination = destination.resolveSibling(destination.getFileName().toString() + suffix);
+        Files.copy(source, tempDestination, StandardCopyOption.REPLACE_EXISTING);
+        atomicMove(tempDestination, destination);
     }
 }

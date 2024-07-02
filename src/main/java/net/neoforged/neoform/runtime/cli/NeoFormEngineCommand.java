@@ -2,7 +2,6 @@ package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
-import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
@@ -54,7 +53,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         var closables = new ArrayList<AutoCloseable>();
 
         try (var lockManager = new LockManager(commonOptions.homeDir);
-             var cacheManager = new CacheManager(commonOptions.homeDir, commonOptions.getWorkDir());
+             var cacheManager = commonOptions.createCacheManager();
              var downloadManager = new DownloadManager()) {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
