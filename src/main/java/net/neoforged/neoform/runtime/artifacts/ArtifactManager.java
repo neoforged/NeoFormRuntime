@@ -75,13 +75,13 @@ public class ArtifactManager {
         var relativePath = artifactCoordinate.toRelativeRepositoryPath();
 
         // Try reusing it from a local Minecraft installation, which ultimately is structured like a Maven repo
-        var localMinecraftLibraries = new ArrayList<>(launcherInstallations.getLibraryDirectories());
+        var localMinecraftLibraries = new ArrayList<>(launcherInstallations.getInstallationRoots());
         for (var localRepo : localMinecraftLibraries) {
-            var localPath = localRepo.resolve(relativePath);
+            var localPath = localRepo.resolve("libraries").resolve(relativePath);
             try {
-                // Ensure the file matches
-                var fileHash = HashingUtil.hashFile(localPath, "SHA-1");
-                if (Objects.equals(fileHash, library.downloads().artifact().checksum())) {
+                // Ensure the file matches before using it
+                var fileHash = HashingUtil.hashFile(localPath, artifact.checksumAlgorithm());
+                if (Objects.equals(fileHash, artifact.checksum())) {
                     return getArtifactFromPath(localPath);
                 }
             } catch (IOException ignored) {
@@ -170,6 +170,14 @@ public class ArtifactManager {
      * Special purpose method to get the version manifest for a specific Minecraft version.
      */
     public Artifact getVersionManifest(String minecraftVersion) throws IOException {
+        // Check local Minecraft launchers for a copy of it
+        for (var root : launcherInstallations.getInstallationRoots()) {
+            var localPath = root.resolve("versions").resolve(minecraftVersion).resolve(minecraftVersion + ".json");
+            if (Files.isReadable(localPath)) {
+                return getArtifactFromPath(localPath);
+            }
+        }
+
         var finalLocation = artifactsCache.resolve("minecraft_" + minecraftVersion + "_version_manifest.json");
         return download(finalLocation, () -> {
             var launcherManifestArtifact = getLauncherManifest();
@@ -188,7 +196,10 @@ public class ArtifactManager {
      * Gets the v2 Launcher Manifest.
      */
     public Artifact getLauncherManifest() throws IOException {
-        var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
+
+        // NOTE: we're not reusing launcher manifests, since we don't know how old they are
+
+       var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
 
         downloadManager.download(DownloadSpec.of(launcherManifestUrl), finalLocation);
 

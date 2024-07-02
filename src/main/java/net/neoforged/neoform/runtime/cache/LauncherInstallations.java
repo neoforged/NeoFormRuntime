@@ -4,7 +4,6 @@ import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,8 +18,10 @@ import java.util.regex.Pattern;
 public class LauncherInstallations {
     private static final Logger LOG = Logger.create();
 
-    // Some are sourced from
+    // Some are sourced from:
     // https://github.com/SpongePowered/VanillaGradle/blob/ccc45765d9881747b2c922be7a13c453c32ce9ed/subprojects/gradle-plugin/src/main/java/org/spongepowered/gradle/vanilla/internal/Constants.java#L61-L71
+    // Placeholders of the form ${variable} are interpreted as system properties.
+    // If the variable starts with "env.", it is sourced from environment variables.
     private static final String[] CANDIDATES = {
             "${env.APPDATA}/.minecraft/", // Windows, default launcher
             "${user.home}/.minecraft/", // linux, default launcher
@@ -32,6 +33,7 @@ public class LauncherInstallations {
             "${env.APPDATA}/PrismLauncher/", // Windows, PrismLauncher
             "${user.home}/scoop/persist/multimc/", // Windows, MultiMC via Scoop
     };
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
 
     private final List<LauncherDirectory> launcherDirectories = new ArrayList<>();
 
@@ -45,25 +47,21 @@ public class LauncherInstallations {
     }
 
     /**
-     * @return The {@code libraries} directories of all Minecraft launcher installations that could be found.
+     * Returns all installation roots that have been found.
+     * Please note that none of the directories or files you might
+     * expect might actually exist or be readable.
      */
-    public List<Path> getLibraryDirectories() {
+    public List<Path> getInstallationRoots() {
         scanIfNecessary();
 
-        var results = new ArrayList<Path>();
-        for (var launcherDirectory : launcherDirectories) {
-            var librariesDir = launcherDirectory.directory().resolve("libraries");
-            if (Files.isDirectory(librariesDir)) {
-                results.add(librariesDir);
-            }
-        }
-        return results;
+        return launcherDirectories.stream().map(LauncherDirectory::directory).toList();
     }
 
     private void scanIfNecessary() {
         if (scanned) {
             return;
         }
+        scanned = true;
 
         // In CI, we can assume that the Minecraft launcher is not going to be installed.
         // Skip scanning for it there.
@@ -73,7 +71,6 @@ public class LauncherInstallations {
             if (verbose) {
                 LOG.println("Not scanning for Minecraft Launcher installations in CI");
             }
-            scanned = true;
             return;
         }
 
@@ -81,32 +78,10 @@ public class LauncherInstallations {
             LOG.println("Scanning for Minecraft Launcher installations");
         }
 
-        var replacementPattern = Pattern.compile("\\$\\{([^}]+)}");
-
         for (var candidate : CANDIDATES) {
-            var matcher = replacementPattern.matcher(candidate);
-
-            var unmatchedVariables = new ArrayList<String>();
-            candidate = matcher.replaceAll(match -> {
-                var variable = match.group(1);
-                String value;
-                if (variable.startsWith("env.")) {
-                    value = System.getenv(variable.substring("env.".length()));
-                } else {
-                    value = System.getProperty(variable);
-                }
-
-                if (value == null) {
-                    unmatchedVariables.add(variable);
-                    return "";
-                }
-                return Matcher.quoteReplacement(value);
-            });
-            if (!unmatchedVariables.isEmpty()) {
-                if (verbose) {
-                    LOG.println("  Skipping candidate " + candidate + " due to undefined references: " + unmatchedVariables);
-                }
-                continue; // Ignoring due to unmatched variables
+            var resolvedPath = resolvePlaceholders(candidate);
+            if (resolvedPath == null) {
+                continue;
             }
 
             try {
@@ -128,8 +103,35 @@ public class LauncherInstallations {
                             + AnsiColor.RESET);
             }
         }
+    }
 
-        scanned = true;
+    @Nullable
+    private String resolvePlaceholders(String candidate) {
+        var matcher = PLACEHOLDER_PATTERN.matcher(candidate);
+
+        var unmatchedVariables = new ArrayList<String>();
+        candidate = matcher.replaceAll(match -> {
+            var variable = match.group(1);
+            String value;
+            if (variable.startsWith("env.")) {
+                value = System.getenv(variable.substring("env.".length()));
+            } else {
+                value = System.getProperty(variable);
+            }
+
+            if (value == null) {
+                unmatchedVariables.add(variable);
+                return "";
+            }
+            return Matcher.quoteReplacement(value);
+        });
+        if (!unmatchedVariables.isEmpty()) {
+            if (verbose) {
+                LOG.println("  Skipping candidate " + candidate + " due to undefined references: " + unmatchedVariables);
+            }
+            return null; // Ignoring due to unmatched variables
+        }
+        return candidate;
     }
 
     @Nullable
