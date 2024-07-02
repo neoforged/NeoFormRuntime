@@ -32,7 +32,7 @@ public final class OsUtil {
         return TYPE == OsType.MAC;
     }
 
-    public enum OsType {
+    enum OsType {
         WINDOWS,
         LINUX,
         MAC,
