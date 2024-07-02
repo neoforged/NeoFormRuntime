@@ -32,19 +32,43 @@ public class Main {
     @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
     Path artifactManifest;
 
-    @Option(names = "--warn-on-artifact-manifest-miss", scope = ScopeType.INHERIT, description = "Warns when an artifact manifest is given, but a file is being downloaded that is not in the manifest.")
+    @Option(
+            names = "--warn-on-artifact-manifest-miss",
+            scope = ScopeType.INHERIT,
+            description = "Warns when an artifact manifest is given, but a file is being downloaded that is not in the manifest.",
+            negatable = true,
+            fallbackValue = "true"
+    )
     boolean warnOnArtifactManifestMiss;
 
     @Option(names = "--launcher-meta-uri", scope = ScopeType.INHERIT)
     URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
 
-    @Option(names = "--verbose", description = "Enable verbose output", scope = ScopeType.INHERIT)
+    @Option(
+            names = "--verbose",
+            description = "Enable verbose output",
+            scope = ScopeType.INHERIT,
+            negatable = true,
+            fallbackValue = "true"
+    )
     boolean verbose;
 
-    @Option(names = "--no-color", description = "Disable color console output", scope = ScopeType.INHERIT)
-    boolean noColor = System.getenv("NO_COLOR") != null && !System.getenv("NO_COLOR").isEmpty();
+    @Option(
+            names = "--color",
+            description = "Enable color console output",
+            scope = ScopeType.INHERIT,
+            negatable = true,
+            fallbackValue = "true"
+    )
+    boolean color = shouldEnableColor();
 
-    @Option(names = "--emojis", description = "Enable use of emojis in console output", scope = ScopeType.INHERIT)
+    @Option(
+            names = "--emojis",
+            description = "Enable use of emojis in console output",
+            scope = ScopeType.INHERIT,
+            negatable = true,
+            fallbackValue = "true"
+    )
     boolean emojis = shouldEnableEmojis();
 
     /**
@@ -52,6 +76,10 @@ public class Main {
      */
     private boolean shouldEnableEmojis() {
         return OsUtil.isLinux() || OsUtil.isMac();
+    }
+
+    private static boolean shouldEnableColor() {
+        return System.getenv("NO_COLOR") == null || System.getenv("NO_COLOR").isEmpty();
     }
 
     public Path getWorkDir() {
@@ -77,7 +105,7 @@ public class Main {
         var baseCommand = new Main();
         var commandLine = new CommandLine(baseCommand);
         commandLine.parseArgs(args);
-        Logger.NO_COLOR = baseCommand.noColor;
+        Logger.NO_COLOR = !baseCommand.color;
         Logger.NO_EMOJIS = !baseCommand.emojis;
         Logger.PRINT_THREAD = baseCommand.verbose;
         int exitCode = commandLine.execute(args);
