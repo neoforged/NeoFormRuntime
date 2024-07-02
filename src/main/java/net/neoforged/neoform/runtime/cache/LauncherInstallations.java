@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -46,17 +47,18 @@ public class LauncherInstallations {
 
     private final List<LauncherDirectory> launcherDirectories = new ArrayList<>();
 
-    /** If true, the scan was already performed and launcherDirectories is up-to-date */
+    /** If true, the scan was already performed and launcherDirectories is up to date */
     private boolean scanned;
 
     private boolean verbose;
 
-    public LauncherInstallations(List<Path> additionalLauncherDirs) {
+    public LauncherInstallations(List<Path> additionalLauncherDirs) throws IOException {
         for (var dir : additionalLauncherDirs) {
             var launcherDir = analyzeLauncherDirectory(dir);
-            if (launcherDir != null) {
-                launcherDirectories.add(launcherDir);
+            if (launcherDir == null) {
+                throw new NoSuchFileException(dir.toString());
             }
+            launcherDirectories.add(launcherDir);
         }
     }
 

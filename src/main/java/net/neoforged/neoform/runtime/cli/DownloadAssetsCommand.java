@@ -73,7 +73,7 @@ public class DownloadAssetsCommand implements Callable<Integer> {
     /**
      * Properties file that will receive the metadata of the asset index.
      */
-    @CommandLine.Option(names = "--output-properties-to")
+    @CommandLine.Option(names = "--properties-output")
     public String outputPropertiesPath;
 
     /**
@@ -81,7 +81,7 @@ public class DownloadAssetsCommand implements Callable<Integer> {
      * See:
      * https://github.com/neoforged/NeoForm/blob/c2f5c5eda5eeca2e554c51872c28d0e68bc244bc/versions/release/1.21/inject/mcp/client/Start.java
      */
-    @CommandLine.Option(names = "--output-json-to")
+    @CommandLine.Option(names = "--json-output")
     public String outputJsonPath;
 
     public static class Version {

@@ -139,7 +139,7 @@ public class Main {
         return cacheManager;
     }
 
-    public LauncherInstallations createLauncherInstallations() {
+    public LauncherInstallations createLauncherInstallations() throws IOException {
         var installations = new LauncherInstallations(launcherDirs);
         installations.setVerbose(verbose);
         return installations;
