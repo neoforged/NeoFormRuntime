@@ -10,7 +10,8 @@ Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding
 apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produces the necessary artifacts to compile against
 the NeoForge APIs.
 
-You'll find the [latest releases](https://projects.neoforged.net/neoforged/neoformruntime) on the NeoForged Project Listing.
+You'll find the [latest releases](https://projects.neoforged.net/neoforged/neoformruntime) on the NeoForged Project
+Listing.
 
 ## Usage
 
@@ -84,6 +85,13 @@ assets_root=...path to assets...
 While it may seem odd that NFRT supports passing NeoForm or NeoForge versions to this command, this is in service
 of potential Gradle plugins never having to actually read and parse the NeoForm configuration file.
 
+| Option                          | Description                                                                                                                                                      |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--asets-dir`                   | Where to store the downloaded assets. Optional. Defaults to `<nfrt_home>/assets`.                                                                                |
+| `--reuse-launcher-assets=false` | Disables reuse of local Minecraft Launcher assets.                                                                                                               |
+| `--concurrent-downloads`        | Limits the maximum number of concurrent downloads. Default is 25.                                                                                                |
+| `--output-properties-to`        | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft. |
+
 ## Caches
 
 NFRT has to store various files to speed up later runs. It does this in several cache
@@ -91,7 +99,8 @@ directories.
 
 ### Cache Directories
 
-On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoformruntime`. If that variable is not set or not an
+On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoformruntime`. If that variable is not set or not
+an
 absolute path, it falls back to `~/.cache/neoformruntime`.
 
 For other operating systems (Windows, Mac), it defaults to `.neoformruntime` in your home directory.
@@ -113,9 +122,9 @@ net.neoforged.fancymodloader\:loader\:3.0.53-pr-54-junit=C\:\\Gradle Home\\cache
 [...]
 ```
 
-The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild is used on the 
+The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild
+is used on the
 containing project.
-
 
 ## Example Execution Graphs
 
