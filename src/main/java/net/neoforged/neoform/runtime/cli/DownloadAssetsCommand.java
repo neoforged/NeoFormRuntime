@@ -90,7 +90,7 @@ public class DownloadAssetsCommand implements Callable<Integer> {
      * Properties file that will receive the metadata of the asset index.
      */
     @CommandLine.Option(names = "--write-properties")
-    public String outputPropertiesPath;
+    public Path outputPropertiesPath;
 
     /**
      * Write a JSON file as it is used by the Neoform Start.java file
@@ -98,7 +98,7 @@ public class DownloadAssetsCommand implements Callable<Integer> {
      * https://github.com/neoforged/NeoForm/blob/c2f5c5eda5eeca2e554c51872c28d0e68bc244bc/versions/release/1.21/inject/mcp/client/Start.java
      */
     @CommandLine.Option(names = "--write-json")
-    public String outputJsonPath;
+    public Path outputJsonPath;
 
     public static class Version {
         @CommandLine.Option(names = "--minecraft-version")
@@ -221,13 +221,13 @@ public class DownloadAssetsCommand implements Callable<Integer> {
         }
     }
 
-    private void writeJson(Path assetRoot, String id) throws IOException {
+    private void writeJson(Path assetRoot, String assetIndexId) throws IOException {
         if (outputJsonPath != null) {
             var jsonObject = new JsonObject();
             jsonObject.addProperty("assets", assetRoot.toAbsolutePath().toString());
-            jsonObject.addProperty("asset_index", id);
+            jsonObject.addProperty("asset_index", assetIndexId);
             var jsonString = new Gson().toJson(jsonObject);
-            Files.writeString(Paths.get(outputJsonPath), jsonString, StandardCharsets.UTF_8);
+            Files.writeString(outputJsonPath, jsonString, StandardCharsets.UTF_8);
         }
     }
 

@@ -78,12 +78,12 @@ public class LauncherInstallations {
     }
 
     @Nullable
-    public Path getAssetDirectoryForIndex(String minecraftVersion) {
+    public Path getAssetDirectoryForIndex(String assetIndexId) {
         scanIfNecessary();
 
         var haveIndex = new ArrayList<LauncherDirectory>();
         for (var launcherDirectory : launcherDirectories) {
-            if (launcherDirectory.assetIndices.contains(minecraftVersion)) {
+            if (launcherDirectory.assetIndices.contains(assetIndexId)) {
                 haveIndex.add(launcherDirectory);
             }
         }
