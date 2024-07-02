@@ -28,7 +28,7 @@ public class Main {
     @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
     Path workDir;
 
-    @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overriddes Maven repositories used for downloading artifacts.")
+    @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overrides Maven repositories used for downloading artifacts.")
     List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());
 
     @Option(names = "--add-repository", arity = "*", scope = ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
@@ -50,7 +50,7 @@ public class Main {
     boolean warnOnArtifactManifestMiss;
 
     @Option(names = "--launcher-meta-uri", scope = ScopeType.INHERIT)
-    URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
+URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
 
     @Option(
             names = "--verbose",

@@ -10,9 +10,65 @@ Since it is used as part of the NeoForge toolchain, it extends NeoForm by adding
 apply [NeoForge](https://github.com/neoforged/NeoForge) patches and produces the necessary artifacts to compile against
 the NeoForge APIs.
 
-You'll find the [latest releases](https://projects.neoforged.net/neoforged/neoformruntime) on the NeoForged Project Listing.
+You'll find the [latest releases](https://projects.neoforged.net/neoforged/neoformruntime) on the NeoForged Project
+Listing.
 
 ## Usage
+
+### Common Options
+
+These options affect all NFRT subcommands.
+
+#### Set NFRT Home Directory
+
+The `--home-dir` option changes where NFRT stores its caches, intermediate working directories, assets, etc.
+
+It defaults to `.neoformruntime` in your user directory on Windows and Mac OS X, and `.cache/neoformruntime` on Linux,
+where it also respects `XDG_CACHE_DIR`.
+
+#### Change Temporary Working Directories
+
+The `--work-dir` option changes where NFRT creates temporary working directories.
+Defaults to the given home directory, otherwise.
+
+#### Adding Custom Launcher Directories
+
+NFRT will try to reuse files found in Minecraft launcher directories. It will scan known locations to find installation
+directories.
+If you have moved your launcher, you can supply additional launcher directories using the `--launcher-dir` option.
+
+#### Artifact Resolution
+
+NFRT comes with built-in Maven repositories for downloading required files.
+To override these repositories, use the `--repository` option one or more times.
+If you'd only like to add repositories instead of overriding them completely, you can use the `--add-repository` option.
+
+When running NFRT through a tool like Gradle, it might be desired to externally inject all needed dependencies,
+by redirecting them to the local Gradle artifact cache.
+NFRT supports this use case by supporting an artifact manifest, which can be supplied using the `--artifact-manifest`
+option.
+
+This manifest is a Java properties file in ISO-8859-1 encoding, which uses a Maven coordinate as the key and the full
+path for that artifact as the value. For example: 
+
+`com.google.guava\:guava\:32.1.2-jre=C\:\\path\\to\\file.jar`
+
+To aid with detecting missing entries to fully cover all required artifacts, the `--warn-on-artifact-manifest-miss`
+option
+enables warnings when an artifact is being looked up, but not found in the manifest.
+NFRT will continue to download the artifact remotely in this case.
+
+#### Mojang Launcher Manifest
+
+The full URL to the [Launcher version manifest](https://launchermeta.mojang.com/mc/game/version_manifest_v2.json) can be overridden using `--launcher-meta-uri`.
+
+#### Output Settings
+
+For more verbose output, pass `--verbose`.
+
+To force the use of ANSI color on the console, pass `--color`, or `--no-color` to disable it. The `NO_COLOR` environment variable is also respected.
+
+The use of Emojis in console output can be toggled with `--emojis` and `--no-emojis`.
 
 ### run: Creating Minecraft Artifacts
 
@@ -92,7 +148,8 @@ directories.
 
 ### Cache Directories
 
-On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoformruntime`. If that variable is not set or not an
+On Linux, NFRT will store its caches by default at `$XDG_CACHE_HOME/neoformruntime`. If that variable is not set or not
+an
 absolute path, it falls back to `~/.cache/neoformruntime`.
 
 For other operating systems (Windows, Mac), it defaults to `.neoformruntime` in your home directory.
@@ -114,9 +171,9 @@ net.neoforged.fancymodloader\:loader\:3.0.53-pr-54-junit=C\:\\Gradle Home\\cache
 [...]
 ```
 
-The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild is used on the 
+The Gradle plugin can prepare such a file to make NFRT use a local build of certain artifacts too in case includeBuild
+is used on the
 containing project.
-
 
 ## Example Execution Graphs
 
