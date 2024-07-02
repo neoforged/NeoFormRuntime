@@ -34,6 +34,22 @@ import java.util.concurrent.Callable;
 import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
 
+/**
+ * Downloads the client-side assets necessary to run Minecraft.
+ * Since Minecraft versions reuse various assets, Mojang has organized the assets into a sort of repository,
+ * where an asset index maps a relative path to an asset unique identified by its content hash. The same
+ * asset can be stored only once on disk and reused many times across Minecraft versions.
+ * The assets stored this way are called "objects", while the JSON files describing the mapping of
+ * paths to objects are called "asset index".
+ * <p>
+ * On disk, an asset root is a directory that contains a subfolder containing asset index files ("indexes"),
+ * and a subfolder containing the actual objects ("objects").
+ * <p>
+ * The objects subfolder is further subdivided into 256 subfolders, each representing the first two characters
+ * of a file content hash. Each of these subfolders will contain the actual objects whose hash starts with the
+ * same characters as the folder name.
+ * Example: {@code objects/af/af96f55a90eaf11b327f1b5f8834a051027dc506}, which is one of the Minecraft icon files.
+ */
 @CommandLine.Command(name = "download-assets", description = "Download the client assets used to run a particular game version")
 public class DownloadAssetsCommand implements Callable<Integer> {
     private static final Logger LOG = Logger.create();
