@@ -42,6 +42,15 @@ public class LauncherInstallations {
 
     private boolean verbose;
 
+    public LauncherInstallations(List<Path> additionalLauncherDirs) {
+        for (var dir : additionalLauncherDirs) {
+            var launcherDir = analyzeLauncherDirectory(dir);
+            if (launcherDir != null) {
+                launcherDirectories.add(launcherDir);
+            }
+        }
+    }
+
     public void setVerbose(boolean verbose) {
         this.verbose = verbose;
     }
@@ -85,13 +94,13 @@ public class LauncherInstallations {
             }
 
             try {
-                var result = analyzeLauncherDirectory(candidate);
+                var result = analyzeLauncherDirectory(Paths.get(candidate));
                 if (result != null) {
                     launcherDirectories.add(result);
                 }
             } catch (Exception e) {
                 if (verbose) {
-                    LOG.println(" Failed to scan candidate " + candidate + ": " + e);
+                    LOG.println(" Failed to scan launcher directory " + candidate + ": " + e);
                 }
             }
         }
@@ -135,11 +144,10 @@ public class LauncherInstallations {
     }
 
     @Nullable
-    private LauncherDirectory analyzeLauncherDirectory(String candidate) {
-        var installDir = Paths.get(candidate);
+    private LauncherDirectory analyzeLauncherDirectory(Path installDir) {
         if (!Files.isDirectory(installDir)) {
             if (verbose) {
-                LOG.println(AnsiColor.MUTED + " Not found: " + candidate + AnsiColor.RESET);
+                LOG.println(AnsiColor.MUTED + " Not found: " + installDir + AnsiColor.RESET);
             }
             return null;
         }

@@ -34,6 +34,9 @@ public class Main {
     @Option(names = "--add-repository", arity = "*", scope = ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
     List<URI> additionalRepositories = new ArrayList<>();
 
+    @Option(names = "--launcher-dir", arity = "*", scope = ScopeType.INHERIT, description = "Specifies one or more Minecraft launcher installation directories. NFRT will try to reuse files from these directories.")
+    List<Path> launcherDirs = new ArrayList<>();
+
     @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
     Path artifactManifest;
 
@@ -130,7 +133,7 @@ public class Main {
     }
 
     public LauncherInstallations createLauncherInstallations() {
-        var installations = new LauncherInstallations();
+        var installations = new LauncherInstallations(launcherDirs);
         installations.setVerbose(verbose);
         return installations;
     }
