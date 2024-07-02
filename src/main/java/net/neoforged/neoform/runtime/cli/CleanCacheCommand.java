@@ -1,6 +1,5 @@
 package net.neoforged.neoform.runtime.cli;
 
-import net.neoforged.neoform.runtime.cache.CacheManager;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
@@ -12,9 +11,7 @@ public class CleanCacheCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        try (var cacheManager = new CacheManager(commonOptions.homeDir, commonOptions.getWorkDir())) {
-            cacheManager.setVerbose(commonOptions.verbose);
-
+        try (var cacheManager = commonOptions.createCacheManager()) {
             cacheManager.cleanUpAll();
         }
 

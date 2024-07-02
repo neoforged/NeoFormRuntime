@@ -1,9 +1,14 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
+import net.neoforged.neoform.runtime.cache.LauncherInstallations;
+import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import picocli.CommandLine;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -116,5 +121,44 @@ public class Main {
         var result = new ArrayList<>(repositories);
         result.addAll(additionalRepositories);
         return result;
+    }
+
+    public CacheManager createCacheManager() throws IOException {
+        var cacheManager = new CacheManager(homeDir, getWorkDir());
+        cacheManager.setVerbose(verbose);
+        return cacheManager;
+    }
+
+    public LauncherInstallations createLauncherInstallations() {
+        var installations = new LauncherInstallations();
+        installations.setVerbose(verbose);
+        return installations;
+    }
+
+    public LockManager createLockManager() throws IOException {
+        var lockManager = new LockManager(homeDir);
+        lockManager.setVerbose(verbose);
+        return lockManager;
+    }
+
+    public ArtifactManager createArtifactManager(CacheManager cacheManager,
+                                                 DownloadManager downloadManager,
+                                                 LockManager lockManager,
+                                                 LauncherInstallations launcherInstallations) throws IOException {
+        var artifactManager = new ArtifactManager(
+                getEffectiveRepositories(),
+                cacheManager,
+                downloadManager,
+                lockManager,
+                launcherManifestUrl,
+                launcherInstallations
+        );
+        artifactManager.setWarnOnArtifactManifestMiss(warnOnArtifactManifestMiss);
+
+        if (artifactManifest != null) {
+            artifactManager.loadArtifactManifest(artifactManifest);
+        }
+
+        return artifactManager;
     }
 }

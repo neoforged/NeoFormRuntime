@@ -1,8 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
-import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
-import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
@@ -53,8 +51,10 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
         var closables = new ArrayList<AutoCloseable>();
 
-        try (var lockManager = new LockManager(commonOptions.homeDir);
-             var cacheManager = new CacheManager(commonOptions.homeDir, commonOptions.getWorkDir());
+        var launcherInstallations = commonOptions.createLauncherInstallations();
+
+        try (var lockManager = commonOptions.createLockManager();
+             var cacheManager = commonOptions.createCacheManager();
              var downloadManager = new DownloadManager()) {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
@@ -63,13 +63,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
                 cacheManager.performMaintenance();
             }
 
-            lockManager.setVerbose(commonOptions.verbose);
-            var artifactManager = new ArtifactManager(commonOptions.getEffectiveRepositories(), cacheManager, downloadManager, lockManager, commonOptions.launcherManifestUrl);
-            artifactManager.setWarnOnArtifactManifestMiss(commonOptions.warnOnArtifactManifestMiss);
-
-            if (commonOptions.artifactManifest != null) {
-                artifactManager.loadArtifactManifest(commonOptions.artifactManifest);
-            }
+            var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
 
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
