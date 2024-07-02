@@ -69,13 +69,13 @@ NFRT helps with this by downloading the assets required to run a particular vers
 
 ```
 # Download Assets for a specific version of Minecraft
-nfrt download-assets --minecraft-version 1.20.6 --output-properties-to assets.properties
+nfrt download-assets --minecraft-version 1.20.6 --write-properties assets.properties
 
 # Download Assets for the Minecraft version used by the given NeoForm version
-nfrt download-assets --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip --output-properties-to assets.properties
+nfrt download-assets --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip ----write-properties assets.properties
 
 # Download Assets for the Minecraft version used by the given NeoForge version
-nfrt download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --output-properties-to assets.properties
+nfrt download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev ----write-properties assets.properties
 
 # In all three cases, a properties file will be written to assets.properties containing the following,
 # which can be used to pass the required command line arguments for starting a Minecraft client.
@@ -86,12 +86,14 @@ assets_root=...path to assets...
 While it may seem odd that NFRT supports passing NeoForm or NeoForge versions to this command, this is in service
 of potential Gradle plugins never having to actually read and parse the NeoForm configuration file.
 
-| Option                          | Description                                                                                                                                                      |
-|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--asets-dir`                   | Where to store the downloaded assets. Optional. Defaults to `<nfrt_home>/assets`.                                                                                |
-| `--reuse-launcher-assets=false` | Disables reuse of local Minecraft Launcher assets.                                                                                                               |
-| `--concurrent-downloads`        | Limits the maximum number of concurrent downloads. Default is 25.                                                                                                |
-| `--output-properties-to`        | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft. |
+| Option                         | Description                                                                                                                                                                      |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--asets-dir`                  | Where to store the downloaded assets. Optional. Defaults to `<nfrt_home>/assets`, or a detected Launcher installation.                                                           |
+| `--no-copy-launcher-assets`    | Disables copying of local Minecraft Launcher assets, if using the asset root directly is disabled.                                                                               |
+| `--no-use-launcher-asset-root` | Disables using a detected Minecraft Launcher installation directly to store the required assets.                                                                                 |
+| `--concurrent-downloads`       | Limits the maximum number of concurrent downloads. Default is 25.                                                                                                                |
+| `----write-properties`         | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft.                 |
+| `----write-json`               | Writes a JSON file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets`) suitable for passing to Minecraft via a Neoform entrypoint. |
 
 ## Common Options
 
