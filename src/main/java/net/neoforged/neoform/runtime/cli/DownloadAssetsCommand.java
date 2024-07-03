@@ -8,18 +8,17 @@ import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.manifests.AssetIndex;
 import net.neoforged.neoform.runtime.manifests.AssetObject;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
-import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -171,8 +170,8 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
             var properties = new Properties();
             properties.put("assets_root", assetRoot.toAbsolutePath().toString());
             properties.put("asset_index", assetIndexReference.id());
-            try (var writer = Files.newBufferedWriter(Paths.get(outputPropertiesPath), StandardOpenOption.CREATE)) {
-                properties.store(writer, null);
+            try (var out = new BufferedOutputStream(Files.newOutputStream(Paths.get(outputPropertiesPath)))) {
+                properties.store(out, null);
             }
         }
     }
