@@ -49,11 +49,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
-    @CommandLine.Option(names = "--access-transformer", arity = "*")
+    @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields")
     List<String> additionalAccessTransformers = new ArrayList<>();
 
-    @CommandLine.Option(names = "--injected-interfaces", arity = "*")
-    List<Path> injectedInterfaces = new ArrayList<>();
+    @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses")
+    List<Path> interfaceInjectionDataFiles = new ArrayList<>();
 
     @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if they target members that do not exist")
     boolean validateAccessTransformers;
@@ -154,9 +154,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
-        if (!injectedInterfaces.isEmpty()) {
+        if (!interfaceInjectionDataFiles.isEmpty()) {
             var transformNode = getOrAddTransformSourcesNode(engine);
-            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(injectedInterfaces);
+            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
 
             // Add the stub source jar to the recomp classpath
             engine.applyTransform(new ModifyAction<>(
