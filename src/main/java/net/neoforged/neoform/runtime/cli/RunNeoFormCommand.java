@@ -40,9 +40,6 @@ import java.util.zip.ZipFile;
 public class RunNeoFormCommand extends NeoFormEngineCommand {
     private static final Logger LOG = Logger.create();
 
-    @CommandLine.ParentCommand
-    Main commonOptions;
-
     @CommandLine.ArgGroup(exclusive = false, multiplicity = "1")
     SourceArtifacts sourceArtifacts;
 
@@ -105,7 +102,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             engine.addManagedResource(neoforgeSourcesZip);
             engine.addManagedResource(neoforgeClassesZip);
 
-            var transformSources = (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine).action();
+            var transformSources = getOrAddTransformSourcesAction(engine);
 
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
@@ -140,7 +137,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         if (!additionalAccessTransformers.isEmpty()) {
-            var transformSources = (ApplySourceTransformAction)getOrAddTransformSourcesNode(engine).action();
+            var transformSources = getOrAddTransformSourcesAction(engine);
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
             if (validateAccessTransformers) {
                 transformSources.addArg("--access-transformer-validation=error");
@@ -148,7 +145,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         if (parchmentData != null) {
-            var transformSources = (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine).action();
+            var transformSources = getOrAddTransformSourcesAction(engine);
             var parchmentDataFile = artifactManager.get(parchmentData);
             transformSources.setParchmentData(parchmentDataFile.path());
 
@@ -254,6 +251,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
             FileUtil.atomicMove(tmpFile, entry.getValue());
         }
+    }
+
+    private static ApplySourceTransformAction getOrAddTransformSourcesAction(NeoFormEngine engine) {
+        return (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine).action();
     }
 
     private static ExecutionNode getOrAddTransformSourcesNode(NeoFormEngine engine) {

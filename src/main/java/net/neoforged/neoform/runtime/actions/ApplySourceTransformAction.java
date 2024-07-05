@@ -41,6 +41,8 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     /**
      * Additional paths to access transformers.
+     * <p>
+     * A description of the format can be found in the <a href="https://docs.neoforged.net/docs/advanced/accesstransformers">NeoForge documentation</a>.
      */
     private List<Path> additionalAccessTransformers = new ArrayList<>();
 
