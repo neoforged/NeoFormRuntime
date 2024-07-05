@@ -4,6 +4,7 @@ import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.LockManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.downloads.DownloadSpec;
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.manifests.LauncherManifest;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
@@ -138,6 +139,7 @@ public class ArtifactManager {
                 }
                 case ClasspathItem.MinecraftLibraryItem(MinecraftLibrary library) -> get(library).path();
                 case ClasspathItem.PathItem(Path path) -> path;
+                case ClasspathItem.NodeOutputItem(NodeOutput output) -> output.getResultPath();
             };
             result.add(pathToAdd);
         }
