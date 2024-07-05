@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.artifacts;
 
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
@@ -27,6 +28,10 @@ public sealed interface ClasspathItem {
         return new MavenCoordinateItem(mavenLibrary, repositoryBaseUrl);
     }
 
+    static ClasspathItem of(NodeOutput output) {
+        return new NodeOutputItem(output);
+    }
+
     record MavenCoordinateItem(MavenCoordinate coordinate, @Nullable URI repositoryBaseUrl) implements ClasspathItem {
         @Override
         public String toString() {
@@ -49,6 +54,13 @@ public sealed interface ClasspathItem {
         @Override
         public String toString() {
             return library.toString();
+        }
+    }
+
+    record NodeOutputItem(NodeOutput output) implements ClasspathItem {
+        @Override
+        public String toString() {
+            return output.getResultPath().toString();
         }
     }
 }
