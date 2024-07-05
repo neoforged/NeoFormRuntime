@@ -6,9 +6,11 @@ import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
+import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
+import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
@@ -25,6 +27,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -37,9 +40,6 @@ import java.util.zip.ZipFile;
 public class RunNeoFormCommand extends NeoFormEngineCommand {
     private static final Logger LOG = Logger.create();
 
-    @CommandLine.ParentCommand
-    Main commonOptions;
-
     @CommandLine.ArgGroup(exclusive = false, multiplicity = "1")
     SourceArtifacts sourceArtifacts;
 
@@ -49,8 +49,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
-    @CommandLine.Option(names = "--access-transformer", arity = "*")
+    @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields")
     List<String> additionalAccessTransformers = new ArrayList<>();
+
+    @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses")
+    List<Path> interfaceInjectionDataFiles = new ArrayList<>();
 
     @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if they target members that do not exist")
     boolean validateAccessTransformers;
@@ -99,7 +102,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             engine.addManagedResource(neoforgeSourcesZip);
             engine.addManagedResource(neoforgeClassesZip);
 
-            var transformSources = getOrAddTransformSourcesNode(engine);
+            var transformSources = getOrAddTransformSourcesAction(engine);
+
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
             // Add NeoForge libraries to the list of libraries
@@ -133,7 +137,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         if (!additionalAccessTransformers.isEmpty()) {
-            var transformSources = getOrAddTransformSourcesNode(engine);
+            var transformSources = getOrAddTransformSourcesAction(engine);
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
             if (validateAccessTransformers) {
                 transformSources.addArg("--access-transformer-validation=error");
@@ -141,13 +145,27 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         if (parchmentData != null) {
-            var transformSources = getOrAddTransformSourcesNode(engine);
+            var transformSources = getOrAddTransformSourcesAction(engine);
             var parchmentDataFile = artifactManager.get(parchmentData);
             transformSources.setParchmentData(parchmentDataFile.path());
 
             if (parchmentConflictPrefix != null) {
                 transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
             }
+        }
+
+        if (!interfaceInjectionDataFiles.isEmpty()) {
+            var transformNode = getOrAddTransformSourcesNode(engine);
+            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
+
+            // Add the stub source jar to the recomp classpath
+            engine.applyTransform(new ModifyAction<>(
+                    "recompile",
+                    RecompileSourcesAction.class,
+                    action -> {
+                        action.getClasspath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
+                    }
+            ));
         }
 
         execute(engine);
@@ -197,7 +215,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             LOG.println(stringWriter.toString());
         }
 
-        var neededResults = writeResults.stream().map(encodedResult -> {
+        var neededResults = writeResults.stream().<String[]>map(encodedResult -> {
                     var parts = encodedResult.split(":", 2);
                     if (parts.length != 2) {
                         throw new IllegalArgumentException("Specify a result destination in the form: <resultid>:<destination>");
@@ -235,12 +253,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
     }
 
-    private static ApplySourceTransformAction getOrAddTransformSourcesNode(NeoFormEngine engine) {
+    private static ApplySourceTransformAction getOrAddTransformSourcesAction(NeoFormEngine engine) {
+        return (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine).action();
+    }
+
+    private static ExecutionNode getOrAddTransformSourcesNode(NeoFormEngine engine) {
         var graph = engine.getGraph();
         var transformNode = graph.getNode("transformSources");
         if (transformNode != null) {
-            if (transformNode.action() instanceof ApplySourceTransformAction action) {
-                return action;
+            if (transformNode.action() instanceof ApplySourceTransformAction) {
+                return transformNode;
             } else {
                 throw new IllegalStateException("Node transformSources has a different action type than expected. Expected: "
                                                 + ApplySourceTransformAction.class + " but got " + transformNode.action().getClass());
@@ -256,7 +278,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     builder.inputFromNodeOutput("libraries", "listLibraries", "output");
                     var action = new ApplySourceTransformAction();
                     builder.action(action);
-                    return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment) applied");
+                    builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
+                    return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment, Interface Injections) applied");
                 }
         ).apply(engine, graph);
 

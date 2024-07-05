@@ -497,6 +497,10 @@ public class NeoFormEngine implements AutoCloseable {
         }
     }
 
+    public void applyTransform(GraphTransform transform) {
+        transform.apply(this, graph);
+    }
+
     public ExecutionGraph getGraph() {
         return graph;
     }

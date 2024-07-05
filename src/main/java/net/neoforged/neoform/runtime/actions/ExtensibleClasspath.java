@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
@@ -109,6 +110,7 @@ public class ExtensibleClasspath {
                     }
                 }
                 case ClasspathItem.PathItem(Path path) -> ck.addPath(component, path);
+                case ClasspathItem.NodeOutputItem(NodeOutput output) -> ck.addPath(component, output.getResultPath());
             }
         }
     }

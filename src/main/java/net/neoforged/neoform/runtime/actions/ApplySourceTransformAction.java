@@ -41,8 +41,15 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     /**
      * Additional paths to access transformers.
+     * <p>
+     * A description of the format can be found in the <a href="https://docs.neoforged.net/docs/advanced/accesstransformers">NeoForge documentation</a>.
      */
     private List<Path> additionalAccessTransformers = new ArrayList<>();
+
+    /**
+     * Additional paths to interface injection data files.
+     */
+    private List<Path> injectedInterfaces = new ArrayList<>();
 
     /**
      * Path to a Parchment data archive.
@@ -88,6 +95,16 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             }
         }
 
+        if (!injectedInterfaces.isEmpty()) {
+            args.add("--enable-interface-injection");
+            for (var path : injectedInterfaces) {
+                args.add("--interface-injection-data");
+                args.add(environment.getPathArgument(path));
+            }
+            args.add("--interface-injection-stub-location");
+            args.add("{stubs}");
+        }
+
         if (parchmentData != null) {
             args.add("--enable-parchment");
             args.add("--parchment-mappings=" + environment.getPathArgument(parchmentData.toAbsolutePath()));
@@ -114,6 +131,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         super.computeCacheKey(ck);
         ck.addStrings("access transformers data ids", accessTransformersData);
         ck.addPaths("additional access transformers", additionalAccessTransformers);
+        ck.addPaths("injected interfaces", injectedInterfaces);
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
         }
@@ -135,6 +153,10 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {
         this.additionalAccessTransformers = List.copyOf(additionalAccessTransformers);
+    }
+
+    public void setInjectedInterfaces(List<Path> injectedInterfaces) {
+        this.injectedInterfaces = List.copyOf(injectedInterfaces);
     }
 
     public @Nullable Path getParchmentData() {
