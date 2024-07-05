@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Uses <a href="https://github.com/neoforged/JavaSourceTransformer">Java Source Transformer</a> to apply
@@ -101,7 +102,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 args.add("--interface-injection-data");
                 args.add(environment.getPathArgument(path));
             }
-            args.add("--interface-injection-stub-location");
+            args.add("--interface-injection-stubs");
             args.add("{stubs}");
         }
 
@@ -124,6 +125,17 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         setArgs(args);
 
         super.run(environment);
+
+        // When no interface data is given, we still have to create an empty stubs zip to satisfy
+        // the output
+        if (injectedInterfaces.isEmpty()) {
+            var stubsPath = environment.getOutputPath("stubs");
+            try {
+                new ZipOutputStream(Files.newOutputStream(stubsPath)).close();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create empty stub zip at " + stubsPath, e);
+            }
+        }
     }
 
     @Override
