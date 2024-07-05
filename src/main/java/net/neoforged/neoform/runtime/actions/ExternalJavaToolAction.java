@@ -10,7 +10,9 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URI;
@@ -89,15 +91,27 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
 
         var logFile = workingDir.resolve("console_output.txt").toFile();
+        // Write the full console command to the log-file for easier analysis
+        try (var writer = new BufferedWriter(new FileWriter(logFile, StandardCharsets.UTF_8))) {
+            writer.append("-".repeat(80)).append("\n\n");
+            writer.append("Command-Line:\n");
+            for (String s : command) {
+                writer.append(" - ").append(s).append("\n");
+            }
+            writer.append("-".repeat(80)).append("\n\n");
+        }
+
         var process = new ProcessBuilder()
                 .directory(workingDir.toFile())
                 .command(command)
                 .redirectErrorStream(true)
-                .redirectOutput(logFile)
+                .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
                 .start();
 
         var exitCode = process.waitFor();
         if (exitCode != 0) {
+
+
             // Try tailing the last few lines of the log-file
             tailLogFile(logFile);
 
@@ -120,16 +134,16 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         System.err.println("Last lines of " + logFile + ":");
         System.err.println("------------------------------------------------------------");
         try (var raf = new RandomAccessFile(logFile, "r")) {
-            raf.seek(raf.length() - 1);
+            raf.seek(Math.max(0, raf.length() - 1));
             int bytesRead = 0;
             int linesRead = 0;
-            while (raf.getFilePointer() >= 0 && raf.getFilePointer() < raf.length() && bytesRead < 2048 && linesRead < 30) {
+            while (raf.getFilePointer() > 0 && raf.getFilePointer() < raf.length() && bytesRead < 2048 && linesRead < 30) {
                 byte b = raf.readByte();
                 bytesRead++;
                 if (b == '\n') {
                     linesRead++;
                 }
-                raf.seek(raf.getFilePointer() - 2);
+                raf.seek(Math.max(0, raf.getFilePointer() - 2));
             }
 
             var toRead = raf.length() - raf.getFilePointer();
