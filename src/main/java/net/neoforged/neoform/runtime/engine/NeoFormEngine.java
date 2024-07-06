@@ -166,7 +166,7 @@ public class NeoFormEngine implements AutoCloseable {
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
-        graph.setResult("renamed", renameOutput);
+        graph.setResult("vanillaDeobfuscated", renameOutput);
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
         graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
