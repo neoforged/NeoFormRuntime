@@ -11,11 +11,13 @@ import java.util.List;
 
 public abstract class RecompileSourcesAction extends BuiltInAction implements ExecutionNodeAction {
     private final ExtensibleClasspath classpath = new ExtensibleClasspath();
+    private final ExtensibleClasspath sourcepath = new ExtensibleClasspath();
 
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
         classpath.computeCacheKey("compile classpath", ck);
+        sourcepath.computeCacheKey("compile sourcepath", ck);
     }
 
     protected final List<Path> getEffectiveClasspath(ProcessingEnvironment environment) throws IOException {
@@ -33,7 +35,22 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
         return classpath;
     }
 
+    protected final List<Path> getEffectiveSourcepath(ProcessingEnvironment environment) throws IOException {
+        var effectiveClasspath = sourcepath.copy();
+        var effectiveItems = effectiveClasspath.getEffectiveClasspath();
+
+        var sourcepath = environment.getArtifactManager().resolveClasspath(effectiveItems);
+
+        LOG.println(" " + sourcepath.size() + " items on the sourcepath");
+
+        return sourcepath;
+    }
+
     public ExtensibleClasspath getClasspath() {
         return classpath;
+    }
+
+    public ExtensibleClasspath getSourcepath() {
+        return sourcepath;
     }
 }
