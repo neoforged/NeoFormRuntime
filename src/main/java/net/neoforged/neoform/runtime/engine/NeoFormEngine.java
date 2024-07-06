@@ -157,6 +157,8 @@ public class NeoFormEngine implements AutoCloseable {
             addNodeForStep(graph, distConfig, step);
         }
 
+        var renameOutput = graph.getRequiredOutput("rename", "output");
+
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
@@ -164,6 +166,7 @@ public class NeoFormEngine implements AutoCloseable {
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
+        graph.setResult("renamed", renameOutput);
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
         graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
