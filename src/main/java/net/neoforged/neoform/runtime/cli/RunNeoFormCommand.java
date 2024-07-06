@@ -163,7 +163,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     "recompile",
                     RecompileSourcesAction.class,
                     action -> {
-                        action.getClasspath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
+                        action.getSourcepath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
                     }
             ));
         }

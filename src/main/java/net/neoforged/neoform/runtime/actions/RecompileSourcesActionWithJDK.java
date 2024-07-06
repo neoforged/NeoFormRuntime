@@ -33,12 +33,14 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
         compilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
         compilerOptions.add("-g"); // Gradle compiles with debug by default, so we replicate this
         compilerOptions.add("-XDuseUnsharedTable=true"); // Gradle also adds this unconditionally
+        compilerOptions.add("-implicit:none"); // Prevents source files from the source-path from being emitted
     }
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
         var classpath = getEffectiveClasspath(environment);
+        var sourcepath = getEffectiveSourcepath(environment);
 
         URI uri = URI.create("jar:" + sources.toUri());
         try (var sourceFs = FileSystems.newFileSystem(uri, Map.of())) {
@@ -79,6 +81,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                 try (var fileManager = compiler.getStandardFileManager(diagnostics, Locale.ROOT, StandardCharsets.UTF_8)) {
                     fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, Collections.singleton(outputRoot));
                     fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
+                    fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcepath);
 
                     var sourceJavaFiles = fileManager.getJavaFileObjectsFromPaths(sourcePaths);
                     var task = compiler.getTask(null, fileManager, diagnostics, compilerOptions, null, sourceJavaFiles);

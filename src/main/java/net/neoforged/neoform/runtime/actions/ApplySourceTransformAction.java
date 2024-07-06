@@ -100,7 +100,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             args.add("--enable-interface-injection");
             for (var path : injectedInterfaces) {
                 args.add("--interface-injection-data");
-                args.add(environment.getPathArgument(path));
+                args.add(environment.getPathArgument(path.toAbsolutePath()));
             }
             args.add("--interface-injection-stubs");
             args.add("{stubs}");

@@ -7,6 +7,7 @@ import org.eclipse.jdt.internal.compiler.Compiler;
 import org.eclipse.jdt.internal.compiler.DefaultErrorHandlingPolicies;
 import org.eclipse.jdt.internal.compiler.ICompilerRequestor;
 import org.eclipse.jdt.internal.compiler.batch.ClasspathMultiReleaseJar;
+import org.eclipse.jdt.internal.compiler.batch.ClasspathSourceJar;
 import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.batch.FileSystem;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
@@ -20,6 +21,7 @@ import org.eclipse.jdt.internal.compiler.util.Util;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -38,15 +40,29 @@ import java.util.zip.ZipFile;
  * Uses Eclipse Compiler for Java to recompile the sources.
  */
 public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
+    // Special marker for compilation units that arise from jars on the source path
+    // whose compilation result should be discarded.
+    private static final String DEV_NULL_DESTINATION = "/dev/null";
+
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
 
         // Merge the original Minecraft classpath with the libs required by additional patches that we made
         var classpathPaths = getEffectiveClasspath(environment);
+        var sourcepathPaths = getEffectiveSourcepath(environment);
 
         var classpaths = new ArrayList<FileSystem.Classpath>();
         Util.collectRunningVMBootclasspath(classpaths);
+        for (Path sourcepathPath : sourcepathPaths) {
+            classpaths.add(new ClasspathSourceJar(
+                    sourcepathPath.toFile(),
+                    true,
+                    null,
+                    "UTF-8",
+                    DEV_NULL_DESTINATION
+            ));
+        }
         for (var library : classpathPaths) {
             classpaths.add(new ClasspathMultiReleaseJar(
                     library.toFile(),
@@ -92,10 +108,18 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
             @Override
             public void acceptResult(CompilationResult result) {
                 if (result.hasErrors()) {
-                    System.err.println("ERRORS FOUND in " + new String(result.compilationUnit.getFileName()));
+                    var filename = new String(result.compilationUnit.getFileName());
+                    System.err.println("ERRORS FOUND in " + filename);
                     for (var error : result.getErrors()) {
                         LOG.println("ERROR: " + error);
                     }
+                    throw new RuntimeException("Compilation failed. Errors found in " + filename);
+                }
+
+                // We are looking specifically for the marker
+                //noinspection StringEquality
+                if (result.getCompilationUnit().getDestinationPath() == DEV_NULL_DESTINATION) {
+                    return;
                 }
 
                 for (var classFile : result.getClassFiles()) {
