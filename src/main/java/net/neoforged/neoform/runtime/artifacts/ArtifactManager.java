@@ -85,6 +85,7 @@ public class ArtifactManager {
                     return getArtifactFromPath(localPath);
                 }
             } catch (IOException ignored) {
+                // Ignore if it doesn't exist or is otherwise fails to be read
             }
         }
 
