@@ -1,9 +1,15 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
+import net.neoforged.neoform.runtime.cache.LauncherInstallations;
+import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.OsUtil;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,15 +27,20 @@ public class Main {
     Path homeDir = getDefaultHomeDir();
 
     @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
+    @Nullable
     Path workDir;
 
-    @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overriddes Maven repositories used for downloading artifacts.")
+    @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overrides Maven repositories used for downloading artifacts.")
     List<URI> repositories = List.of(URI.create("https://maven.neoforged.net/releases/"), Path.of(System.getProperty("user.home"), ".m2", "repository").toUri());
 
     @Option(names = "--add-repository", arity = "*", scope = ScopeType.INHERIT, description = "Add Maven repositories for downloading artifacts.")
     List<URI> additionalRepositories = new ArrayList<>();
 
+    @Option(names = "--launcher-dir", arity = "*", scope = ScopeType.INHERIT, description = "Specifies one or more Minecraft launcher installation directories. NFRT will try to reuse files from these directories.")
+    List<Path> launcherDirs = new ArrayList<>();
+
     @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
+    @Nullable
     Path artifactManifest;
 
     @Option(
@@ -116,5 +127,44 @@ public class Main {
         var result = new ArrayList<>(repositories);
         result.addAll(additionalRepositories);
         return result;
+    }
+
+    public CacheManager createCacheManager() throws IOException {
+        var cacheManager = new CacheManager(homeDir, getWorkDir());
+        cacheManager.setVerbose(verbose);
+        return cacheManager;
+    }
+
+    public LauncherInstallations createLauncherInstallations() {
+        var installations = new LauncherInstallations(launcherDirs);
+        installations.setVerbose(verbose);
+        return installations;
+    }
+
+    public LockManager createLockManager() throws IOException {
+        var lockManager = new LockManager(homeDir);
+        lockManager.setVerbose(verbose);
+        return lockManager;
+    }
+
+    public ArtifactManager createArtifactManager(CacheManager cacheManager,
+                                                 DownloadManager downloadManager,
+                                                 LockManager lockManager,
+                                                 LauncherInstallations launcherInstallations) throws IOException {
+        var artifactManager = new ArtifactManager(
+                getEffectiveRepositories(),
+                cacheManager,
+                downloadManager,
+                lockManager,
+                launcherManifestUrl,
+                launcherInstallations
+        );
+        artifactManager.setWarnOnArtifactManifestMiss(warnOnArtifactManifestMiss);
+
+        if (artifactManifest != null) {
+            artifactManager.loadArtifactManifest(artifactManifest);
+        }
+
+        return artifactManager;
     }
 }

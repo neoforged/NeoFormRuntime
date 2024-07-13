@@ -1,10 +1,11 @@
 package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
+import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
+import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.downloads.DownloadSpec;
-import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.manifests.AssetIndex;
 import net.neoforged.neoform.runtime.manifests.AssetObject;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
@@ -21,8 +22,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
@@ -32,10 +33,13 @@ import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "download-assets", description = "Download the client assets used to run a particular game version")
-public class DownloadAssetsCommand extends NeoFormEngineCommand {
+public class DownloadAssetsCommand implements Callable<Integer> {
     private static final Logger LOG = Logger.create();
 
     private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = r -> Thread.ofVirtual().name("download-asset", 1).unstarted(r);
+
+    @CommandLine.ParentCommand
+    Main commonOptions;
 
     @CommandLine.ArgGroup(multiplicity = "1")
     public Version version;
@@ -85,16 +89,28 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
     }
 
     @Override
-    protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
-        var artifactManager = engine.getArtifactManager();
-        var downloadManager = artifactManager.getDownloadManager();
+    public Integer call() throws Exception {
+        try (var downloadManager = new DownloadManager();
+             var cacheManager = commonOptions.createCacheManager();
+             var lockManager = commonOptions.createLockManager()) {
+
+            var launcherInstallations = commonOptions.createLauncherInstallations();
+            var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
+
+            return downloadAssets(downloadManager, artifactManager, cacheManager);
+        }
+    }
+
+    private int downloadAssets(DownloadManager downloadManager,
+                               ArtifactManager artifactManager,
+                               CacheManager cacheManager) throws IOException {
+
         var minecraftVersion = getMinecraftVersion(artifactManager);
 
         var versionManifest = MinecraftVersionManifest.from(artifactManager.getVersionManifest(minecraftVersion).path());
         var assetIndexReference = versionManifest.assetIndex();
         LOG.println("Downloading asset index " + assetIndexReference.id());
 
-        var cacheManager = engine.getCacheManager();
         var assetRoot = cacheManager.getAssetsDir();
         var indexFolder = assetRoot.resolve("indexes");
         Files.createDirectories(indexFolder);
@@ -163,7 +179,7 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
             System.err.println(errors.size() + " files failed to download");
             System.err.println("First error:");
             errors.getFirst().printStackTrace();
-            System.exit(1);
+            return 1;
         }
 
         if (outputPropertiesPath != null) {
@@ -174,6 +190,8 @@ public class DownloadAssetsCommand extends NeoFormEngineCommand {
                 properties.store(out, null);
             }
         }
+
+        return 0;
     }
 
     private static String getObjectPath(AssetObject object) {

@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.artifacts;
 
 import net.neoforged.neoform.runtime.cache.CacheManager;
+import net.neoforged.neoform.runtime.cache.LauncherInstallations;
 import net.neoforged.neoform.runtime.cli.LockManager;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.downloads.DownloadSpec;
@@ -10,6 +11,7 @@ import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
+import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 
@@ -28,6 +30,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 public class ArtifactManager {
@@ -41,17 +44,20 @@ public class ArtifactManager {
     private final Path artifactsCache;
     private final Map<MavenCoordinate, Artifact> externallyProvided = new HashMap<>();
     private boolean warnOnArtifactManifestMiss;
+    private final LauncherInstallations launcherInstallations;
 
     public ArtifactManager(List<URI> repositoryBaseUrls,
                            CacheManager cacheManager,
                            DownloadManager downloadManager,
                            LockManager lockManager,
-                           URI launcherManifestUrl) {
+                           URI launcherManifestUrl,
+                           LauncherInstallations launcherInstallations) {
         this.repositoryBaseUrls = repositoryBaseUrls;
         this.downloadManager = downloadManager;
         this.lockManager = lockManager;
         this.launcherManifestUrl = launcherManifestUrl;
         this.artifactsCache = cacheManager.getArtifactCacheDir();
+        this.launcherInstallations = launcherInstallations;
     }
 
     public Artifact get(MinecraftLibrary library) throws IOException {
@@ -60,15 +66,30 @@ public class ArtifactManager {
             throw new IllegalArgumentException("Cannot download a library that has no artifact defined: " + library);
         }
 
-        // TODO: if we identify where the Minecraft installation is, we could try to copy the library from there
-
         var artifactCoordinate = MavenCoordinate.parse(library.artifactId());
         var externalArtifact = getFromExternalManifest(artifactCoordinate);
         if (externalArtifact != null) {
             return externalArtifact;
         }
 
-        var finalLocation = artifactsCache.resolve(artifactCoordinate.toRelativeRepositoryPath());
+        var relativePath = artifactCoordinate.toRelativeRepositoryPath();
+
+        // Try reusing it from a local Minecraft installation, which ultimately is structured like a Maven repo
+        var localMinecraftLibraries = new ArrayList<>(launcherInstallations.getInstallationRoots());
+        for (var localRepo : localMinecraftLibraries) {
+            var localPath = localRepo.resolve("libraries").resolve(relativePath);
+            try {
+                // Ensure the file matches before using it
+                var fileHash = HashingUtil.hashFile(localPath, artifact.checksumAlgorithm());
+                if (Objects.equals(fileHash, artifact.checksum())) {
+                    return getArtifactFromPath(localPath);
+                }
+            } catch (IOException ignored) {
+                // Ignore if it doesn't exist or is otherwise fails to be read
+            }
+        }
+
+        var finalLocation = artifactsCache.resolve(relativePath);
 
         return download(finalLocation, artifact);
     }
@@ -150,6 +171,14 @@ public class ArtifactManager {
      * Special purpose method to get the version manifest for a specific Minecraft version.
      */
     public Artifact getVersionManifest(String minecraftVersion) throws IOException {
+        // Check local Minecraft launchers for a copy of it
+        for (var root : launcherInstallations.getInstallationRoots()) {
+            var localPath = root.resolve("versions").resolve(minecraftVersion).resolve(minecraftVersion + ".json");
+            if (Files.isReadable(localPath)) {
+                return getArtifactFromPath(localPath);
+            }
+        }
+
         var finalLocation = artifactsCache.resolve("minecraft_" + minecraftVersion + "_version_manifest.json");
         return download(finalLocation, () -> {
             var launcherManifestArtifact = getLauncherManifest();
@@ -168,6 +197,10 @@ public class ArtifactManager {
      * Gets the v2 Launcher Manifest.
      */
     public Artifact getLauncherManifest() throws IOException {
+
+        // Note that we're not reusing launcher manifests from known launcher installations,
+        // since we don't know how old they are
+
         var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
 
         downloadManager.download(DownloadSpec.of(launcherManifestUrl), finalLocation);
@@ -228,10 +261,6 @@ public class ArtifactManager {
         return new Artifact(path, attrView.lastModifiedTime().toMillis(), attrView.size());
     }
 
-    public DownloadManager getDownloadManager() {
-        return downloadManager;
-    }
-
     @FunctionalInterface
     public interface DownloadAction {
         void run() throws IOException;
@@ -283,10 +312,6 @@ public class ArtifactManager {
 
     private Artifact download(Path finalLocation, DownloadSpec spec) throws IOException {
         return download(finalLocation, () -> downloadManager.download(spec, finalLocation));
-    }
-
-    public boolean isWarnOnArtifactManifestMiss() {
-        return warnOnArtifactManifestMiss;
     }
 
     public void setWarnOnArtifactManifestMiss(boolean warnOnArtifactManifestMiss) {
