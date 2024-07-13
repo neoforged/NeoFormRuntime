@@ -38,7 +38,7 @@ public class LauncherInstallations {
 
     private final List<LauncherDirectory> launcherDirectories = new ArrayList<>();
 
-    // If true, the scan was already performed and launcherDirectories is up-to-date
+    /** If true, the scan was already performed and launcherDirectories is up-to-date */
     private boolean scanned;
 
     private boolean verbose;
