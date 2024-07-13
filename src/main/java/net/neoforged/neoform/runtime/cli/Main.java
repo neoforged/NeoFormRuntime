@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.cache.LauncherInstallations;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.OsUtil;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ public class Main {
     Path homeDir = getDefaultHomeDir();
 
     @Option(names = "--work-dir", scope = ScopeType.INHERIT, description = "Where temporary working directories are stored. Defaults to the subfolder 'work' in the NFRT home dir.")
+    @Nullable
     Path workDir;
 
     @Option(names = "--repository", arity = "*", scope = ScopeType.INHERIT, description = "Overrides Maven repositories used for downloading artifacts.")
@@ -38,6 +40,7 @@ public class Main {
     List<Path> launcherDirs = new ArrayList<>();
 
     @Option(names = "--artifact-manifest", scope = ScopeType.INHERIT)
+    @Nullable
     Path artifactManifest;
 
     @Option(
