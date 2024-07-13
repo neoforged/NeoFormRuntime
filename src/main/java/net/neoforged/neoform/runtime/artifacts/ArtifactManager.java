@@ -199,7 +199,7 @@ public class ArtifactManager {
 
         // NOTE: we're not reusing launcher manifests, since we don't know how old they are
 
-       var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
+        var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
 
         downloadManager.download(DownloadSpec.of(launcherManifestUrl), finalLocation);
 
