@@ -198,7 +198,8 @@ public class ArtifactManager {
      */
     public Artifact getLauncherManifest() throws IOException {
 
-        // NOTE: we're not reusing launcher manifests, since we don't know how old they are
+        // Note that we're not reusing launcher manifests from known launcher installations,
+        // since we don't know how old they are
 
         var finalLocation = artifactsCache.resolve("minecraft_launcher_manifest.json");
 
