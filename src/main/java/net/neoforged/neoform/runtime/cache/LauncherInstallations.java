@@ -77,6 +77,12 @@ public class LauncherInstallations {
         return launcherDirectories.stream().map(LauncherDirectory::directory).toList();
     }
 
+    /**
+     * Try finding an asset root in any of the known launcher installations that already has
+     * an asset index with the given id.
+     *
+     * @return Null if no such launcher installation could be found.
+     */
     @Nullable
     public Path getAssetDirectoryForIndex(String assetIndexId) {
         scanIfNecessary();
@@ -98,6 +104,9 @@ public class LauncherInstallations {
         return null;
     }
 
+    /**
+     * Returns the list of asset directories found among the known launcher installations.
+     */
     public List<Path> getAssetRoots() {
         scanIfNecessary();
 
