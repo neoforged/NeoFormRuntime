@@ -13,6 +13,10 @@ import java.util.Properties;
 public record AssetDownloadResult(Path assetRoot, String assetIndexId) {
 
     public void writeAsProperties(Path destination) throws IOException {
+        if (destination.getParent() != null) {
+            Files.createDirectories(destination.getParent());
+        }
+
         var properties = new Properties();
         properties.put("assets_root", assetRoot.toAbsolutePath().toString());
         properties.put("asset_index", assetIndexId);
@@ -22,6 +26,10 @@ public record AssetDownloadResult(Path assetRoot, String assetIndexId) {
     }
 
     public void writeAsJson(Path destination) throws IOException {
+        if (destination.getParent() != null) {
+            Files.createDirectories(destination.getParent());
+        }
+
         var jsonObject = new JsonObject();
         jsonObject.addProperty("assets", assetRoot.toAbsolutePath().toString());
         jsonObject.addProperty("asset_index", assetIndexId);

@@ -207,7 +207,7 @@ idea {
                 }
                 "Download assets 1.20.6"(Application) {
                     mainClass = mainClassName
-                    programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --output-properties-to build/assets.properties"
+                    programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-properties build/assets.properties --write-json build/assets.json"
                     moduleRef(project, sourceSets.main)
                 }
             }
