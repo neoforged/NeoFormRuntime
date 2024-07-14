@@ -12,7 +12,6 @@ import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.concurrent.locks.Lock;
 
 public class LockManager implements AutoCloseable {
     private static final Logger LOG = Logger.create();
