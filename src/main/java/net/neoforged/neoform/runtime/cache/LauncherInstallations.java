@@ -29,6 +29,8 @@ public class LauncherInstallations {
             "${user.home}/curseforge/minecraft/Install/", // Windows, Curseforge Client
             "${env.APPDATA}/com.modrinth.theseus/meta/", // Windows, Modrinth App
             "${env.LOCALAPPDATA}/.ftba/bin/", // Windows, FTB App
+            "${user.home}/.ftba/bin/", // linux, FTB App
+            "${user.home}/Library/Application Support/.ftba/bin/", // macos, FTB App
             "${user.home}/.local/share/PrismLauncher/", // linux, PrismLauncher
             "${user.home}/.local/share/multimc/", // linux, MultiMC
             "${user.home}/Library/Application Support/PrismLauncher/", // macOS, PrismLauncher
