@@ -73,6 +73,11 @@ public class NeoFormEngine implements AutoCloseable {
     private final ExecutionGraph graph = new ExecutionGraph();
     private final BuildOptions buildOptions = new BuildOptions();
     private boolean verbose;
+    /**
+     * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
+     * SRG to official names for development.
+     */
+    private boolean enableSourceRemapping;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -186,7 +191,8 @@ public class NeoFormEngine implements AutoCloseable {
 
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
         // SRG method and field names, and need to be remapped.
-        if (distConfig.minecraftVersion().equals("1.20.1")) {
+        enableSourceRemapping = distConfig.minecraftVersion().equals("1.20.1");
+        if (enableSourceRemapping) {
             applyTransforms(List.of(
                     new ReplaceNodeOutput(
                             "patch",
@@ -540,6 +546,10 @@ public class NeoFormEngine implements AutoCloseable {
 
     public CacheManager getCacheManager() {
         return cacheManager;
+    }
+
+    public boolean isEnableSourceRemapping() {
+        return enableSourceRemapping;
     }
 
     private class NodeProcessingEnvironment implements ProcessingEnvironment {

@@ -22,7 +22,7 @@ import java.util.zip.ZipOutputStream;
  * available already.
  */
 public class RemapSrgSourcesAction implements ExecutionNodeAction {
-    private static final Pattern SRG_FINDER = Pattern.compile("[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_|p_\\w+_\\d+_|p_\\d+_");
+    private static final Pattern SRG_FINDER = Pattern.compile("[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_");
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
@@ -69,9 +69,7 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
         return m.replaceAll(matchResult -> {
             var matched = matchResult.group();
             var mapped = srgNamesToOfficial.get(matched);
-            if (!matched.startsWith("p_") && mapped == null) {
-                System.out.println();
-            }
+            // Some will be unmapped
             return Matcher.quoteReplacement(Objects.requireNonNullElse(mapped, matched));
         });
     }
