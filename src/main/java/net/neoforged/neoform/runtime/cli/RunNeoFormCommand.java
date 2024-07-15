@@ -106,6 +106,20 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
+            // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
+            // To circumvent this, we inject the sources before recompile instead.
+            if (engine.isEnableSourceRemapping()) {
+                engine.applyTransforms(List.of(
+                        new ModifyAction<>(
+                                "inject",
+                                InjectZipContentAction.class,
+                                action -> {
+                                    action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeSourcesZip, "/"));
+                                }
+                        )
+                ));
+            }
+
             // Add NeoForge libraries to the list of libraries
             transforms.add(new ModifyAction<>(
                     "recompile",
