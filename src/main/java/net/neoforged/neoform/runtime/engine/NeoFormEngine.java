@@ -12,6 +12,7 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
@@ -30,6 +31,7 @@ import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
+import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -180,6 +182,26 @@ public class NeoFormEngine implements AutoCloseable {
         }
         if (graph.hasOutput("strip", "resourcesOutput")) {
             graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
+        }
+
+        // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
+        // SRG method and field names, and need to be remapped.
+        if (distConfig.minecraftVersion().equals("1.20.1")) {
+            applyTransforms(List.of(
+                    new ReplaceNodeOutput(
+                            "patch",
+                            "output",
+                            "remapSrgSourcesToOfficial",
+                            (builder, previousNodeOutput) -> {
+                                builder.input("sources", previousNodeOutput.asInput());
+                                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                                var action = new RemapSrgSourcesAction();
+                                builder.action(action);
+                                return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
+                            }
+                    )
+            ));
         }
     }
 
