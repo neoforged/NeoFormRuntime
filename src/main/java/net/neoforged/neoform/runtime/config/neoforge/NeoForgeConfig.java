@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.config.neoforge;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -51,7 +52,11 @@ public record NeoForgeConfig(
             convertAccessTransformerPropertyFromForgeToNeoForge(root);
         }
 
-        return gson.fromJson(root, NeoForgeConfig.class);
+        try {
+            return gson.fromJson(root, NeoForgeConfig.class);
+        } catch (JsonSyntaxException e) {
+            throw new IOException("Failed to read NeoForge config from " + zipFile.getName(), e);
+        }
     }
 
     private static void convertAccessTransformerPropertyFromForgeToNeoForge(JsonObject root) {
