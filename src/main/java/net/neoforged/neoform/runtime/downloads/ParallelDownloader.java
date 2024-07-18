@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class ParallelDownloader implements AutoCloseable {
     private static final Logger LOG = Logger.create();
-    private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = r -> Thread.ofVirtual().name("parallel-download", 1).unstarted(r);
+    private static final ThreadFactory DOWNLOAD_THREAD_FACTORY = Thread.ofVirtual().name("parallel-download", 1).factory();
 
     private final DownloadManager downloadManager;
     private final Semaphore semaphore;
