@@ -76,8 +76,8 @@ public class DownloadAssetsCommand implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         try (var downloadManager = new DownloadManager();
-             var cacheManager = commonOptions.createCacheManager();
-             var lockManager = commonOptions.createLockManager()) {
+             var cacheManager = commonOptions.createCacheManager()) {
+            var lockManager = commonOptions.createLockManager();
 
             var launcherInstallations = commonOptions.createLauncherInstallations();
             var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);

@@ -14,6 +14,8 @@ public class CacheMaintenance implements Callable<Integer> {
         try (var cacheManager = commonOptions.createCacheManager()) {
             cacheManager.performMaintenance();
         }
+        var lockManager = commonOptions.createLockManager();
+        lockManager.performMaintenance();
 
         return 0;
     }
