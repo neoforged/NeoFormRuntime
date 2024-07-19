@@ -559,26 +559,26 @@ public class NeoFormEngine implements AutoCloseable {
     public ProcessGeneration getProcessGeneration() {
         return processGeneration;
     }
-//
-//    public void setJavaHome(Path javaHome) {
-//
-//        Path javaExecutable;
-//        if (OsUtil.isWindows()) {
-//            javaExecutable = javaHome.resolve("bin/java.exe");
-//        } else {
-//            javaExecutable = javaHome.resolve("bin/java");
-//        }
-//
-//        if (!Files.isExecutable(javaExecutable)) {
-//            throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
-//        }
-//
-//        this.javaExecutable = javaExecutable.toString();
-//    }
-//
-//    public String getJavaExecutable() {
-//        return javaExecutable;
-//    }
+
+    public void setJavaHome(Path javaHome) {
+
+        Path javaExecutable;
+        if (OsUtil.isWindows()) {
+            javaExecutable = javaHome.resolve("bin/java.exe");
+        } else {
+            javaExecutable = javaHome.resolve("bin/java");
+        }
+
+        if (!Files.isExecutable(javaExecutable)) {
+            throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
+        }
+
+        this.javaExecutable = javaExecutable.toString();
+    }
+
+    public String getJavaExecutable() {
+        return javaExecutable;
+    }
 
     public void setJavaExecutable(String javaExecutable) {
         this.javaExecutable = javaExecutable;
