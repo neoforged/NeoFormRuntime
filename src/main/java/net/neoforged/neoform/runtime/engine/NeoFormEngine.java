@@ -297,6 +297,7 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
+                processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
                 builder.action(action);
             }
             case "listLibraries" -> {
@@ -323,7 +324,9 @@ public class NeoFormEngine implements AutoCloseable {
                         builder,
                         Paths.get(patchSource.archive().getName()),
                         config.getDataPathInZip("patches"),
-                        graph.getRequiredOutput("inject", "output")
+                        graph.getRequiredOutput("inject", "output"),
+                        "a/",
+                        "b/"
                 );
             }
             default -> {
