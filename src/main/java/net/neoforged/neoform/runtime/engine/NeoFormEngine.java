@@ -35,6 +35,7 @@ import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 
 import java.io.IOException;
@@ -86,6 +87,11 @@ public class NeoFormEngine implements AutoCloseable {
      */
     private final List<AutoCloseable> managedResources = new ArrayList<>();
 
+    /**
+     * The path to the java executable for running external tools.
+     */
+    private String javaExecutable;
+
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
@@ -94,6 +100,11 @@ public class NeoFormEngine implements AutoCloseable {
         this.fileHashService = fileHashService;
         this.cacheManager = cacheManager;
         this.lockManager = lockManager;
+
+        this.javaExecutable = ProcessHandle.current()
+                .info()
+                .command()
+                .orElseThrow();
     }
 
     public void close() throws IOException {
@@ -548,6 +559,30 @@ public class NeoFormEngine implements AutoCloseable {
     public ProcessGeneration getProcessGeneration() {
         return processGeneration;
     }
+//
+//    public void setJavaHome(Path javaHome) {
+//
+//        Path javaExecutable;
+//        if (OsUtil.isWindows()) {
+//            javaExecutable = javaHome.resolve("bin/java.exe");
+//        } else {
+//            javaExecutable = javaHome.resolve("bin/java");
+//        }
+//
+//        if (!Files.isExecutable(javaExecutable)) {
+//            throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
+//        }
+//
+//        this.javaExecutable = javaExecutable.toString();
+//    }
+//
+//    public String getJavaExecutable() {
+//        return javaExecutable;
+//    }
+
+    public void setJavaExecutable(String javaExecutable) {
+        this.javaExecutable = javaExecutable;
+    }
 
     private class NodeProcessingEnvironment implements ProcessingEnvironment {
         private final Path workspace;
@@ -568,6 +603,11 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public Path getWorkspace() {
             return workspace;
+        }
+
+        @Override
+        public String getJavaExecutable() {
+            return javaExecutable;
         }
 
         @Override
