@@ -12,8 +12,13 @@ import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class LockManager implements AutoCloseable {
+public class LockManager {
     private static final Logger LOG = Logger.create();
 
     private final Path lockDirectory;
@@ -22,7 +27,6 @@ public class LockManager implements AutoCloseable {
     public LockManager(Path lockDirectory) throws IOException {
         Files.createDirectories(lockDirectory);
         this.lockDirectory = lockDirectory;
-        Runtime.getRuntime().addShutdownHook(new Thread(this::close));
     }
 
     private Path getLockFile(String key) {
@@ -102,9 +106,38 @@ public class LockManager implements AutoCloseable {
         return new Lock(fileLock);
     }
 
-    @Override
-    public void close() {
+    /**
+     * Removes old outdated lock files.
+     */
+    public void performMaintenance() {
+        FileTime newestToDelete = FileTime.from(Instant.now().minus(24, ChronoUnit.HOURS));
 
+        var lockFilesDeleted = new AtomicInteger();
+        try (var stream = Files.list(lockDirectory)) {
+            stream.filter(f -> {
+                var filename = f.getFileName().toString();
+                return filename.startsWith("_") && filename.endsWith(".lock");
+            }).filter(f -> {
+                try {
+                    var attributes = Files.readAttributes(f, BasicFileAttributes.class);
+                    return attributes.isRegularFile()
+                           && attributes.lastModifiedTime().compareTo(newestToDelete) < 0;
+                } catch (IOException ignored) {
+                    return false;
+                }
+            }).forEach(f -> {
+                try {
+                    Files.delete(f);
+                    lockFilesDeleted.incrementAndGet();
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+
+        if (lockFilesDeleted.get() > 0) {
+            LOG.println(AnsiColor.MUTED + " Deleted " + lockFilesDeleted.get() + " outdated lock files");
+        }
     }
 
     public static class Lock implements AutoCloseable {
