@@ -198,7 +198,7 @@ idea {
                 }
                 "Run Forge 1.12.2 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.12.2-14.23.5.2860:userdev --write-result=compiledWithNeoForge:build/1.12.2-minecraft.jar --write-result=clientResources:build/1.12.2-client-extra.jar --write-result=sourcesWithNeoForge:build/1.12.2-minecraft-sources.jar"
+                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.12.2-14.23.5.2860:userdev3 --write-result=compiledWithNeoForge:build/1.12.2-minecraft.jar --write-result=clientResources:build/1.12.2-client-extra.jar --write-result=sourcesWithNeoForge:build/1.12.2-minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.19.2 (joined)"(Application) {

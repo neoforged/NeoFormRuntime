@@ -6,6 +6,7 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -22,6 +23,8 @@ public record NeoForgeConfig(
         @SerializedName("patches") String patchesFolder,
         @SerializedName("sources") String sourcesArtifact,
         @SerializedName("universal") String universalArtifact,
+        @SerializedName("patchesOriginalPrefix") @Nullable String stripPatchesBasePrefix,
+        @SerializedName("patchesModifiedPrefix") @Nullable String stripPatchesModifiedPrefix,
         Map<String, JsonObject> runs,
         List<MavenCoordinate> libraries,
         List<String> modules

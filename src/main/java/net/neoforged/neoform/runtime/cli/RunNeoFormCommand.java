@@ -21,7 +21,6 @@ import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
-import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -34,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
@@ -135,7 +135,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // Append a patch step to the NeoForge patches
             transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                     (builder, previousOutput) -> {
-                        return PatchActionFactory.makeAction(builder, neoforgeArtifact.path(), neoforgeConfig.patchesFolder(), previousOutput);
+                        return PatchActionFactory.makeAction(builder,
+                                neoforgeArtifact.path(),
+                                neoforgeConfig.patchesFolder(),
+                                previousOutput,
+                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesBasePrefix(), "a/"),
+                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesModifiedPrefix(), "b/"));
                     }
             ));
 
