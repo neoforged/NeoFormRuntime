@@ -73,12 +73,12 @@ public class CacheManager implements AutoCloseable {
     private boolean analyzeMisses;
     private boolean verbose;
 
-    public CacheManager(Path homeDir, Path workspacesDir) throws IOException {
+    public CacheManager(Path homeDir, @Nullable Path assetsDir, Path workspacesDir) throws IOException {
         this.homeDir = homeDir;
         Files.createDirectories(homeDir);
         this.artifactCacheDir = homeDir.resolve("artifacts");
         this.intermediateResultsDir = homeDir.resolve("intermediate_results");
-        this.assetsDir = homeDir.resolve("assets");
+        this.assetsDir = Objects.requireNonNullElse(assetsDir, homeDir.resolve("assets"));
         this.workspacesDir = workspacesDir;
     }
 

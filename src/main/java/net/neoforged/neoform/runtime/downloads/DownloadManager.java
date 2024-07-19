@@ -32,17 +32,20 @@ public class DownloadManager implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
+        httpClient.shutdownNow();
         httpClient.close();
         executor.shutdownNow();
-        executor.awaitTermination(1, TimeUnit.MINUTES);
+        if (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
+            LOG.println("Failed to wait for background downloads to finish.");
+        }
     }
 
     public void download(URI uri, Path finalLocation) throws IOException {
         download(new SimpleDownloadSpec(uri), finalLocation);
     }
 
-    public void download(DownloadSpec spec, Path finalLocation) throws IOException {
-        download(spec, finalLocation, false);
+    public boolean download(DownloadSpec spec, Path finalLocation) throws IOException {
+        return download(spec, finalLocation, false);
     }
 
     public boolean download(DownloadSpec spec, Path finalLocation, boolean silent) throws IOException {
@@ -64,22 +67,10 @@ public class DownloadManager implements AutoCloseable {
         var partialFile = finalLocation.resolveSibling(finalLocation.getFileName() + "." + Math.random() + ".dltmp");
         Files.createDirectories(partialFile.getParent());
 
-        if (url.getScheme().equals("file")) {
-            // File system download (e.g. from maven local)
-            var fileInRepo = Path.of(url);
-            if (!Files.exists(fileInRepo)) {
-                throw new FileNotFoundException("Could not find: " + url);
-            }
-        }
-
         try {
             if (url.getScheme().equals("file")) {
                 // File system download (e.g. from maven local)
                 var fileInRepo = Path.of(url);
-                if (!Files.exists(fileInRepo)) {
-                    throw new FileNotFoundException("Could not find: " + url);
-                }
-
                 Files.copy(fileInRepo, partialFile, StandardCopyOption.REPLACE_EXISTING);
             } else {
                 var request = HttpRequest.newBuilder(url)
@@ -107,7 +98,7 @@ public class DownloadManager implements AutoCloseable {
                     } else if (response.statusCode() == 404) {
                         throw new FileNotFoundException(url.toString());
                     } else {
-                        lastError = new IOException("Failed to download " + url + ": " + response.statusCode());
+                        lastError = new IOException("Failed to download " + url + ": HTTP Status Code " + response.statusCode());
                         if (canRetryStatusCode(response.statusCode())) {
                             waitForRetry(response);
                             continue;
@@ -124,7 +115,7 @@ public class DownloadManager implements AutoCloseable {
                 if (spec.size() != -1) {
                     var fileSize = Files.size(partialFile);
                     if (fileSize != spec.size()) {
-                        throw new IOException("Size of downloaded file has unexpected size. (actual: " + fileSize + ", expected: " + spec.size() + ")");
+                        throw new IOException("Downloaded file has unexpected size. (actual: " + fileSize + ", expected: " + spec.size() + ")");
                     }
                 }
 

@@ -15,7 +15,15 @@ public final class HashingUtil {
     private HashingUtil() {
     }
 
+    public static String sha1(Path path) throws IOException {
+        return hashFile(path, "SHA-1");
+    }
+
     public static String sha1(String value) {
+        return sha1(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static String sha1(byte[] value) {
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA1");
@@ -23,7 +31,7 @@ public final class HashingUtil {
             throw new RuntimeException(e);
         }
 
-        digest.update(value.getBytes(StandardCharsets.UTF_8));
+        digest.update(value);
         return HexFormat.of().formatHex(digest.digest());
     }
 

@@ -4,11 +4,16 @@ import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,19 +44,23 @@ public class LauncherInstallations {
     };
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
 
+    // Sort launcher directories in descending order by the number of asset indices they contain
+    private static final Comparator<LauncherDirectory> ASSET_INDEX_COUNT_DESCENDING = Comparator.<LauncherDirectory>comparingInt(d -> d.assetIndices.size()).reversed();
+
     private final List<LauncherDirectory> launcherDirectories = new ArrayList<>();
 
-    /** If true, the scan was already performed and launcherDirectories is up-to-date */
+    /** If true, the scan was already performed and launcherDirectories is up to date */
     private boolean scanned;
 
     private boolean verbose;
 
-    public LauncherInstallations(List<Path> additionalLauncherDirs) {
+    public LauncherInstallations(List<Path> additionalLauncherDirs) throws IOException {
         for (var dir : additionalLauncherDirs) {
             var launcherDir = analyzeLauncherDirectory(dir);
-            if (launcherDir != null) {
-                launcherDirectories.add(launcherDir);
+            if (launcherDir == null) {
+                throw new NoSuchFileException(dir.toString());
             }
+            launcherDirectories.add(launcherDir);
         }
     }
 
@@ -68,6 +77,51 @@ public class LauncherInstallations {
         scanIfNecessary();
 
         return launcherDirectories.stream().map(LauncherDirectory::directory).toList();
+    }
+
+    /**
+     * Try finding an asset root in any of the known launcher installations that already has
+     * an asset index with the given id.
+     *
+     * @return Null if no such launcher installation could be found.
+     */
+    @Nullable
+    public Path getAssetDirectoryForIndex(String assetIndexId) {
+        scanIfNecessary();
+
+        var haveIndex = new ArrayList<LauncherDirectory>();
+        for (var launcherDirectory : launcherDirectories) {
+            if (launcherDirectory.assetIndices.contains(assetIndexId)) {
+                haveIndex.add(launcherDirectory);
+            }
+        }
+
+        // Sort by count of other indices descending
+        haveIndex.sort(ASSET_INDEX_COUNT_DESCENDING);
+
+        if (!haveIndex.isEmpty()) {
+            return haveIndex.getFirst().assetDirectory();
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns the list of asset directories found among the known launcher installations.
+     */
+    public List<Path> getAssetRoots() {
+        scanIfNecessary();
+
+        var launcherDirsWithAssets = new ArrayList<LauncherDirectory>();
+        for (var launcherDirectory : launcherDirectories) {
+            if (launcherDirectory.assetDirectory() != null) {
+                launcherDirsWithAssets.add(launcherDirectory);
+            }
+        }
+
+        launcherDirsWithAssets.sort(ASSET_INDEX_COUNT_DESCENDING);
+
+        return launcherDirsWithAssets.stream().map(LauncherDirectory::assetDirectory).toList();
     }
 
     private void scanIfNecessary() {
@@ -112,8 +166,15 @@ public class LauncherInstallations {
         if (verbose) {
             LOG.println("Launcher directories found:");
             for (var launcherDirectory : launcherDirectories) {
+                String details;
+                if (launcherDirectory.assetDirectory == null || launcherDirectory.assetIndices().isEmpty()) {
+                    details = "no assets";
+                } else {
+                    details = "asset indices: " + String.join(" ", launcherDirectory.assetIndices());
+                }
+
                 LOG.println(AnsiColor.MUTED + "  " + launcherDirectory.directory
-                            + AnsiColor.RESET);
+                            + " (" + details + ")" + AnsiColor.RESET);
             }
         }
     }
@@ -148,7 +209,7 @@ public class LauncherInstallations {
     }
 
     @Nullable
-    private LauncherDirectory analyzeLauncherDirectory(Path installDir) {
+    private LauncherDirectory analyzeLauncherDirectory(Path installDir) throws IOException {
         if (!Files.isDirectory(installDir)) {
             if (verbose) {
                 LOG.println(AnsiColor.MUTED + " Not found: " + installDir + AnsiColor.RESET);
@@ -156,9 +217,26 @@ public class LauncherInstallations {
             return null;
         }
 
-        return new LauncherDirectory(installDir);
+        var assetIndices = new HashSet<String>();
+        var assetRoot = installDir.resolve("assets");
+        var assetIndicesDir = assetRoot.resolve("indexes");
+        var assetObjectsDir = assetRoot.resolve("objects");
+        if (Files.isDirectory(assetIndicesDir) && Files.isDirectory(assetObjectsDir)) {
+            // Count the number of asset indices present to judge how viable this directory is
+            try (var stream = Files.list(assetIndicesDir)) {
+                stream.map(f -> f.getFileName().toString())
+                        .filter(f -> f.endsWith(".json"))
+                        .map(f -> f.substring(0, f.length() - 5))
+                        .forEach(assetIndices::add);
+            }
+        }
+        if (assetIndices.isEmpty()) {
+            assetRoot = null; // Do not use an asset root, when it is empty
+        }
+
+        return new LauncherDirectory(installDir, assetRoot, assetIndices);
     }
 
-    private record LauncherDirectory(Path directory) {
+    private record LauncherDirectory(Path directory, @Nullable Path assetDirectory, Set<String> assetIndices) {
     }
 }

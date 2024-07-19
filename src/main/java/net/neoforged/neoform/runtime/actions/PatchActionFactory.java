@@ -3,7 +3,6 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
-import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 
 import java.nio.file.Path;

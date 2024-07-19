@@ -82,7 +82,7 @@ public class ArtifactManager {
                 // Ensure the file matches before using it
                 var fileHash = HashingUtil.hashFile(localPath, artifact.checksumAlgorithm());
                 if (Objects.equals(fileHash, artifact.checksum())) {
-                    return getArtifactFromPath(localPath);
+                    return Artifact.ofPath(localPath);
                 }
             } catch (IOException ignored) {
                 // Ignore if it doesn't exist or is otherwise fails to be read
@@ -175,7 +175,7 @@ public class ArtifactManager {
         for (var root : launcherInstallations.getInstallationRoots()) {
             var localPath = root.resolve("versions").resolve(minecraftVersion).resolve(minecraftVersion + ".json");
             if (Files.isReadable(localPath)) {
-                return getArtifactFromPath(localPath);
+                return Artifact.ofPath(localPath);
             }
         }
 
@@ -250,15 +250,7 @@ public class ArtifactManager {
     }
 
     private Artifact getArtifactFromPath(String path) throws IOException {
-        return getArtifactFromPath(Paths.get(path));
-    }
-
-    private Artifact getArtifactFromPath(Path path) throws IOException {
-        if (!Files.isRegularFile(path)) {
-            throw new NoSuchFileException(path.toString());
-        }
-        var attrView = Files.getFileAttributeView(path, BasicFileAttributeView.class).readAttributes();
-        return new Artifact(path, attrView.lastModifiedTime().toMillis(), attrView.size());
+        return Artifact.ofPath(Paths.get(path));
     }
 
     @FunctionalInterface

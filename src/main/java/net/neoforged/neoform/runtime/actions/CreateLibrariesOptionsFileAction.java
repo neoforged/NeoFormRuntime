@@ -2,8 +2,8 @@ package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
-import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
+import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 
 import java.io.IOException;
 import java.nio.file.Files;
