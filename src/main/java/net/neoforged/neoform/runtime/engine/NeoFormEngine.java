@@ -232,9 +232,12 @@ public class NeoFormEngine implements AutoCloseable {
             compileAction = new RecompileSourcesActionWithJDK();
         }
 
+        compileAction.setTargetJavaVersion(distConfig.javaVersion());
+
         // Add NeoForm libraries or apply overridden classpath fully
         compileAction.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
         compileAction.getClasspath().addMavenLibraries(distConfig.libraries());
+
         builder.action(compileAction);
         builder.build();
         return compiledOutput;

@@ -21,6 +21,10 @@ public class NeoFormDistConfig {
         this.dist = dist;
     }
 
+    public int javaVersion() {
+        return config.javaVersion();
+    }
+
     public String minecraftVersion() {
         return config.minecraftVersion();
     }

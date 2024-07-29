@@ -47,6 +47,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
+        var javaRelease = String.valueOf(getTargetJavaVersion());
 
         // Merge the original Minecraft classpath with the libs required by additional patches that we made
         var classpathPaths = getEffectiveClasspath(environment);
@@ -69,7 +70,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
                     true,
                     new AccessRuleSet(new AccessRule[0], AccessRestriction.COMMAND_LINE, library.getFileName().toString()),
                     "none",
-                    "21"
+                    javaRelease
             ));
         }
 
@@ -81,9 +82,9 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
         var policy = DefaultErrorHandlingPolicies.exitOnFirstError();
 
         var options = new CompilerOptions(Map.of(
-                CompilerOptions.OPTION_Source, "21",
-                CompilerOptions.OPTION_Compliance, "21",
-                CompilerOptions.OPTION_TargetPlatform, "21",
+                CompilerOptions.OPTION_Source, javaRelease,
+                CompilerOptions.OPTION_Compliance, javaRelease,
+                CompilerOptions.OPTION_TargetPlatform, javaRelease,
                 CompilerOptions.OPTION_ReportDeprecation, CompilerOptions.IGNORE,
                 CompilerOptions.OPTION_ReportDeprecationInDeprecatedCode, CompilerOptions.DISABLED,
                 CompilerOptions.OPTION_ReportDeprecationWhenOverridingDeprecatedMethod, CompilerOptions.DISABLED,
