@@ -24,18 +24,6 @@ import java.util.Map;
  * Uses the current JDKs java compiler interface to recompile the sources.
  */
 public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
-    private final List<String> compilerOptions = new ArrayList<>();
-
-    public RecompileSourcesActionWithJDK() {
-        compilerOptions.add("--release");
-        compilerOptions.add("21");
-        compilerOptions.add("-proc:none"); // No annotation processing on Minecraft sources
-        compilerOptions.add("-nowarn"); // We have no influence on Minecraft sources, so no warnings
-        compilerOptions.add("-g"); // Gradle compiles with debug by default, so we replicate this
-        compilerOptions.add("-XDuseUnsharedTable=true"); // Gradle also adds this unconditionally
-        compilerOptions.add("-implicit:none"); // Prevents source files from the source-path from being emitted
-    }
-
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");
@@ -84,7 +72,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                     fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcepath);
 
                     var sourceJavaFiles = fileManager.getJavaFileObjectsFromPaths(sourcePaths);
-                    var task = compiler.getTask(null, fileManager, diagnostics, compilerOptions, null, sourceJavaFiles);
+                    var task = compiler.getTask(null, fileManager, diagnostics, getCompilerOptions(), null, sourceJavaFiles);
                     if (!task.call()) {
                         throw new IOException("Compilation failed");
                     }
@@ -106,6 +94,18 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
         ck.add("compiler type", "javac");
-        ck.addStrings("compiler options", compilerOptions);
+        ck.addStrings("compiler options", getCompilerOptions());
+    }
+
+    private List<String> getCompilerOptions() {
+        return List.of(
+                "--release",
+                String.valueOf(getTargetJavaVersion()),
+                "-proc:none", // No annotation processing on Minecraft sources
+                "-nowarn", // We have no influence on Minecraft sources, so no warnings
+                "-g", // Gradle compiles with debug by default, so we replicate this
+                "-XDuseUnsharedTable=true", // Gradle also adds this unconditionally
+                "-implicit:none" // Prevents source files from the source-path from being emitted
+        );
     }
 }

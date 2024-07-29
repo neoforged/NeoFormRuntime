@@ -10,14 +10,17 @@ import java.nio.file.Path;
 import java.util.List;
 
 public abstract class RecompileSourcesAction extends BuiltInAction implements ExecutionNodeAction {
+
     private final ExtensibleClasspath classpath = new ExtensibleClasspath();
     private final ExtensibleClasspath sourcepath = new ExtensibleClasspath();
+    private int targetJavaVersion = 21;
 
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
         classpath.computeCacheKey("compile classpath", ck);
         sourcepath.computeCacheKey("compile sourcepath", ck);
+        ck.add("target java version", String.valueOf(targetJavaVersion));
     }
 
     protected final List<Path> getEffectiveClasspath(ProcessingEnvironment environment) throws IOException {
@@ -52,5 +55,13 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
 
     public ExtensibleClasspath getSourcepath() {
         return sourcepath;
+    }
+
+    public int getTargetJavaVersion() {
+        return targetJavaVersion;
+    }
+
+    public void setTargetJavaVersion(int targetJavaVersion) {
+        this.targetJavaVersion = targetJavaVersion;
     }
 }

@@ -4,7 +4,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
-import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +17,7 @@ import java.util.zip.ZipFile;
 public record NeoFormConfig(int spec,
                             @SerializedName("version") String minecraftVersion,
                             boolean official,
-                            @SerializedName("java_target") String javaVersion,
+                            @SerializedName("java_target") int javaVersion,
                             String encoding,
                             Map<String, Object> data,
                             Map<String, List<NeoFormStep>> steps,
