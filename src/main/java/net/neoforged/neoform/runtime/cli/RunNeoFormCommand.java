@@ -9,6 +9,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import net.neoforged.neoform.runtime.engine.ProcessGeneration;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
@@ -32,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
@@ -106,6 +108,20 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
+            // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
+            // To circumvent this, we inject the sources before recompile instead.
+            if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+                engine.applyTransforms(List.of(
+                        new ModifyAction<>(
+                                "inject",
+                                InjectZipContentAction.class,
+                                action -> {
+                                    action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeSourcesZip, "/"));
+                                }
+                        )
+                ));
+            }
+
             // Add NeoForge libraries to the list of libraries
             transforms.add(new ModifyAction<>(
                     "recompile",
@@ -119,19 +135,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // Append a patch step to the NeoForge patches
             transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                     (builder, previousOutput) -> {
-                        return PatchActionFactory.makeAction(builder, neoforgeArtifact.path(), neoforgeConfig.patchesFolder(), previousOutput);
+                        return PatchActionFactory.makeAction(builder,
+                                neoforgeArtifact.path(),
+                                neoforgeConfig.patchesFolder(),
+                                previousOutput,
+                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesBasePrefix(), "a/"),
+                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesModifiedPrefix(), "b/"));
                     }
             ));
 
             engine.applyTransforms(transforms);
 
-            var graph = engine.getGraph();
+            var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip);
+            var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip);
 
-            var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(graph, neoforgeSourcesZip);
-
-            var compiledWithNeoForgeOutput = createCompiledWithNeoForge(graph, neoforgeClassesZip);
-
-            createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
+            createSourcesAndCompiledWithNeoForge(engine.getGraph(), compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
         }
@@ -171,30 +189,48 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         execute(engine);
     }
 
-    private static NodeOutput createCompiledWithNeoForge(ExecutionGraph graph, ZipFile neoforgeClassesZip) {
+    private static NodeOutput createCompiledWithNeoForge(NeoFormEngine engine, ZipFile neoforgeClassesZip) {
+        var graph = engine.getGraph();
+        var recompiledClasses = graph.getRequiredOutput("recompile", "output");
+
+        // In older processes, we already had to inject the sources before recompiling (due to remapping)
+        if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+            graph.setResult("compiledWithNeoForge", recompiledClasses);
+            return recompiledClasses;
+        }
+
         // Add a step that produces a classes-zip containing both Minecraft and NeoForge classes
         var builder = graph.nodeBuilder("compiledWithNeoForge");
-        builder.input("input", graph.getRequiredOutput("recompile", "output").asInput());
+        builder.input("input", recompiledClasses.asInput());
         var output = builder.output("output", NodeOutputType.JAR, "JAR containing NeoForge classes, resources and Minecraft classes");
         builder.action(new InjectZipContentAction(List.of(
                 new InjectFromZipFileSource(neoforgeClassesZip, "/")
         )));
         builder.build();
+
         graph.setResult("compiledWithNeoForge", output);
         return output;
     }
 
-    private static NodeOutput createSourcesWithNeoForge(ExecutionGraph graph, ZipFile neoforgeSourcesZip) {
-        // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
-        var builder = graph.nodeBuilder("sourcesWithNeoForge");
-        builder.input("input", graph.getRequiredOutput("transformSources", "output").asInput());
-        var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
-        builder.action(new InjectZipContentAction(List.of(
-                new InjectFromZipFileSource(neoforgeSourcesZip, "/")
-        )));
-        builder.build();
-        graph.setResult("sourcesWithNeoForge", output);
-        return output;
+    // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
+    private static NodeOutput createSourcesWithNeoForge(NeoFormEngine engine, ZipFile neoforgeSourcesZip) {
+        var graph = engine.getGraph();
+        var transformedSourceOutput = graph.getRequiredOutput("transformSources", "output");
+
+        if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+            graph.setResult("sourcesWithNeoForge", transformedSourceOutput);
+            return transformedSourceOutput;
+        } else {
+            var builder = graph.nodeBuilder("sourcesWithNeoForge");
+            builder.input("input", transformedSourceOutput.asInput());
+            var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
+            builder.action(new InjectZipContentAction(List.of(
+                    new InjectFromZipFileSource(neoforgeSourcesZip, "/")
+            )));
+            builder.build();
+            graph.setResult("sourcesWithNeoForge", output);
+            return output;
+        }
     }
 
     private static void createSourcesAndCompiledWithNeoForge(ExecutionGraph graph, NodeOutput compiledWithNeoForgeOutput, NodeOutput sourcesWithNeoForgeOutput) {

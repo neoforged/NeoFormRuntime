@@ -57,10 +57,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             toolArtifact = environment.getArtifactManager().get(toolArtifactId);
         }
 
-        var javaExecutablePath = ProcessHandle.current()
-                .info()
-                .command()
-                .orElseThrow();
+        var javaExecutablePath = environment.getJavaExecutable();
 
         var workingDir = environment.getWorkspace();
 

@@ -13,6 +13,11 @@ public interface ProcessingEnvironment {
     Path getWorkspace();
 
     /**
+     * @return The Java executable for running external Java tools.
+     */
+    String getJavaExecutable();
+
+    /**
      * Interpolates a string containing placeholders of the form {@code {variable}} that may refer to:
      *
      * <ul>
