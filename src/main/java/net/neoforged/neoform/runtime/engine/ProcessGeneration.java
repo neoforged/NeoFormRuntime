@@ -7,18 +7,19 @@ import java.util.List;
  * usable development Minecraft artifacts.
  */
 public enum ProcessGeneration {
+    MCP_SINCE_1_12,
     /**
      * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
      * SRG to official names for development.
      */
-    MCP_SINCE_1_12,
     MCP_SINCE_1_17,
     NEOFORM_SINCE_1_20_2;
 
     static ProcessGeneration fromMinecraftVersion(String minecraftVersion) {
         return switch (minecraftVersion) {
             case "1.12.2" -> MCP_SINCE_1_12;
-            case "1.20.1" -> MCP_SINCE_1_17;
+            case "1.17", "1.17.1", "1.18", "1.18.1", "1.18.2", "1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4", "1.20",
+                 "1.20.1" -> MCP_SINCE_1_17;
             default -> NEOFORM_SINCE_1_20_2;
         };
     }
