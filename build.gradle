@@ -96,7 +96,7 @@ dependencies {
     compileOnly 'org.jetbrains:annotations:24.1.0'
     implementation 'info.picocli:picocli:4.7.6'
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'org.eclipse.jdt:ecj:3.37.0'
+    implementation 'org.eclipse.jdt:ecj:3.38.0'
     implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
