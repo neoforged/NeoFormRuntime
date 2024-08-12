@@ -49,9 +49,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
-    @CommandLine.Option(names = "--add-result", arity = "*")
-    List<String> addResults = new ArrayList<>();
-
     @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields")
     List<String> additionalAccessTransformers = new ArrayList<>();
 
@@ -138,18 +135,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         } else {
             engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
         }
-
-        addResults.stream().<String[]>map(encodedResult -> {
-                    var parts = encodedResult.split(":", 3);
-                    if (parts.length != 2 && parts.length != 3) {
-                        throw new IllegalArgumentException("Specify an additional result in the form: <resultid>:<step> or <resultid>:<step>:<outputid>");
-                    }
-                    return parts;
-                }).forEach(parts -> {
-                    var outputId = parts.length == 2 ? "output" : parts[2];
-                    var output = engine.getGraph().getRequiredOutput(parts[1], outputId);
-                    engine.getGraph().setResult(parts[0], output);
-                });
 
         if (!additionalAccessTransformers.isEmpty()) {
             var transformSources = getOrAddTransformSourcesAction(engine);
