@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class ExecutionGraph {
     private final Map<String, ExecutionNode> nodes = new LinkedHashMap<>();
@@ -41,8 +42,20 @@ public class ExecutionGraph {
         results.put(id, output);
     }
 
+    private static final Pattern DEBUG_OUTPUT_PATTERN = Pattern.compile("^node\\.([a-zA-Z0-9]+)\\.output\\.([a-zA-Z0-9]+)$");
+
     public NodeOutput getResult(String id) {
-        return results.get(id);
+        var output = results.get(id);
+        if (output != null) {
+            return output;
+        }
+        var matcher = DEBUG_OUTPUT_PATTERN.matcher(id);
+        if (matcher.matches()) {
+            var step = matcher.group(1);
+            var outputId = matcher.group(2);
+            return getRequiredOutput(step, outputId);
+        }
+        return null;
     }
 
     public Map<String, NodeOutput> getResults() {
