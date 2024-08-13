@@ -42,12 +42,14 @@ public class ExecutionGraph {
         results.put(id, output);
     }
 
+    private static final Pattern DEBUG_OUTPUT_PATTERN = Pattern.compile("^node\\.([a-zA-Z0-9]+)\\.output\\.([a-zA-Z0-9]+)$");
+
     public NodeOutput getResult(String id) {
         var output = results.get(id);
         if (output != null) {
             return output;
         }
-        var matcher = Pattern.compile("^node\\.([a-zA-Z0-9]+)\\.output\\.([a-zA-Z0-9]+)$").matcher(id);
+        var matcher = DEBUG_OUTPUT_PATTERN.matcher(id);
         if (matcher.matches()) {
             var step = matcher.group(1);
             var outputId = matcher.group(2);
