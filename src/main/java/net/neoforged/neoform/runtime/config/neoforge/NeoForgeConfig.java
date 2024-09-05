@@ -23,8 +23,8 @@ public record NeoForgeConfig(
         @SerializedName("patches") String patchesFolder,
         @SerializedName("sources") String sourcesArtifact,
         @SerializedName("universal") String universalArtifact,
-        @SerializedName("patchesOriginalPrefix") @Nullable String stripPatchesBasePrefix,
-        @SerializedName("patchesModifiedPrefix") @Nullable String stripPatchesModifiedPrefix,
+        @SerializedName("patchesOriginalPrefix") @Nullable String basePathPrefix,
+        @SerializedName("patchesModifiedPrefix") @Nullable String modifiedPathPrefix,
         Map<String, JsonObject> runs,
         List<MavenCoordinate> libraries,
         List<String> modules

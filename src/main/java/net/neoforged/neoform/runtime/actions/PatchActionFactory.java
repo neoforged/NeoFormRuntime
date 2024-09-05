@@ -15,8 +15,8 @@ public final class PatchActionFactory {
                                         Path patchesArchive,
                                         String sourcePathInArchive,
                                         NodeOutput sources,
-                                        String stripBasePrefix,
-                                        String stripModifiedPrefix) {
+                                        String basePathPrefix,
+                                        String modifiedPathPrefix) {
         var patchesInZip = Objects.requireNonNull(sourcePathInArchive, "patches");
         builder.input("input", sources.asInput());
         var mainOutput = builder.output("output", NodeOutputType.ZIP, "ZIP file containing the patched sources");
@@ -33,8 +33,8 @@ public final class PatchActionFactory {
                 "--mode", "OFFSET",
                 "--archive-rejects", "ZIP",
                 "--reject", "{outputRejects}",
-                "--strip-base-prefix", stripBasePrefix,
-                "--strip-modified-prefix", stripModifiedPrefix
+                "--base-path-prefix", basePathPrefix,
+                "--modified-path-prefix", modifiedPathPrefix
         ));
 
         builder.action(action);

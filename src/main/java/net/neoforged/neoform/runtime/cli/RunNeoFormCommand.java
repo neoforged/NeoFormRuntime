@@ -139,8 +139,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 neoforgeArtifact.path(),
                                 neoforgeConfig.patchesFolder(),
                                 previousOutput,
-                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesBasePrefix(), "a/"),
-                                Objects.requireNonNullElse(neoforgeConfig.stripPatchesModifiedPrefix(), "b/"));
+                                Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
+                                Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));
                     }
             ));
 
@@ -215,12 +215,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
     private static NodeOutput createSourcesWithNeoForge(NeoFormEngine engine, ZipFile neoforgeSourcesZip) {
         var graph = engine.getGraph();
-        var transformedSourceOutput = graph.getRequiredOutput("transformSources", "output");
 
         if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
-            graph.setResult("sourcesWithNeoForge", transformedSourceOutput);
-            return transformedSourceOutput;
+            // 1.20.1 and below use SRG in production and for ATs, so we cannot use the JST output as it is in SRG
+            // therefore we must output the renamed sources
+            var remapSrgSourcesToOfficialOutput = graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
+            graph.setResult("sourcesWithNeoForge", remapSrgSourcesToOfficialOutput);
+            return remapSrgSourcesToOfficialOutput;
         } else {
+            var transformedSourceOutput = graph.getRequiredOutput("transformSources", "output");
+
             var builder = graph.nodeBuilder("sourcesWithNeoForge");
             builder.input("input", transformedSourceOutput.asInput());
             var output = builder.output("output", NodeOutputType.ZIP, "Source ZIP containing NeoForge and Minecraft sources");
