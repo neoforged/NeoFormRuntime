@@ -68,9 +68,9 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
         var m = SRG_FINDER.matcher(sourceCode);
         return m.replaceAll(matchResult -> {
             var matched = matchResult.group();
-            var mapped = srgNamesToOfficial.get(matched);
             // Some will be unmapped
-            return Matcher.quoteReplacement(Objects.requireNonNullElse(mapped, matched));
+            var mapped = srgNamesToOfficial.getOrDefault(matched, matched);
+            return Matcher.quoteReplacement(mapped);
         });
     }
 }

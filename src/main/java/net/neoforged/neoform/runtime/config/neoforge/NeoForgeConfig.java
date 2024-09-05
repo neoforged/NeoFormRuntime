@@ -50,7 +50,10 @@ public record NeoForgeConfig(
             throw new IOException("Unsupported NeoForge spec version: " + specVersion);
         }
 
-        // Forge and NeoForge used the same format, but Forge used list of paths for "ats"
+        // Forge in 1.20.1 and before specify access transformers as an array of file paths,
+        // while NeoForge 1.20.2+ points to a folder inside the ZIP instead.
+        // 1.20.1 and before: "ats": ["ats/accesstransformer.cfg"]
+        // 1.20.2 and later: "ats": "ats/"
         if (root.get("ats").isJsonArray()) {
             convertAccessTransformerPropertyFromForgeToNeoForge(root);
         }
