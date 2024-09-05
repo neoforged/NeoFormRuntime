@@ -34,6 +34,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
@@ -163,12 +164,18 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         if (parchmentData != null) {
-            var transformSources = getOrAddTransformSourcesAction(engine);
             var parchmentDataFile = artifactManager.get(parchmentData);
-            transformSources.setParchmentData(parchmentDataFile.path());
+            Consumer<ApplySourceTransformAction> jstConsumer = transformSources -> {
+                transformSources.setParchmentData(parchmentDataFile.path());
 
-            if (parchmentConflictPrefix != null) {
-                transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
+                if (parchmentConflictPrefix != null) {
+                    transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
+                }
+            };
+            if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+                engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(jstConsumer)));
+            } else {
+                jstConsumer.accept(getOrAddTransformSourcesAction(engine));
             }
         }
 
@@ -313,16 +320,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 "patch",
                 "output",
                 "transformSources",
-                (builder, previousNodeOutput) -> {
-                    builder.input("input", previousNodeOutput.asInput());
-                    builder.inputFromNodeOutput("libraries", "listLibraries", "output");
-                    var action = new ApplySourceTransformAction();
-                    builder.action(action);
-                    builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
-                    return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment, Interface Injections) applied");
-                }
+                sourceTransform(applySourceTransformAction -> {})
         ).apply(engine, graph);
 
         return getOrAddTransformSourcesNode(engine);
+    }
+
+    private static ReplaceNodeOutput.NodeFactory sourceTransform(Consumer<ApplySourceTransformAction> actionConsumer) {
+        return (builder, previousNodeOutput) -> {
+            builder.input("input", previousNodeOutput.asInput());
+            builder.inputFromNodeOutput("libraries", "listLibraries", "output");
+            var action = new ApplySourceTransformAction();
+            builder.action(action);
+            actionConsumer.accept(action);
+            builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
+            return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment, Interface Injections) applied");
+        };
     }
 }
