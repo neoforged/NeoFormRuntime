@@ -9,7 +9,6 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
-import net.neoforged.neoform.runtime.engine.ProcessGeneration;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
@@ -111,7 +110,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
             // To circumvent this, we inject the sources before recompile instead.
-            if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+            if (engine.getProcessGeneration().sourcesUseSrgNames()) {
                 engine.applyTransforms(List.of(
                         new ModifyAction<>(
                                 "inject",
@@ -167,12 +166,13 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var parchmentDataFile = artifactManager.get(parchmentData);
             Consumer<ApplySourceTransformAction> jstConsumer = transformSources -> {
                 transformSources.setParchmentData(parchmentDataFile.path());
-
                 if (parchmentConflictPrefix != null) {
                     transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
                 }
             };
-            if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+            // Before 1.20.2, sources were still in SRG, while parchment was defined using Mojang names.
+            // Hence, we need to apply Parchment after we remap SRG to Mojang names
+            if (engine.getProcessGeneration().sourcesUseSrgNames()) {
                 engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(jstConsumer)));
             } else {
                 jstConsumer.accept(getOrAddTransformSourcesAction(engine));
@@ -201,7 +201,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var recompiledClasses = graph.getRequiredOutput("recompile", "output");
 
         // In older processes, we already had to inject the sources before recompiling (due to remapping)
-        if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+        if (engine.getProcessGeneration().sourcesUseSrgNames()) {
             graph.setResult("compiledWithNeoForge", recompiledClasses);
             return recompiledClasses;
         }
@@ -223,7 +223,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     private static NodeOutput createSourcesWithNeoForge(NeoFormEngine engine, ZipFile neoforgeSourcesZip) {
         var graph = engine.getGraph();
 
-        if (engine.getProcessGeneration() == ProcessGeneration.MCP_SINCE_1_17) {
+        if (engine.getProcessGeneration().sourcesUseSrgNames()) {
             // 1.20.1 and below use SRG in production and for ATs, so we cannot use the JST output as it is in SRG
             // therefore we must output the renamed sources
             var remapSrgSourcesToOfficialOutput = graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
@@ -320,7 +320,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 "patch",
                 "output",
                 "transformSources",
-                sourceTransform(applySourceTransformAction -> {})
+                sourceTransform(applySourceTransformAction -> {
+                })
         ).apply(engine, graph);
 
         return getOrAddTransformSourcesNode(engine);

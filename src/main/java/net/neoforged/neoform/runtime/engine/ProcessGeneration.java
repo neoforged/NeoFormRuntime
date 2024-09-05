@@ -25,6 +25,13 @@ public enum ProcessGeneration {
     }
 
     /**
+     * Does the Minecraft source code that MCP/NeoForm creates use SRG names?
+     */
+    public boolean sourcesUseSrgNames() {
+        return compareTo(NEOFORM_SINCE_1_20_2) < 0;
+    }
+
+    /**
      * Allows additional resources to be completely removed from Minecraft jars before processing them.
      */
     List<String> getAdditionalDenyListForMinecraftJars() {
