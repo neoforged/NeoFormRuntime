@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.engine;
 
+import net.neoforged.neoform.runtime.actions.ChainMappingsAction;
 import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
@@ -216,6 +217,17 @@ public class NeoFormEngine implements AutoCloseable {
                             }
                     )
             ));
+
+            // We also expose a officialToSrgMapping result
+            var officialToSrg = graph.nodeBuilder("officialToSrg");
+            // official -> obf
+            officialToSrg.inputFromNodeOutput("first", "downloadClientMappings", "output");
+            // obf -> srg
+            officialToSrg.inputFromNodeOutput("second", "mergeMappings", "output");
+            var action = new ChainMappingsAction();
+            officialToSrg.action(action);
+            graph.setResult("officialToSrgMapping", officialToSrg.output("output", NodeOutputType.TSRG, "A mapping file that maps SRG names to official names"));
+            officialToSrg.build();
         }
     }
 
