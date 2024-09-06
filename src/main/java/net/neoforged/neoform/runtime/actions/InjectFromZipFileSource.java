@@ -10,6 +10,7 @@ import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -26,10 +27,20 @@ public class InjectFromZipFileSource implements InjectSource {
      * Folder within the ZIP we're copying from
      */
     private final String sourcePath;
+    /**
+     * Optional regex used to filter inclusion file names.
+     */
+    @Nullable
+    private final Pattern filePattern;
 
     public InjectFromZipFileSource(ZipFile zf, String sourcePath) {
+        this(zf, sourcePath, null);
+    }
+
+    public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern filePattern) {
         this.zf = zf;
         this.sourcePath = sanitizeSourcePath(sourcePath);
+        this.filePattern = filePattern;
     }
 
     private static String sanitizeSourcePath(String sourcePath) {
@@ -55,7 +66,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if (sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && (filePattern == null || filePattern.matcher(entry.getName()).matches())) {
                 digestStream.write(entry.getName().getBytes());
                 try (var in = zf.getInputStream(entry)) {
                     in.transferTo(digestStream);
@@ -65,7 +76,7 @@ public class InjectFromZipFileSource implements InjectSource {
 
         return new CacheKey.AnnotatedValue(
                 HexFormat.of().formatHex(digest.digest()),
-                sourcePath + " from " + zf.getName()
+                sourcePath + " from " + zf.getName() + (filePattern == null ? "" : " matching " + filePattern)
         );
     }
 
@@ -85,7 +96,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if (sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && (filePattern == null || filePattern.matcher(entry.getName()).matches())) {
                 try (var in = zf.getInputStream(entry)) {
                     // Relocate the entry
                     var copiedEntry = new ZipEntry(entry.getName().substring(sourcePath.length()));

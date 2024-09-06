@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
@@ -116,6 +117,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 "inject",
                                 InjectZipContentAction.class,
                                 action -> {
+                                    // Annoyingly, Forge only had the Java sources in the sources artifact, so we have to pull the other files from the universal jar
+                                    action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeClassesZip, "/", Pattern.compile("^(?!.*\\.class$).*")));
                                     action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeSourcesZip, "/"));
                                 }
                         )

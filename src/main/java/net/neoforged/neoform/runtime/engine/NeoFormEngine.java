@@ -1,6 +1,6 @@
 package net.neoforged.neoform.runtime.engine;
 
-import net.neoforged.neoform.runtime.actions.ChainMappingsAction;
+import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
 import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
@@ -221,12 +221,14 @@ public class NeoFormEngine implements AutoCloseable {
             // We also expose a officialToSrgMapping result
             var officialToSrg = graph.nodeBuilder("officialToSrg");
             // official -> obf
-            officialToSrg.inputFromNodeOutput("first", "downloadClientMappings", "output");
+            officialToSrg.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
             // obf -> srg
-            officialToSrg.inputFromNodeOutput("second", "mergeMappings", "output");
-            var action = new ChainMappingsAction();
+            officialToSrg.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+            var action = new CreateLegacyMappingsAction();
             officialToSrg.action(action);
-            graph.setResult("officialToSrgMapping", officialToSrg.output("output", NodeOutputType.TSRG, "A mapping file that maps SRG names to official names"));
+            graph.setResult("officialToSrgMapping", officialToSrg.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps official names to SRG"));
+            graph.setResult("srgToOfficialMapping", officialToSrg.output("srgToOfficial", NodeOutputType.TSRG, "A mapping file that maps SRG names to official names"));
+            graph.setResult("csvMapping", officialToSrg.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
             officialToSrg.build();
         }
     }
