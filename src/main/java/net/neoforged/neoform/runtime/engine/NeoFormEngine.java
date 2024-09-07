@@ -218,18 +218,18 @@ public class NeoFormEngine implements AutoCloseable {
                     )
             ));
 
-            // We also expose a officialToSrgMapping result
-            var officialToSrg = graph.nodeBuilder("officialToSrg");
+            // We also expose a few results for mappings in different formats
+            var createMappings = graph.nodeBuilder("createMappings");
             // official -> obf
-            officialToSrg.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
+            createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
             // obf -> srg
-            officialToSrg.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+            createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
             var action = new CreateLegacyMappingsAction();
-            officialToSrg.action(action);
-            graph.setResult("officialToSrgMapping", officialToSrg.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps official names to SRG"));
-            graph.setResult("srgToOfficialMapping", officialToSrg.output("srgToOfficial", NodeOutputType.TSRG, "A mapping file that maps SRG names to official names"));
-            graph.setResult("csvMapping", officialToSrg.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
-            officialToSrg.build();
+            createMappings.action(action);
+            graph.setResult("officialToSrgMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps official names to SRG"));
+            graph.setResult("srgToOfficialMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps SRG names to official names"));
+            graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+            createMappings.build();
         }
     }
 
