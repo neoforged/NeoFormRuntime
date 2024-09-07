@@ -1,7 +1,7 @@
 package net.neoforged.neoform.runtime.utils;
 
 public final class OsUtil {
-    private static OsType TYPE;
+    private static final OsType TYPE;
 
     static {
         var osName = System.getProperty("os.name");
@@ -32,10 +32,8 @@ public final class OsUtil {
         return TYPE == OsType.MAC;
     }
 
-    enum OsType {
-        WINDOWS,
-        LINUX,
-        MAC,
-        UNKNOWN
+    public static OsType current() {
+        return TYPE;
     }
+
 }

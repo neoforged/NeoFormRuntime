@@ -1,12 +1,19 @@
 package net.neoforged.neoform.runtime.manifests;
 
 import com.google.gson.annotations.SerializedName;
+import net.fabricmc.loom.nativeplatform.OperatingSystem;
+import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.OsType;
+import net.neoforged.neoform.runtime.utils.OsUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
-public record MinecraftLibrary(@SerializedName("name") String artifactId, Downloads downloads, List<Rule> rules) {
+public record MinecraftLibrary(@SerializedName("name") String artifactId, Downloads downloads, List<Rule> rules,
+                               @Nullable Map<OsType, String> natives) {
     public MinecraftLibrary {
         Objects.requireNonNull(artifactId, "name");
         rules = Objects.requireNonNullElseGet(rules, List::of);
@@ -31,10 +38,50 @@ public record MinecraftLibrary(@SerializedName("name") String artifactId, Downlo
 
     @Nullable
     public MinecraftDownload getArtifactDownload() {
-        return downloads != null ? downloads.artifact : null;
+        if (downloads == null) {
+            return null;
+        }
+
+        if (natives != null) {
+            var classifier = natives.get(OsUtil.current());
+            if (classifier != null) {
+                var download = downloads.classifiers.get(classifier);
+                if (download == null) {
+                    throw new IllegalStateException("Download for " + artifactId + " references classifier " + classifier
+                                                    + " for natives for OS " + OperatingSystem.CURRENT + " but it doesn't exist.");
+                }
+                return download;
+            }
+        }
+
+        return downloads.artifact;
     }
 
-    public record Downloads(MinecraftDownload artifact) {
+    public MavenCoordinate getMavenCoordinate() {
+        var coordinate = MavenCoordinate.parse(artifactId);
+
+        if (natives != null) {
+            String classifier = natives.get(OsUtil.current());
+            if (classifier != null) {
+                coordinate = new MavenCoordinate(
+                        coordinate.groupId(),
+                        coordinate.artifactId(),
+                        coordinate.extension(),
+                        classifier,
+                        coordinate.version()
+                );
+            }
+        }
+
+        return coordinate;
+    }
+
+    public record Downloads(MinecraftDownload artifact, Map<String, MinecraftDownload> classifiers) {
+        public Downloads {
+            if (classifiers == null) {
+                classifiers = Collections.emptyMap();
+            }
+        }
     }
 
     @Override
