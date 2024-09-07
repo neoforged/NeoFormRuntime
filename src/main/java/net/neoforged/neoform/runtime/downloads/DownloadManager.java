@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
@@ -71,7 +72,13 @@ public class DownloadManager implements AutoCloseable {
             if (url.getScheme().equals("file")) {
                 // File system download (e.g. from maven local)
                 var fileInRepo = Path.of(url);
-                Files.copy(fileInRepo, partialFile, StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    Files.copy(fileInRepo, partialFile, StandardCopyOption.REPLACE_EXISTING);
+                } catch (NoSuchFileException e) {
+                    // Translate the NIO exception since we handle 404 errors by throwing FileNotFoundException
+                    // and callers of this method should get the same exception for 404 regardless of protocol.
+                    throw new FileNotFoundException(e.getMessage());
+                }
             } else {
                 var request = HttpRequest.newBuilder(url)
                         .header("User-Agent", USER_AGENT)
