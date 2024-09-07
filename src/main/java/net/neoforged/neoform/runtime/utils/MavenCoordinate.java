@@ -118,4 +118,14 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
             return URI.create(originalBaseUri + "/" + relativePath);
         }
     }
+
+    public MavenCoordinate withClassifier(String classifier) {
+        return new MavenCoordinate(
+                groupId,
+                artifactId,
+                extension,
+                classifier,
+                version
+        );
+    }
 }
