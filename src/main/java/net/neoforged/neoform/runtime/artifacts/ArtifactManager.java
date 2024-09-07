@@ -66,7 +66,7 @@ public class ArtifactManager {
             throw new IllegalArgumentException("Cannot download a library that has no artifact defined: " + library);
         }
 
-        var artifactCoordinate = MavenCoordinate.parse(library.artifactId());
+        var artifactCoordinate = library.getMavenCoordinate();
         var externalArtifact = getFromExternalManifest(artifactCoordinate);
         if (externalArtifact != null) {
             return externalArtifact;
