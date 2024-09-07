@@ -201,7 +201,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
         // SRG method and field names, and need to be remapped.
-        if (processGeneration.sourcesUseSrgNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             applyTransforms(List.of(
                     new ReplaceNodeOutput(
                             "patch",
