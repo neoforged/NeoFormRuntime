@@ -4,10 +4,8 @@ import com.google.gson.annotations.SerializedName;
 import net.fabricmc.loom.nativeplatform.OperatingSystem;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsType;
-import net.neoforged.neoform.runtime.utils.OsUtil;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,7 +41,7 @@ public record MinecraftLibrary(@SerializedName("name") String artifactId, Downlo
         }
 
         if (natives != null) {
-            var classifier = natives.get(OsUtil.current());
+            var classifier = natives.get(OsType.current());
             if (classifier != null) {
                 var download = downloads.classifiers.get(classifier);
                 if (download == null) {
@@ -61,15 +59,9 @@ public record MinecraftLibrary(@SerializedName("name") String artifactId, Downlo
         var coordinate = MavenCoordinate.parse(artifactId);
 
         if (natives != null) {
-            String classifier = natives.get(OsUtil.current());
+            String classifier = natives.get(OsType.current());
             if (classifier != null) {
-                coordinate = new MavenCoordinate(
-                        coordinate.groupId(),
-                        coordinate.artifactId(),
-                        coordinate.extension(),
-                        classifier,
-                        coordinate.version()
-                );
+                coordinate = coordinate.withClassifier(classifier);
             }
         }
 
@@ -79,7 +71,7 @@ public record MinecraftLibrary(@SerializedName("name") String artifactId, Downlo
     public record Downloads(MinecraftDownload artifact, Map<String, MinecraftDownload> classifiers) {
         public Downloads {
             if (classifiers == null) {
-                classifiers = Collections.emptyMap();
+                classifiers = Map.of();
             }
         }
     }
