@@ -17,7 +17,7 @@ import java.util.zip.ZipOutputStream;
  * Creates different mapping files used by the legacy toolchain:
  * <ul>
  *  <li>a {@code officialToSrg} TSRGv2 file that maps official names to SRG names</li>
- *  <li>a {@code srgToOfficial} TSRGv1 file (to please Mixin) that maps SRG names to official names</li>
+ *  <li>a {@code srgToOfficial} SRG file (to please Mixin) that maps SRG names to official names</li>
  *  <li>a {@code csvMappings} zip file containing 2 csv files that map SRG names to official names</li>
  * </ul>
  */
@@ -34,7 +34,7 @@ public class CreateLegacyMappingsAction implements ExecutionNodeAction {
         officialToSrg.write(environment.getOutputPath("officialToSrg"), IMappingFile.Format.TSRG2, false);
 
         var srgToOfficial = officialToSrg.reverse();
-        srgToOfficial.write(environment.getOutputPath("srgToOfficial"), IMappingFile.Format.TSRG, false);
+        srgToOfficial.write(environment.getOutputPath("srgToOfficial"), IMappingFile.Format.SRG, false);
 
         try (var zipCsv = new ZipOutputStream(Files.newOutputStream(environment.getOutputPath("csvMappings")))) {
             writeCsv(zipCsv, "methods.csv", srgToOfficial.getClasses().stream()
