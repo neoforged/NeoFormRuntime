@@ -73,7 +73,11 @@ public class ProcessGeneration {
         // When merging the server.jar and client.jar, we need to exclude these dependency classes.
         if (isLessThanOrEqualTo(releaseVersion, MC_1_17_1)) {
             Collections.addAll(result.additionalDenyListForMinecraftJars,
+                    "com/mojang/(authlib|bridge|brigadier|datafixers|serialization|util)/.*",
                     "com/google/.*",
+                    "joptsimple/.*",
+                    "com/sun/.*",
+                    "oshi/.*",
                     "io/.*",
                     "it/.*",
                     "javax/.*",
