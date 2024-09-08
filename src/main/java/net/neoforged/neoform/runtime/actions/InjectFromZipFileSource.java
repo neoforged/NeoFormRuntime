@@ -28,8 +28,9 @@ public class InjectFromZipFileSource implements InjectSource {
      */
     private final String sourcePath;
     /**
-     * Optional regex used to filter entry names to be included. The relative path in the ZIP file will be
-     * matched against this regular expression (if present).
+     * Optional regex for filtering which entries from this source will be injected.
+     * The relative path in the ZIP file will be matched against this regular expression.
+     * If the pattern is null, all entries are included.
      */
     @Nullable
     private final Pattern includeFilterPattern;
