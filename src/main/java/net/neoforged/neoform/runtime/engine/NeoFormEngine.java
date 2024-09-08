@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.engine;
 
+import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
 import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
@@ -12,6 +13,7 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
@@ -30,9 +32,11 @@ import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
+import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
+import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 
 import java.io.IOException;
@@ -71,6 +75,7 @@ public class NeoFormEngine implements AutoCloseable {
     private final ExecutionGraph graph = new ExecutionGraph();
     private final BuildOptions buildOptions = new BuildOptions();
     private boolean verbose;
+    private ProcessGeneration processGeneration;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -83,6 +88,11 @@ public class NeoFormEngine implements AutoCloseable {
      */
     private final List<AutoCloseable> managedResources = new ArrayList<>();
 
+    /**
+     * The path to the java executable for running external tools.
+     */
+    private String javaExecutable;
+
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
@@ -91,6 +101,11 @@ public class NeoFormEngine implements AutoCloseable {
         this.fileHashService = fileHashService;
         this.cacheManager = cacheManager;
         this.lockManager = lockManager;
+
+        this.javaExecutable = ProcessHandle.current()
+                .info()
+                .command()
+                .orElseThrow();
     }
 
     public void close() throws IOException {
@@ -153,6 +168,8 @@ public class NeoFormEngine implements AutoCloseable {
     }
 
     public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
+        processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
+
         for (var step : distConfig.steps()) {
             addNodeForStep(graph, distConfig, step);
         }
@@ -181,6 +198,44 @@ public class NeoFormEngine implements AutoCloseable {
         if (graph.hasOutput("strip", "resourcesOutput")) {
             graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
         }
+
+        // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
+        // SRG method and field names, and need to be remapped.
+        if (processGeneration.sourcesUseIntermediaryNames()) {
+            if (!graph.hasOutput("mergeMappings", "output")
+                || !graph.hasOutput("downloadClientMappings", "output")) {
+                throw new IllegalStateException("NFRT currently does not support MCP versions that did not make use of official Mojang mappings (pre 1.17).");
+            }
+
+            applyTransforms(List.of(
+                    new ReplaceNodeOutput(
+                            "patch",
+                            "output",
+                            "remapSrgSourcesToOfficial",
+                            (builder, previousNodeOutput) -> {
+                                builder.input("sources", previousNodeOutput.asInput());
+                                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                                var action = new RemapSrgSourcesAction();
+                                builder.action(action);
+                                return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
+                            }
+                    )
+            ));
+
+            // We also expose a few results for mappings in different formats
+            var createMappings = graph.nodeBuilder("createMappings");
+            // official -> obf
+            createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
+            // obf -> srg
+            createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+            var action = new CreateLegacyMappingsAction();
+            createMappings.action(action);
+            graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+            graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
+            graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+            createMappings.build();
+        }
     }
 
     private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
@@ -196,9 +251,12 @@ public class NeoFormEngine implements AutoCloseable {
             compileAction = new RecompileSourcesActionWithJDK();
         }
 
+        compileAction.setTargetJavaVersion(distConfig.javaVersion());
+
         // Add NeoForm libraries or apply overridden classpath fully
         compileAction.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
         compileAction.getClasspath().addMavenLibraries(distConfig.libraries());
+
         builder.action(compileAction);
         builder.build();
         return compiledOutput;
@@ -261,6 +319,7 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
+                processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
                 builder.action(action);
             }
             case "listLibraries" -> {
@@ -287,7 +346,9 @@ public class NeoFormEngine implements AutoCloseable {
                         builder,
                         Paths.get(patchSource.archive().getName()),
                         config.getDataPathInZip("patches"),
-                        graph.getRequiredOutput("inject", "output")
+                        graph.getRequiredOutput("inject", "output"),
+                        "a/",
+                        "b/"
                 );
             }
             default -> {
@@ -520,6 +581,34 @@ public class NeoFormEngine implements AutoCloseable {
         return cacheManager;
     }
 
+    public ProcessGeneration getProcessGeneration() {
+        return processGeneration;
+    }
+
+    public void setJavaHome(Path javaHome) {
+
+        Path javaExecutable;
+        if (OsUtil.isWindows()) {
+            javaExecutable = javaHome.resolve("bin/java.exe");
+        } else {
+            javaExecutable = javaHome.resolve("bin/java");
+        }
+
+        if (!Files.isExecutable(javaExecutable)) {
+            throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
+        }
+
+        this.javaExecutable = javaExecutable.toString();
+    }
+
+    public String getJavaExecutable() {
+        return javaExecutable;
+    }
+
+    public void setJavaExecutable(String javaExecutable) {
+        this.javaExecutable = javaExecutable;
+    }
+
     private class NodeProcessingEnvironment implements ProcessingEnvironment {
         private final Path workspace;
         private final ExecutionNode node;
@@ -539,6 +628,11 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public Path getWorkspace() {
             return workspace;
+        }
+
+        @Override
+        public String getJavaExecutable() {
+            return javaExecutable;
         }
 
         @Override

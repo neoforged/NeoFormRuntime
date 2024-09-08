@@ -14,7 +14,9 @@ public final class PatchActionFactory {
     public static NodeOutput makeAction(ExecutionNodeBuilder builder,
                                         Path patchesArchive,
                                         String sourcePathInArchive,
-                                        NodeOutput sources) {
+                                        NodeOutput sources,
+                                        String basePathPrefix,
+                                        String modifiedPathPrefix) {
         var patchesInZip = Objects.requireNonNull(sourcePathInArchive, "patches");
         builder.input("input", sources.asInput());
         var mainOutput = builder.output("output", NodeOutputType.ZIP, "ZIP file containing the patched sources");
@@ -30,7 +32,9 @@ public final class PatchActionFactory {
                 "--log-level", "WARN",
                 "--mode", "OFFSET",
                 "--archive-rejects", "ZIP",
-                "--reject", "{outputRejects}"
+                "--reject", "{outputRejects}",
+                "--base-path-prefix", basePathPrefix,
+                "--modified-path-prefix", modifiedPathPrefix
         ));
 
         builder.action(action);

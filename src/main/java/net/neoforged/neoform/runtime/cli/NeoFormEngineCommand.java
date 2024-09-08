@@ -4,10 +4,12 @@ import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +45,14 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
     @CommandLine.Option(names = "--disable-cache-maintenance", description = "Skip automatically running cache maintenance from time to time")
     boolean disableCacheMaintenance;
 
+    @CommandLine.Option(names = "--java-home", description = "The home of the JRE to run external tools with. If not specified, the Java running NFRT will be used.")
+    @Nullable
+    Path javaHome;
+
+    @CommandLine.Option(names = "--java-executable", description = "The path to the Java executable to run external tools with. If not specified, the Java running NFRT will be used.")
+    @Nullable
+    Path javaExecutable;
+
     protected abstract void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException;
 
     @Override
@@ -67,6 +77,12 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
+                if (javaExecutable != null) {
+                    engine.setJavaExecutable(javaExecutable.toString());
+                } else if (javaHome != null) {
+                    engine.setJavaHome(javaHome);
+                }
+
                 engine.setVerbose(commonOptions.verbose);
                 applyBuildOptions(engine);
 

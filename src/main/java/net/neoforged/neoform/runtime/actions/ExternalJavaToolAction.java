@@ -40,12 +40,28 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
 
+    /**
+     * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
+     * with the Java version that was current at the time.
+     * NFRT offers a --java-executable option to set an appropriate (older) Java version.
+     * Some tools, however, are referenced by NFRT itself and added to the graph, and those will usually
+     * only run with the Java that NFRT itself is running with.
+     * This option should be used for such tools.
+     */
+    private final boolean useHostJavaExecutable;
+
     public ExternalJavaToolAction(MavenCoordinate toolArtifactId) {
         this.toolArtifactId = toolArtifactId;
+        // Tools referenced by maven coordinate come from the MCP/NeoForm config file and will usually only
+        // be tested against the Java version used by that Minecraft version.
+        this.useHostJavaExecutable = false;
     }
 
     public ExternalJavaToolAction(ToolCoordinate toolCoordinate) {
         this.toolArtifactId = toolCoordinate.version();
+        // Tools referenced by tool coordinate are internal tools that are verified to run with the Java
+        // version that NFRT itself can run with.
+        this.useHostJavaExecutable = true;
     }
 
     @Override
@@ -57,10 +73,15 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             toolArtifact = environment.getArtifactManager().get(toolArtifactId);
         }
 
-        var javaExecutablePath = ProcessHandle.current()
-                .info()
-                .command()
-                .orElseThrow();
+        String javaExecutablePath;
+        if (useHostJavaExecutable) {
+            javaExecutablePath = environment.getJavaExecutable();
+        } else {
+            javaExecutablePath = ProcessHandle.current()
+                    .info()
+                    .command()
+                    .orElseThrow();
+        }
 
         var workingDir = environment.getWorkspace();
 

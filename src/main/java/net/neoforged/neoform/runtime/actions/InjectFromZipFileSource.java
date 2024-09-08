@@ -10,6 +10,7 @@ import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -26,10 +27,22 @@ public class InjectFromZipFileSource implements InjectSource {
      * Folder within the ZIP we're copying from
      */
     private final String sourcePath;
+    /**
+     * Optional regex for filtering which entries from this source will be injected.
+     * The relative path in the ZIP file will be matched against this regular expression.
+     * If the pattern is null, all entries are included.
+     */
+    @Nullable
+    private final Pattern includeFilterPattern;
 
     public InjectFromZipFileSource(ZipFile zf, String sourcePath) {
+        this(zf, sourcePath, null);
+    }
+
+    public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern includeFilterPattern) {
         this.zf = zf;
         this.sourcePath = sanitizeSourcePath(sourcePath);
+        this.includeFilterPattern = includeFilterPattern;
     }
 
     private static String sanitizeSourcePath(String sourcePath) {
@@ -55,7 +68,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if (sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
                 digestStream.write(entry.getName().getBytes());
                 try (var in = zf.getInputStream(entry)) {
                     in.transferTo(digestStream);
@@ -65,7 +78,7 @@ public class InjectFromZipFileSource implements InjectSource {
 
         return new CacheKey.AnnotatedValue(
                 HexFormat.of().formatHex(digest.digest()),
-                sourcePath + " from " + zf.getName()
+                sourcePath + " from " + zf.getName() + (includeFilterPattern == null ? "" : " matching " + includeFilterPattern.pattern())
         );
     }
 
@@ -85,7 +98,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if (sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
                 try (var in = zf.getInputStream(entry)) {
                     // Relocate the entry
                     var copiedEntry = new ZipEntry(entry.getName().substring(sourcePath.length()));
@@ -107,5 +120,9 @@ public class InjectFromZipFileSource implements InjectSource {
                 }
             }
         }
+    }
+
+    private boolean matchesIncludeFilter(ZipEntry entry) {
+        return includeFilterPattern == null || includeFilterPattern.matcher(entry.getName()).matches();
     }
 }

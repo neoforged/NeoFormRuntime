@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.config.neoform;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
@@ -16,7 +17,7 @@ import java.util.zip.ZipFile;
 public record NeoFormConfig(int spec,
                             @SerializedName("version") String minecraftVersion,
                             boolean official,
-                            @SerializedName("java_target") String javaVersion,
+                            @SerializedName("java_target") int javaVersion,
                             String encoding,
                             Map<String, Object> data,
                             Map<String, List<NeoFormStep>> steps,
@@ -48,7 +49,11 @@ public record NeoFormConfig(int spec,
                 .create();
         var root = gson.fromJson(new StringReader(new String(configContent, StandardCharsets.UTF_8)), JsonObject.class);
 
-        return gson.fromJson(root, NeoFormConfig.class);
+        try {
+            return gson.fromJson(root, NeoFormConfig.class);
+        } catch (JsonSyntaxException e) {
+            throw new IOException("Failed to read NeoForm config from " + zipFile.getName(), e);
+        }
     }
 
     @Nullable
