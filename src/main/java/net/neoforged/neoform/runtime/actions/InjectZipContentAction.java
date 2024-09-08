@@ -17,6 +17,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+/**
+ * Injects additional content from {@linkplain InjectSource configurable sources} into a Zip (or Jar) file.
+ */
 public class InjectZipContentAction extends BuiltInAction {
     private List<InjectSource> injectedSources;
 

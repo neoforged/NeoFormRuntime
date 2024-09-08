@@ -48,10 +48,13 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
      * only run with the Java that NFRT itself is running with.
      * This option should be used for such tools.
      */
-    private boolean useHostJavaExecutable;
+    private final boolean useHostJavaExecutable;
 
     public ExternalJavaToolAction(MavenCoordinate toolArtifactId) {
         this.toolArtifactId = toolArtifactId;
+        // Tools referenced by maven coordinate come from the MCP/NeoForm config file and will usually only
+        // be tested against the Java version used by that Minecraft version.
+        this.useHostJavaExecutable = false;
     }
 
     public ExternalJavaToolAction(ToolCoordinate toolCoordinate) {
@@ -216,13 +219,5 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setArgs(List<String> args) {
         this.args = Objects.requireNonNull(args);
-    }
-
-    public boolean isUseHostJavaExecutable() {
-        return useHostJavaExecutable;
-    }
-
-    public void setUseHostJavaExecutable(boolean useHostJavaExecutable) {
-        this.useHostJavaExecutable = useHostJavaExecutable;
     }
 }
