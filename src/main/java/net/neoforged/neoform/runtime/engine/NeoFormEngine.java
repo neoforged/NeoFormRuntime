@@ -231,8 +231,8 @@ public class NeoFormEngine implements AutoCloseable {
             createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
             var action = new CreateLegacyMappingsAction();
             createMappings.action(action);
-            graph.setResult("officialToSrgMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps official names to SRG"));
-            graph.setResult("srgToOfficialMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps SRG names to official names"));
+            graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+            graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
             graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
             createMappings.build();
         }
