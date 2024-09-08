@@ -28,19 +28,20 @@ public class InjectFromZipFileSource implements InjectSource {
      */
     private final String sourcePath;
     /**
-     * Optional regex used to filter inclusion file names.
+     * Optional regex used to filter entry names to be included. The relative path in the ZIP file will be
+     * matched against this regular expression (if present).
      */
     @Nullable
-    private final Pattern filePattern;
+    private final Pattern includeFilterPattern;
 
     public InjectFromZipFileSource(ZipFile zf, String sourcePath) {
         this(zf, sourcePath, null);
     }
 
-    public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern filePattern) {
+    public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern includeFilterPattern) {
         this.zf = zf;
         this.sourcePath = sanitizeSourcePath(sourcePath);
-        this.filePattern = filePattern;
+        this.includeFilterPattern = includeFilterPattern;
     }
 
     private static String sanitizeSourcePath(String sourcePath) {
@@ -66,7 +67,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && (filePattern == null || filePattern.matcher(entry.getName()).matches())) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
                 digestStream.write(entry.getName().getBytes());
                 try (var in = zf.getInputStream(entry)) {
                     in.transferTo(digestStream);
@@ -76,7 +77,7 @@ public class InjectFromZipFileSource implements InjectSource {
 
         return new CacheKey.AnnotatedValue(
                 HexFormat.of().formatHex(digest.digest()),
-                sourcePath + " from " + zf.getName() + (filePattern == null ? "" : " matching " + filePattern)
+                sourcePath + " from " + zf.getName() + (includeFilterPattern == null ? "" : " matching " + includeFilterPattern.pattern())
         );
     }
 
@@ -96,7 +97,7 @@ public class InjectFromZipFileSource implements InjectSource {
         var entries = zf.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && (filePattern == null || filePattern.matcher(entry.getName()).matches())) {
+            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
                 try (var in = zf.getInputStream(entry)) {
                     // Relocate the entry
                     var copiedEntry = new ZipEntry(entry.getName().substring(sourcePath.length()));
@@ -118,5 +119,9 @@ public class InjectFromZipFileSource implements InjectSource {
                 }
             }
         }
+    }
+
+    private boolean matchesIncludeFilter(ZipEntry entry) {
+        return includeFilterPattern == null || includeFilterPattern.matcher(entry.getName()).matches();
     }
 }
