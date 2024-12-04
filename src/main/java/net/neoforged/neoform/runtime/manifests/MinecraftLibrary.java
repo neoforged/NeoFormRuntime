@@ -1,7 +1,6 @@
 package net.neoforged.neoform.runtime.manifests;
 
 import com.google.gson.annotations.SerializedName;
-import net.fabricmc.loom.nativeplatform.OperatingSystem;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsType;
 import org.jetbrains.annotations.Nullable;
@@ -46,7 +45,7 @@ public record MinecraftLibrary(@SerializedName("name") String artifactId, Downlo
                 var download = downloads.classifiers.get(classifier);
                 if (download == null) {
                     throw new IllegalStateException("Download for " + artifactId + " references classifier " + classifier
-                                                    + " for natives for OS " + OperatingSystem.CURRENT + " but it doesn't exist.");
+                                                    + " for natives for OS " + OsType.current() + " but it doesn't exist.");
                 }
                 return download;
             }
