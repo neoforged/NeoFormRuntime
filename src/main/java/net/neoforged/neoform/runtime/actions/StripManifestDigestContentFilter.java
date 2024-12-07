@@ -22,6 +22,9 @@ public class StripManifestDigestContentFilter implements InjectFromZipFileSource
 
     public static final StripManifestDigestContentFilter INSTANCE = new StripManifestDigestContentFilter();
 
+    private StripManifestDigestContentFilter() {
+    }
+
     @Override
     public void copy(ZipEntry entry, InputStream in, OutputStream out) throws IOException {
         if (!entry.getName().equals("META-INF/MANIFEST.MF")) {
