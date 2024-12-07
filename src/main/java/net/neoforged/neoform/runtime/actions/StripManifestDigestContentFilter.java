@@ -9,7 +9,7 @@ import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 
 /**
- * This content filter will strip the SHA-256 digests from MANIFEST.MF
+ * This content filter will strip signature related attributes from MANIFEST.MF entries.
  */
 public class StripManifestDigestContentFilter implements InjectFromZipFileSource.ContentFilter {
     // Theoretically, we'd need to check all digests that the VM supports, but we just go for the most common.
