@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
+import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
@@ -112,6 +113,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
             // To circumvent this, we inject the sources before recompile and disable the optimization of
             // injecting the already compiled NeoForge classes later.
+            // Since remapping and recompiling will invariably change the digests, we also need to strip any signatures.
             if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
                 engine.applyTransforms(List.of(
                         new ModifyAction<>(
@@ -120,8 +122,18 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 action -> {
                                     // Annoyingly, Forge only had the Java sources in the sources artifact.
                                     // We have to pull resources from the universal jar.
-                                    action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeClassesZip, "/", Pattern.compile("^(?!.*\\.class$).*")));
-                                    action.getInjectedSources().add(new InjectFromZipFileSource(neoforgeSourcesZip, "/"));
+                                    action.getInjectedSources().add(new InjectFromZipFileSource(
+                                            neoforgeClassesZip,
+                                            "/",
+                                            Pattern.compile("^(?!META-INF/[^/]+\\.(SF|RSA|DSA|EC)$|.*\\.class$).*"),
+                                            StripManifestDigestContentFilter.INSTANCE
+                                    ));
+                                    action.getInjectedSources().add(new InjectFromZipFileSource(
+                                            neoforgeSourcesZip,
+                                            "/",
+                                            // The MCF sources have a bogus MANIFEST that should be ignored
+                                            Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
+                                    ));
                                 }
                         )
                 ));
