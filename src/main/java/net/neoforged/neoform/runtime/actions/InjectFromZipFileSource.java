@@ -5,11 +5,13 @@ import net.neoforged.neoform.runtime.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
@@ -34,15 +36,24 @@ public class InjectFromZipFileSource implements InjectSource {
      */
     @Nullable
     private final Pattern includeFilterPattern;
+    /**
+     * This function can modify the content that is being copied.
+     */
+    private final ContentFilter contentFilter;
 
     public InjectFromZipFileSource(ZipFile zf, String sourcePath) {
         this(zf, sourcePath, null);
     }
 
     public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern includeFilterPattern) {
+        this(zf, sourcePath, includeFilterPattern, null);
+    }
+
+    public InjectFromZipFileSource(ZipFile zf, String sourcePath, @Nullable Pattern includeFilterPattern, @Nullable ContentFilter contentFilter) {
         this.zf = zf;
         this.sourcePath = sanitizeSourcePath(sourcePath);
         this.includeFilterPattern = includeFilterPattern;
+        this.contentFilter = Objects.requireNonNullElse(contentFilter, ContentFilter.NONE);
     }
 
     private static String sanitizeSourcePath(String sourcePath) {
@@ -71,7 +82,7 @@ public class InjectFromZipFileSource implements InjectSource {
             if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
                 digestStream.write(entry.getName().getBytes());
                 try (var in = zf.getInputStream(entry)) {
-                    in.transferTo(digestStream);
+                    contentFilter.copy(entry, in, digestStream);
                 }
             }
         }
@@ -108,7 +119,7 @@ public class InjectFromZipFileSource implements InjectSource {
                     copiedEntry.setMethod(entry.getMethod());
 
                     out.putNextEntry(copiedEntry);
-                    in.transferTo(out);
+                    contentFilter.copy(entry, in, out);
                     out.closeEntry();
                 } catch (ZipException e) {
                     if (!e.getMessage().startsWith("duplicate entry:")) {
@@ -124,5 +135,12 @@ public class InjectFromZipFileSource implements InjectSource {
 
     private boolean matchesIncludeFilter(ZipEntry entry) {
         return includeFilterPattern == null || includeFilterPattern.matcher(entry.getName()).matches();
+    }
+
+    @FunctionalInterface
+    public interface ContentFilter {
+        ContentFilter NONE = (entry, in, out) -> in.transferTo(out);
+
+        void copy(ZipEntry entry, InputStream in, OutputStream out) throws IOException;
     }
 }
