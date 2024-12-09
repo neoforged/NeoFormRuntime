@@ -75,12 +75,12 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
         String javaExecutablePath;
         if (useHostJavaExecutable) {
-            javaExecutablePath = environment.getJavaExecutable();
-        } else {
             javaExecutablePath = ProcessHandle.current()
                     .info()
                     .command()
                     .orElseThrow();
+        } else {
+            javaExecutablePath = environment.getJavaExecutable();
         }
 
         var workingDir = environment.getWorkspace();
