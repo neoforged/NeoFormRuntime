@@ -69,7 +69,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     String parchmentConflictPrefix;
 
     static class SourceArtifacts {
-        @CommandLine.ArgGroup(multiplicity = "1")
+        @CommandLine.ArgGroup
         NeoFormArtifact neoform;
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
@@ -93,10 +93,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // Allow it to be overridden with local or remote data
             Path neoformArtifact;
-            if (sourceArtifacts.neoform.file != null) {
+            if (sourceArtifacts.neoform != null && sourceArtifacts.neoform.file != null) {
                 LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with NeoForm file " + sourceArtifacts.neoform.file);
                 neoformArtifact = sourceArtifacts.neoform.file;
-            } else if (sourceArtifacts.neoform.artifact != null) {
+            } else if (sourceArtifacts.neoform != null && sourceArtifacts.neoform.artifact != null) {
                 LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with CLI argument " + sourceArtifacts.neoform.artifact);
                 neoformArtifact = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
             } else {
