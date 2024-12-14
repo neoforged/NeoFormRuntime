@@ -9,7 +9,6 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,6 +43,12 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
      */
     private final List<Pattern> denyListPatterns = new ArrayList<>();
 
+    /**
+     * When non-null, the action expects additional inputs ({@link #INPUT_OTHER_DIST_JAR} and {@link #INPUT_MAPPINGS})
+     * pointing to the Jar file of the *other* distribution (i.e. this action processes the client resources,
+     * then the other distribution jar is the server jar).
+     * The mapping file is required to produce a Manifest using named file names instead of obfuscated names.
+     */
     @Nullable
     private GenerateDistManifestSettings generateDistManifestSettings;
 
@@ -76,10 +81,11 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
         ) {
             if (generateDistManifestSettings != null) {
                 generateDistSourceManifest(
-                        mappingsPath,
-                        inputJar,
+                        generateDistManifestSettings.distId(),
                         jar,
+                        generateDistManifestSettings.otherDistId(),
                         otherDistJarPath,
+                        mappingsPath,
                         resourcesJarOut
                 );
             }
@@ -114,33 +120,32 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
         }
     }
 
-    private void generateDistSourceManifest(Path mappingsPath, Path inputJar, ZipFile jar, Path otherDistJarPath, JarOutputStream resourcesJarOut) throws IOException {
+    private static void generateDistSourceManifest(String distId,
+                                                   ZipFile jar,
+                                                   String otherDistId,
+                                                   Path otherDistJarPath,
+                                                   Path mappingsPath,
+                                                   JarOutputStream resourcesJarOut) throws IOException {
         var mappings = mappingsPath != null ? IMappingFile.load(mappingsPath.toFile()) : null;
 
         // Use the time-stamp of either of the two input files (whichever is newer)
-        FileTime mtime = Files.getLastModifiedTime(inputJar);
         var ourFiles = getFileIndex(jar);
         ourFiles.remove(JarFile.MANIFEST_NAME);
         Set<String> theirFiles;
         try (var otherDistJar = new ZipFile(otherDistJarPath.toFile())) {
-            var otherMtime = Files.getLastModifiedTime(otherDistJarPath);
-            if (otherMtime.compareTo(mtime) > 0) {
-                mtime = otherMtime;
-            }
             theirFiles = getFileIndex(otherDistJar);
         }
         theirFiles.remove(JarFile.MANIFEST_NAME);
 
         var manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
-        manifest.getMainAttributes().putValue("Minecraft-Dists", generateDistManifestSettings.distId()
-            + " " + generateDistManifestSettings.otherDistId());
+        manifest.getMainAttributes().putValue("Minecraft-Dists", distId + " " + otherDistId);
 
-        addSourceDistEntries(ourFiles, theirFiles, generateDistManifestSettings.distId(), mappings, manifest);
-        addSourceDistEntries(theirFiles, ourFiles, generateDistManifestSettings.otherDistId(), mappings, manifest);
+        addSourceDistEntries(ourFiles, theirFiles, distId, mappings, manifest);
+        addSourceDistEntries(theirFiles, ourFiles, otherDistId, mappings, manifest);
 
         var manifestEntry = new ZipEntry(JarFile.MANIFEST_NAME);
-        manifestEntry.setLastModifiedTime(mtime);
+        manifestEntry.setTimeLocal(MANIFEST_TIME);
         resourcesJarOut.putNextEntry(manifestEntry);
         manifest.write(resourcesJarOut);
         resourcesJarOut.closeEntry();
@@ -164,7 +169,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
         }
     }
 
-    private Set<String> getFileIndex(ZipFile zipFile) {
+    private static Set<String> getFileIndex(ZipFile zipFile) {
         var result = new HashSet<String>(zipFile.size());
 
         var entries = zipFile.entries();
