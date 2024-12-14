@@ -324,6 +324,13 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
+                // We can inject a manifest if the NeoForm process contains a generateSplitManifest step
+                var splitManifest = graph.getNode("generateSplitManifest");
+                if (splitManifest != null) {
+                    action.setInjectManifest(true);
+                    builder.input("manifest", splitManifest.getRequiredOutput("output").asInput());
+                }
+
                 processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
                 builder.action(action);
             }
@@ -401,6 +408,7 @@ public class NeoFormEngine implements AutoCloseable {
                 if ("output".equals(variable)) {
                     var type = switch (step.type()) {
                         case "mergeMappings" -> NodeOutputType.TSRG;
+                        case "generateSplitManifest" -> NodeOutputType.JAR_MANIFEST;
                         default -> NodeOutputType.JAR;
                     };
                     if (!builder.hasOutput(variable)) {

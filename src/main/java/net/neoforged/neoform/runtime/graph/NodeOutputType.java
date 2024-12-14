@@ -6,7 +6,8 @@ public enum NodeOutputType {
     ZIP(".zip"),
     JSON(".json"),
     TSRG(".tsrg"),
-    SRG(".srg");
+    SRG(".srg"),
+    JAR_MANIFEST(".MF");
 
     private final String extension;
 
