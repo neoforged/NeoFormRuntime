@@ -21,6 +21,10 @@ public class NeoFormDistConfig {
         this.dist = dist;
     }
 
+    public String dist() {
+        return dist;
+    }
+
     public int javaVersion() {
         return config.javaVersion();
     }
