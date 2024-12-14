@@ -43,6 +43,7 @@ public class ProcessGeneration {
 
     private static final MinecraftReleaseVersion MC_1_17_1 = new MinecraftReleaseVersion(1, 17, 1);
     private static final MinecraftReleaseVersion MC_1_20_1 = new MinecraftReleaseVersion(1, 20, 1);
+    private static final MinecraftReleaseVersion MC_1_21_4 = new MinecraftReleaseVersion(1, 21, 4);
 
     /**
      * Indicates whether the Minecraft server jar file contains third party
@@ -63,6 +64,12 @@ public class ProcessGeneration {
      * that we'd want to be able to use on the server as well.
      */
     private boolean supportsSideAnnotationStripping;
+
+    /**
+     * Enables generation of the MANIFEST.MF in the client and server resource files that
+     * indicates which distribution each file came from. Only applies to joined distributions.
+     */
+    private boolean generateDistSourceManifest;
 
     /**
      * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
@@ -94,6 +101,9 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
+        // Technically 1.21.4 does not directly support this, but it does not harm it either
+        result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_4);
+
         result.supportsSideAnnotationStripping = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
         return result;
@@ -104,6 +114,13 @@ public class ProcessGeneration {
             return false; // We're working with a snapshot version, which we always use the latest processes for
         }
         return releaseVersion.compareTo(version) <= 0;
+    }
+
+    private static boolean isGreaterThanOrEqualTo(@Nullable MinecraftReleaseVersion releaseVersion, MinecraftReleaseVersion version) {
+        if (releaseVersion == null) {
+            return true; // We're working with a snapshot version, which we always use the latest processes for
+        }
+        return releaseVersion.compareTo(version) >= 0;
     }
 
     /**
@@ -118,6 +135,14 @@ public class ProcessGeneration {
      */
     public boolean supportsSideAnnotationStripping() {
         return supportsSideAnnotationStripping;
+    }
+
+    /**
+     * Does the FML version on that MC generation support use of MANIFEST.MF entries
+     * for filtering out dist-specific classes in dev? (When using the joined distribution)
+     */
+    public boolean generateDistSourceManifest() {
+        return generateDistSourceManifest;
     }
 
     /**

@@ -324,11 +324,21 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
-                // We can inject a manifest if the NeoForm process contains a generateSplitManifest step
-                var splitManifest = graph.getNode("generateSplitManifest");
-                if (splitManifest != null) {
-                    action.setInjectManifest(true);
-                    builder.input("manifest", splitManifest.getRequiredOutput("output").asInput());
+                if (processGeneration.generateDistSourceManifest() && config.dist().equals("joined")) {
+                    if ("stripClient".equals(step.getId())) {
+                        // Prefer the already extracted server
+                        var serverJarInput = graph.hasOutput("extractServer", "output") ?
+                                graph.getRequiredOutput("extractServer", "output").asInput()
+                                : graph.getRequiredOutput("downloadServer", "output").asInput();
+
+                        action.generateSplitManifest("client", "server");
+                        builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, serverJarInput);
+                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                    } else if ("stripServer".equals(step.getId())) {
+                        action.generateSplitManifest("server", "client");
+                        builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, graph.getRequiredOutput("downloadClient", "output").asInput());
+                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                    }
                 }
 
                 processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
