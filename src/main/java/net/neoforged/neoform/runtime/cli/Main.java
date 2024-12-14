@@ -21,7 +21,7 @@ import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 import static picocli.CommandLine.ScopeType;
 
-@Command(name = "neoform-runtime", subcommands = {RunNeoFormCommand.class, DownloadAssetsCommand.class, CleanCacheCommand.class, CacheMaintenance.class}, mixinStandardHelpOptions = true)
+@Command(name = "neoform-runtime", subcommands = {CommandLine.HelpCommand.class, RunNeoFormCommand.class, DownloadAssetsCommand.class, CleanCacheCommand.class, CacheMaintenance.class}, mixinStandardHelpOptions = true)
 public class Main {
     @Option(names = "--home-dir", scope = ScopeType.INHERIT, description = "Where NFRT should store caches.")
     Path homeDir = getDefaultHomeDir();

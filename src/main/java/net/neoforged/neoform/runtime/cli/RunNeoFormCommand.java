@@ -69,10 +69,17 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     String parchmentConflictPrefix;
 
     static class SourceArtifacts {
-        @CommandLine.Option(names = "--neoform")
-        String neoform;
+        @CommandLine.ArgGroup(multiplicity = "1")
+        NeoFormArtifact neoform;
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
+    }
+
+    static class NeoFormArtifact {
+        @CommandLine.Option(names = "--neoform")
+        String artifact;
+        @CommandLine.Option(names = "--neoform-file")
+        Path file;
     }
 
     @Override
@@ -83,11 +90,17 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
             var neoforgeZipFile = engine.addManagedResource(new JarFile(neoforgeArtifact.path().toFile()));
             var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
-            var neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
-            // Allow it to be overridden
-            if (sourceArtifacts.neoform != null) {
-                LOG.println("Overriding NeoForm version " + neoformArtifact + " with CLI argument " + sourceArtifacts.neoform);
-                neoformArtifact = MavenCoordinate.parse(sourceArtifacts.neoform);
+
+            // Allow it to be overridden with local or remote data
+            Path neoformArtifact;
+            if (sourceArtifacts.neoform.file != null) {
+                LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with NeoForm file " + sourceArtifacts.neoform.file);
+                neoformArtifact = sourceArtifacts.neoform.file;
+            } else if (sourceArtifacts.neoform.artifact != null) {
+                LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with CLI argument " + sourceArtifacts.neoform.artifact);
+                neoformArtifact = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
+            } else {
+                neoformArtifact = artifactManager.get(MavenCoordinate.parse(neoforgeConfig.neoformArtifact())).path();
             }
 
             engine.loadNeoFormData(neoformArtifact, dist);
@@ -168,7 +181,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             createSourcesAndCompiledWithNeoForge(engine.getGraph(), compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
-            engine.loadNeoFormData(MavenCoordinate.parse(sourceArtifacts.neoform), dist);
+            Path neoFormDataPath;
+            if (sourceArtifacts.neoform.file != null) {
+                neoFormDataPath = sourceArtifacts.neoform.file;
+            } else {
+                neoFormDataPath = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
+            }
+
+            engine.loadNeoFormData(neoFormDataPath, dist);
         }
 
         if (!additionalAccessTransformers.isEmpty()) {

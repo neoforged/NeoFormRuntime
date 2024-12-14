@@ -153,9 +153,8 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder));
     }
 
-    public void loadNeoFormData(MavenCoordinate neoFormArtifactId, String dist) throws IOException {
-        var neoFormArchive = artifactManager.get(Objects.requireNonNull(neoFormArtifactId, "neoFormArtifactId"));
-        var zipFile = new ZipFile(neoFormArchive.path().toFile());
+    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
+        var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
 
