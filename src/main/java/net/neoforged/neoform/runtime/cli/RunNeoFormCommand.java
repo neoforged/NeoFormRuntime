@@ -7,7 +7,6 @@ import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
-import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
@@ -70,10 +69,17 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     String parchmentConflictPrefix;
 
     static class SourceArtifacts {
-        @CommandLine.Option(names = "--neoform")
-        String neoform;
+        @CommandLine.ArgGroup(multiplicity = "1")
+        NeoFormArtifact neoform;
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
+    }
+
+    static class NeoFormArtifact {
+        @CommandLine.Option(names = "--neoform")
+        String artifact;
+        @CommandLine.Option(names = "--neoform-file")
+        Path file;
     }
 
     @Override
@@ -87,9 +93,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // Allow it to be overridden with local or remote data
             Path neoformArtifact;
-            if (sourceArtifacts.neoform != null) {
-                LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with CLI argument " + sourceArtifacts.neoform);
-                neoformArtifact = getEffectiveNeoFormData(sourceArtifacts.neoform, artifactManager);
+            if (sourceArtifacts.neoform.file != null) {
+                LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with NeoForm file " + sourceArtifacts.neoform.file);
+                neoformArtifact = sourceArtifacts.neoform.file;
+            } else if (sourceArtifacts.neoform.artifact != null) {
+                LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with CLI argument " + sourceArtifacts.neoform.artifact);
+                neoformArtifact = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
             } else {
                 neoformArtifact = artifactManager.get(MavenCoordinate.parse(neoforgeConfig.neoformArtifact())).path();
             }
@@ -173,10 +182,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             createSourcesAndCompiledWithNeoForge(engine.getGraph(), compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
         } else {
             Path neoFormDataPath;
-            if (sourceArtifacts.neoform != null) {
-                neoFormDataPath = Paths.get(sourceArtifacts.neoform);
+            if (sourceArtifacts.neoform.file != null) {
+                neoFormDataPath = sourceArtifacts.neoform.file;
             } else {
-                neoFormDataPath = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform)).path();
+                neoFormDataPath = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
             }
 
             engine.loadNeoFormData(neoFormDataPath, dist);
@@ -222,19 +231,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         execute(engine);
-    }
-
-    private Path getEffectiveNeoFormData(String artifactName, ArtifactManager artifactManager) throws IOException {
-        // If it looks like a path... it may be a path!
-        try {
-            var path = Paths.get(artifactName);
-            if (Files.isRegularFile(path)) {
-                return path;
-            }
-        } catch (Exception ignored) {
-        }
-
-        return artifactManager.get(MavenCoordinate.parse(artifactName)).path();
     }
 
     private static NodeOutput createCompiledWithNeoForge(NeoFormEngine engine, ZipFile neoforgeClassesZip) {
