@@ -128,4 +128,29 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
                 version
         );
     }
+
+    public MavenCoordinate withVersion(String version) {
+        return new MavenCoordinate(
+                groupId,
+                artifactId,
+                extension,
+                classifier,
+                version
+        );
+    }
+
+    public boolean isDynamicVersion() {
+        // We only support extremely simple cases right now.
+        return version.endsWith("+");
+    }
+
+    public boolean matchesVersion(String version) {
+        // "+" acts as a prefix match according to Gradle
+        // https://docs.gradle.org/current/userguide/dependency_versions.html#sec:single-version-declarations
+        if (this.version.endsWith("+")) {
+            return version.startsWith(this.version.substring(0, this.version.length() - 1));
+        } else {
+            return this.version.equals(version);
+        }
+    }
 }

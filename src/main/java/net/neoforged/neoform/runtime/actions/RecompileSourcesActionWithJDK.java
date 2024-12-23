@@ -40,7 +40,7 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
             try (var stream = Files.walk(sourceRoot).filter(Files::isRegularFile)) {
                 stream.forEach(path -> {
                     var filename = path.getFileName().toString();
-                    if (filename.endsWith(".java")) {
+                    if (filename.endsWith(".java") && !filename.equals("package-info-template.java")) {
                         sourcePaths.add(path);
                     } else {
                         nonSourcePaths.add(path);
