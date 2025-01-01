@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.artifacts.Artifact;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
@@ -7,7 +8,6 @@ import net.neoforged.neoform.runtime.downloads.AssetDownloadResult;
 import net.neoforged.neoform.runtime.downloads.AssetDownloader;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.downloads.DownloadsFailedException;
-import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -117,19 +117,18 @@ public class DownloadAssetsCommand implements Callable<Integer> {
             return version.minecraftVersion;
         }
 
-        MavenCoordinate neoformArtifact;
+        Artifact neoFormArchive;
         if (version.neoformArtifact != null) {
-            neoformArtifact = MavenCoordinate.parse(version.neoformArtifact);
+            neoFormArchive = artifactManager.get(version.neoformArtifact);
         } else {
             // Pull from neoforge artifact then
             var neoforgeArtifact = artifactManager.get(version.neoforgeArtifact);
             try (var neoforgeZipFile = new JarFile(neoforgeArtifact.path().toFile())) {
                 var neoforgeConfig = NeoForgeConfig.from(neoforgeZipFile);
-                neoformArtifact = MavenCoordinate.parse(neoforgeConfig.neoformArtifact());
+                neoFormArchive = artifactManager.get(neoforgeConfig.neoformArtifact());
             }
         }
 
-        var neoFormArchive = artifactManager.get(neoformArtifact);
         try (var zipFile = new ZipFile(neoFormArchive.path().toFile())) {
             return NeoFormConfig.from(zipFile).minecraftVersion();
         }
