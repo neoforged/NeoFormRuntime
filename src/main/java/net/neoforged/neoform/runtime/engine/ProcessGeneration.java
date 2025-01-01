@@ -59,9 +59,11 @@ public class ProcessGeneration {
     private boolean sourcesUseIntermediaryNames;
 
     /**
-     * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
-     * SRG to official names for development.
+     * For Pre-1.17, we were not using official mappings and require an external source
+     * for the mapping from intermediate to named. This was done using "MCP Mappings".
+     * This field can only be true if sourcesUseIntermediaryNames is also true.
      */
+    private boolean needsMcpMappingData;
 
     static ProcessGeneration fromMinecraftVersion(String minecraftVersion) {
         var releaseVersion = MinecraftReleaseVersion.parse(minecraftVersion);
@@ -88,6 +90,9 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
+        // In 1.17.1 and later, Forge started using official Mojang mappings
+        result.needsMcpMappingData = isLessThanOrEqualTo(releaseVersion, MC_1_17_1);
+
         return result;
     }
 
@@ -103,6 +108,13 @@ public class ProcessGeneration {
      */
     public boolean sourcesUseIntermediaryNames() {
         return sourcesUseIntermediaryNames;
+    }
+
+    /**
+     * Do we support and need MCP mappings data to get readable names in source?
+     */
+    public boolean needsMcpMappingData() {
+        return needsMcpMappingData;
     }
 
     /**

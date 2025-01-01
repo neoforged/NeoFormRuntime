@@ -14,6 +14,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
+import net.neoforged.neoform.runtime.actions.RemapSrgSourcesWithMcpAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
@@ -38,6 +39,7 @@ import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -76,6 +78,7 @@ public class NeoFormEngine implements AutoCloseable {
     private final BuildOptions buildOptions = new BuildOptions();
     private boolean verbose;
     private ProcessGeneration processGeneration;
+    private Path mcpMappingsData;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -201,39 +204,71 @@ public class NeoFormEngine implements AutoCloseable {
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
         // SRG method and field names, and need to be remapped.
         if (processGeneration.sourcesUseIntermediaryNames()) {
-            if (!graph.hasOutput("mergeMappings", "output")
-                || !graph.hasOutput("downloadClientMappings", "output")) {
-                throw new IllegalStateException("NFRT currently does not support MCP versions that did not make use of official Mojang mappings (pre 1.17).");
+            if (processGeneration.needsMcpMappingData()) {
+                if (mcpMappingsData == null) {
+                    throw new IllegalStateException("You need to provide MCP mappings data for this version of Minecraft");
+                }
+
+                applyTransforms(List.of(
+                        new ReplaceNodeOutput(
+                                "patch",
+                                "output",
+                                "remapSrgSourcesToOfficial",
+                                (builder, previousNodeOutput) -> {
+                                    builder.input("sources", previousNodeOutput.asInput());
+                                    var action = new RemapSrgSourcesWithMcpAction(mcpMappingsData);
+                                    builder.action(action);
+                                    return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
+                                }
+                        )
+                ));
+
+                // We also expose a few results for mappings in different formats
+                // var createMappings = graph.nodeBuilder("createMappings");
+                // // official -> obf
+                // createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
+                // // obf -> srg
+                // createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+                // var action = new CreateLegacyMappingsAction();
+                // createMappings.action(action);
+                // graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+                // graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
+                // graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+                // createMappings.build();
+            } else {
+                if (!graph.hasOutput("mergeMappings", "output") || !graph.hasOutput("downloadClientMappings", "output")) {
+                    throw new IllegalStateException("The NeoForm/MCP process has no nodes for mergeMappings/downloadClientMappings!");
+                }
+
+                applyTransforms(List.of(
+                        new ReplaceNodeOutput(
+                                "patch",
+                                "output",
+                                "remapSrgSourcesToOfficial",
+                                (builder, previousNodeOutput) -> {
+                                    builder.input("sources", previousNodeOutput.asInput());
+                                    builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                                    builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                                    var action = new RemapSrgSourcesAction();
+                                    builder.action(action);
+                                    return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
+                                }
+                        )
+                ));
+
+                // We also expose a few results for mappings in different formats
+                var createMappings = graph.nodeBuilder("createMappings");
+                // official -> obf
+                createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
+                // obf -> srg
+                createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+                var action = new CreateLegacyMappingsAction();
+                createMappings.action(action);
+                graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+                graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
+                graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+                createMappings.build();
             }
-
-            applyTransforms(List.of(
-                    new ReplaceNodeOutput(
-                            "patch",
-                            "output",
-                            "remapSrgSourcesToOfficial",
-                            (builder, previousNodeOutput) -> {
-                                builder.input("sources", previousNodeOutput.asInput());
-                                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
-                                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
-                                var action = new RemapSrgSourcesAction();
-                                builder.action(action);
-                                return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
-                            }
-                    )
-            ));
-
-            // We also expose a few results for mappings in different formats
-            var createMappings = graph.nodeBuilder("createMappings");
-            // official -> obf
-            createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
-            // obf -> srg
-            createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
-            var action = new CreateLegacyMappingsAction();
-            createMappings.action(action);
-            graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
-            graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
-            graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
-            createMappings.build();
         }
     }
 
@@ -373,16 +408,31 @@ public class NeoFormEngine implements AutoCloseable {
     }
 
     private void applyFunctionToNode(NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
+        var type = switch (step.type()) {
+            case "mergeMappings" -> NodeOutputType.TSRG;
+            default -> NodeOutputType.JAR;
+        };
+
+        applyFunctionToNode(step.values(), type, function, builder);
+    }
+
+    @Nullable
+    public NodeOutput applyFunctionToNode(Map<String, String> placeholders,
+                                          NodeOutputType outputType,
+                                          NeoFormFunction function,
+                                          ExecutionNodeBuilder builder) {
         var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
         var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
         // Start by resolving the function->step indirection where functions can reference variables that
         // are defined in the step. Usually (but not always) these will just refer to further global variables.
-        for (var entry : step.values().entrySet()) {
+        for (var entry : placeholders.entrySet()) {
             UnaryOperator<String> resolver = s -> s.replace("{" + entry.getKey() + "}", entry.getValue());
             resolvedJvmArgs.replaceAll(resolver);
             resolvedArgs.replaceAll(resolver);
         }
+
+        NodeOutput[] mainOutput = new NodeOutput[1];
 
         // Now resolve the remaining placeholders.
         Consumer<String> placeholderProcessor = text -> {
@@ -393,12 +443,8 @@ public class NeoFormEngine implements AutoCloseable {
                 // Handle the "magic" output variable. In NeoForm JSON, it's impossible to know which
                 // variables are truly intended to be outputs.
                 if ("output".equals(variable)) {
-                    var type = switch (step.type()) {
-                        case "mergeMappings" -> NodeOutputType.TSRG;
-                        default -> NodeOutputType.JAR;
-                    };
                     if (!builder.hasOutput(variable)) {
-                        builder.output(variable, type, "Output of step " + step.type());
+                        mainOutput[0] = builder.output(variable, outputType, "Output of step");
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
@@ -410,7 +456,7 @@ public class NeoFormEngine implements AutoCloseable {
                 } else if (variable.equals("log")) {
                     // This variable is used in legacy MCP config JSONs to signify the path to a logfile and is ignored here
                 } else {
-                    throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + step.getId());
+                    throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + builder.id());
                 }
             }
         };
@@ -421,7 +467,7 @@ public class NeoFormEngine implements AutoCloseable {
         try {
             toolArtifactCoordinate = MavenCoordinate.parse(function.toolArtifact());
         } catch (Exception e) {
-            throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
+            throw new IllegalArgumentException("Function for step " + builder.id() + " has invalid tool: " + function.toolArtifact());
         }
 
         var action = new ExternalJavaToolAction(toolArtifactCoordinate);
@@ -429,6 +475,8 @@ public class NeoFormEngine implements AutoCloseable {
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
         builder.action(action);
+
+        return mainOutput[0];
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {
@@ -758,5 +806,9 @@ public class NeoFormEngine implements AutoCloseable {
         public boolean isVerbose() {
             return verbose;
         }
+    }
+
+    public void setMcpMappingsData(Path mcpMappingsData) {
+        this.mcpMappingsData = mcpMappingsData;
     }
 }

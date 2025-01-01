@@ -33,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
@@ -68,8 +69,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--parchment-conflict-prefix", description = "Setting this option enables automatic Parchment parameter conflict resolution and uses this prefix for parameter names that clash.")
     String parchmentConflictPrefix;
 
+    @CommandLine.Option(names = "--mcp-mapping-data", description = "Path or Maven coordinates of MCP mapping data to use for pre-1.17 Minecraft")
+    String mcpMappingData;
+
     static class SourceArtifacts {
-        @CommandLine.ArgGroup(multiplicity = "1")
+        @CommandLine.ArgGroup
         NeoFormArtifact neoform;
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
@@ -86,6 +90,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
 
+        if (mcpMappingData != null) {
+            engine.setMcpMappingsData(artifactManager.get(mcpMappingData).path());
+        }
+
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
             var neoforgeZipFile = engine.addManagedResource(new JarFile(neoforgeArtifact.path().toFile()));
@@ -93,10 +101,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // Allow it to be overridden with local or remote data
             Path neoformArtifact;
-            if (sourceArtifacts.neoform.file != null) {
+            if (sourceArtifacts.neoform != null && sourceArtifacts.neoform.file != null) {
                 LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with NeoForm file " + sourceArtifacts.neoform.file);
                 neoformArtifact = sourceArtifacts.neoform.file;
-            } else if (sourceArtifacts.neoform.artifact != null) {
+            } else if (sourceArtifacts.neoform != null && sourceArtifacts.neoform.artifact != null) {
                 LOG.println("Overriding NeoForm version " + neoforgeConfig.neoformArtifact() + " with CLI argument " + sourceArtifacts.neoform.artifact);
                 neoformArtifact = artifactManager.get(MavenCoordinate.parse(sourceArtifacts.neoform.artifact)).path();
             } else {
@@ -162,8 +170,28 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     }
             ));
 
+            // Source post-processors were used to post-process the decompiler output before applying the NF patches.
+            // Example version: 1.12.2.
+            var nfPatchesInputNode = "patch";
+            var sourcePreProcessor = neoforgeConfig.sourcePreProcessor();
+            if (sourcePreProcessor != null) {
+                transforms.add(new ReplaceNodeOutput(
+                                "patch", "output", "applyUserdevSourcePreprocessor",
+                                (builder, previousOutput) -> {
+                                    var newOutput = engine.applyFunctionToNode(Map.of(
+                                            // Provide the output of patch as the input
+                                            "input", "{patchOutput}"
+                                    ), NodeOutputType.ZIP, sourcePreProcessor, builder);
+                                    return Objects.requireNonNull(newOutput);
+                                }
+                        )
+                );
+                // Patches now need to use this node as input
+                nfPatchesInputNode = "applyUserdevSourcePreprocessor";
+            }
+
             // Append a patch step to the NeoForge patches
-            transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+            transforms.add(new ReplaceNodeOutput(nfPatchesInputNode, "output", "applyNeoforgePatches",
                     (builder, previousOutput) -> {
                         return PatchActionFactory.makeAction(builder,
                                 neoforgeArtifact.path(),

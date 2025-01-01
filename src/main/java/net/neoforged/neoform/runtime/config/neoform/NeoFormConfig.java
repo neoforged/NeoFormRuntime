@@ -24,6 +24,12 @@ public record NeoFormConfig(int spec,
                             Map<String, NeoFormFunction> functions,
                             Map<String, List<MavenCoordinate>> libraries) {
 
+    public NeoFormConfig {
+        if (javaVersion == 0) {
+            javaVersion = 8; // Old versions didn't specify, but require Java 8
+        }
+    }
+
     public NeoFormDistConfig getDistConfig(String dist) {
         if (!steps.containsKey(dist)) {
             throw new IllegalArgumentException("This configuration does not include the distribution "
