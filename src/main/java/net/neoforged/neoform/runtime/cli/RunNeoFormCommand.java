@@ -69,7 +69,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     String parchmentConflictPrefix;
 
     static class SourceArtifacts {
-        @CommandLine.ArgGroup(multiplicity = "1")
+        @CommandLine.ArgGroup
         NeoFormArtifact neoform;
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
