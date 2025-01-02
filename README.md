@@ -49,9 +49,8 @@ This produces the Vanilla artifacts in build/
 | Option                              | Description                                                                                                                                                                                                                                             |
 |-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--dist` [required]                 | Which distribution type to generate artifacts for. NeoForm defines these and usually `client`, `server` and `joined` are available.                                                                                                                     |
-| `--neoforge=<gav>`                  | Pass the NeoForge artifact to use as `net.neoforged:neoforge:<version>`. When passing this, the NeoForm version is implied. It can still be overridden by passing `--neoform` as well.                                                                  |
-| `--neoform=<gav>`                   | Pass the NeoForm artifact to use as `net.neoforged:neoform:<version>@zip`.                                                                                                                                                                              |
-| `--neoform-file=<path>`             | As an alternative to `--neoform` you can also pass a path to the NeoForm data archive directly.                                                                                                                                                         |
+| `--neoforge=<gav>`                  | Pass the NeoForge artifact to use as `net.neoforged:neoforge:<version>`. When passing this, the NeoForm version is implied. It can still be overridden by passing `--neoform` as well. You can also pass a local file path.                             |
+| `--neoform=<gav>`                   | Pass the NeoForm artifact to use as `net.neoforged:neoform:<version>@zip`, or a path to a local file.                                                                                                                                                   |
 | `--write-result=<id>:<path>`        | This option can be passed multiple times. It tells NFRT to write a result of the execution graph to the given path, such as the recompiled Minecraft jar-file, or the sources. If you pass no such option, NFRT will print which results are available. |
 | `--access-transformer=<path>`       | Adds access transformers which will be applied to the source before recompiling it.                                                                                                                                                                     |
 | `--interface-injection-data=<path>` | Adds [interface injection data](https://github.com/neoforged/JavaSourceTransformer?tab=readme-ov-file#interface-injection) which will be applied to the source before recompiling it.                                                                   |
@@ -93,8 +92,8 @@ of potential Gradle plugins never having to actually read and parse the NeoForm 
 | `--no-copy-launcher-assets`    | Disables copying of local Minecraft Launcher assets, if using the asset root directly is disabled.                                                                               |
 | `--no-use-launcher-asset-root` | Disables using a detected Minecraft Launcher installation directly to store the required assets.                                                                                 |
 | `--concurrent-downloads`       | Limits the maximum number of concurrent downloads. Default is 25.                                                                                                                |
-| `--write-properties`         | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft.                 |
-| `--write-json`               | Writes a JSON file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets`) suitable for passing to Minecraft via a Neoform entrypoint. |
+| `--write-properties`           | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft.                 |
+| `--write-json`                 | Writes a JSON file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets`) suitable for passing to Minecraft via a Neoform entrypoint. |
 
 ## Common Options
 
@@ -141,13 +140,15 @@ NFRT will continue to download the artifact remotely in this case.
 
 ### Mojang Launcher Manifest
 
-The full URL to the [Launcher version manifest](https://launchermeta.mojang.com/mc/game/version_manifest_v2.json) can be overridden using `--launcher-meta-uri`.
+The full URL to the [Launcher version manifest](https://launchermeta.mojang.com/mc/game/version_manifest_v2.json) can be
+overridden using `--launcher-meta-uri`.
 
 ### Output Settings
 
 For more verbose output, pass `--verbose`.
 
-To force the use of ANSI color on the console, pass `--color`, or `--no-color` to disable it. The `NO_COLOR` environment variable is also respected.
+To force the use of ANSI color on the console, pass `--color`, or `--no-color` to disable it. The `NO_COLOR` environment
+variable is also respected.
 
 The use of Emojis in console output can be toggled with `--emojis` and `--no-emojis`.
 
