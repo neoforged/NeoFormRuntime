@@ -128,4 +128,14 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
                 version
         );
     }
+
+    public MavenCoordinate withVersion(String version) {
+        return new MavenCoordinate(
+                groupId,
+                artifactId,
+                extension,
+                classifier,
+                version
+        );
+    }
 }
