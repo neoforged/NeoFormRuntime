@@ -1,3 +1,5 @@
+import net.neoforged.gradleutils.PomUtilsExtension
+
 plugins {
     id 'java'
     id 'maven-publish'
@@ -130,6 +132,13 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
+            pom {
+                name = 'NeoFormRuntime'
+                description = 'Standalone CLI tool to create artifacts used to compile mods against Minecraft'
+                pomUtils.githubRepo(it, 'NeoFormRuntime')
+                pomUtils.neoForgedDeveloper(it)
+                pomUtils.license(it, PomUtilsExtension.License.LGPL_v2)
+            }
         }
     }
 
