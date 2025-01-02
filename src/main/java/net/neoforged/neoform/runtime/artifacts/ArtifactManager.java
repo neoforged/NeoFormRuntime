@@ -266,6 +266,14 @@ public class ArtifactManager {
             return artifact;
         }
 
+        // Fall back to looking up a wildcard version for dependency replacement in includeBuild scenarios
+        if (!"*".equals(artifactCoordinate.version())) {
+            artifact = externallyProvided.get(artifactCoordinate.withVersion("*"));
+            if (artifact != null) {
+                return artifact;
+            }
+        }
+
         if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
             LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
         }

@@ -133,9 +133,11 @@ path for that artifact as the value. For example:
 
 `com.google.guava\:guava\:32.1.2-jre=C\:\\path\\to\\file.jar`
 
+If a specific version is not found in the manifest, NFRT will also check for an entry with the version `*` to support
+dependency replacement scenarios.
+
 To aid with detecting missing entries to fully cover all required artifacts, the `--warn-on-artifact-manifest-miss`
-option
-enables warnings when an artifact is being looked up, but not found in the manifest.
+option enables warnings when an artifact is being looked up, but not found in the manifest.
 NFRT will continue to download the artifact remotely in this case.
 
 ### Mojang Launcher Manifest
