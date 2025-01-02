@@ -33,7 +33,7 @@ public record NeoForgeConfig(
         byte[] configContent;
         var configEntry = zipFile.getEntry("config.json");
         if (configEntry == null || configEntry.isDirectory()) {
-            throw new IOException("NeoForm config file config.json not found in " + zipFile.getName());
+            throw new IOException("NeoForge config file config.json not found in " + zipFile.getName());
         }
 
         try (var in = zipFile.getInputStream(configEntry)) {
