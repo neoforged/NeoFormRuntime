@@ -28,7 +28,12 @@ public class DownloadAssetsCommand implements Callable<Integer> {
     @CommandLine.ArgGroup(multiplicity = "1")
     public Version version;
 
-    @CommandLine.Option(names = "--asset-repository")
+    // Support overriding the asset root via an environment property, which is aimed at CI/CD using separate
+    // cross-version caches for this.
+    @CommandLine.Option(names = "--asset-root", defaultValue = "${env:NFRT_ASSET_ROOT}")
+    public Path assetRoot;
+
+    @CommandLine.Option(names = "--asset-repository", defaultValue = "${env:NFRT_ASSET_REPOSITORY}")
     public URI assetRepository = URI.create("https://resources.download.minecraft.net/");
 
     @CommandLine.Option(
@@ -84,7 +89,7 @@ public class DownloadAssetsCommand implements Callable<Integer> {
 
             var minecraftVersion = getMinecraftVersion(artifactManager);
 
-            var downloader = new AssetDownloader(downloadManager, artifactManager, launcherInstallations, cacheManager);
+            var downloader = new AssetDownloader(downloadManager, artifactManager, launcherInstallations, cacheManager, assetRoot);
             AssetDownloadResult result;
             try {
                 result = downloader.downloadAssets(

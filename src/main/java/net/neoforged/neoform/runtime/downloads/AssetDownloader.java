@@ -43,15 +43,19 @@ public class AssetDownloader {
     private final ArtifactManager artifactManager;
     private final LauncherInstallations launcherInstallations;
     private final CacheManager cacheManager;
+    @Nullable
+    private final Path fixedAssetRoot;
 
     public AssetDownloader(DownloadManager downloadManager,
                            ArtifactManager artifactManager,
                            LauncherInstallations launcherInstallations,
-                           CacheManager cacheManager) {
+                           CacheManager cacheManager,
+                           @Nullable Path fixedAssetRoot) {
         this.downloadManager = downloadManager;
         this.artifactManager = artifactManager;
         this.launcherInstallations = launcherInstallations;
         this.cacheManager = cacheManager;
+        this.fixedAssetRoot = fixedAssetRoot;
     }
 
     public AssetDownloadResult downloadAssets(String minecraftVersion,
@@ -107,6 +111,11 @@ public class AssetDownloader {
     }
 
     private Path selectAssetRoot(boolean useLauncherAssetRoot, AssetIndexReference assetIndexReference) {
+        if (fixedAssetRoot != null) {
+            LOG.println("Using fixed asset root: " + fixedAssetRoot);
+            return fixedAssetRoot;
+        }
+
         Path assetRoot = null;
         if (useLauncherAssetRoot) {
             // We already may have an asset root with specifically the index we're looking for,
