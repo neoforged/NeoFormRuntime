@@ -10,6 +10,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -105,7 +108,7 @@ public class DownloadManager implements AutoCloseable {
                     } else if (response.statusCode() == 404) {
                         throw new FileNotFoundException(url.toString());
                     } else {
-                        lastError = new IOException("Failed to download " + url + ": HTTP Status Code " + response.statusCode());
+                        lastError = new IOException(buildRequestErrorMessage(url, response));
                         if (canRetryStatusCode(response.statusCode())) {
                             waitForRetry(response);
                             continue;
@@ -143,6 +146,33 @@ public class DownloadManager implements AutoCloseable {
             }
         }
         return true;
+    }
+
+    private static String buildRequestErrorMessage(URI url, HttpResponse<Path> response) {
+        // Read the first kb of data from the file
+        String bodyDetails = "";
+        try (var input = Files.newInputStream(response.body())) {
+            var decoder = StandardCharsets.UTF_8.newDecoder();
+            decoder.onMalformedInput(CodingErrorAction.REPLACE);
+            decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
+            decoder.replaceWith(".");
+            bodyDetails = decoder.decode(ByteBuffer.wrap(input.readNBytes(1024))).toString();
+            if (bodyDetails.contains("<html")) {
+                // Printing HTML content on console is very pointless
+                bodyDetails = "<apparent HTML content>";
+            }
+            boolean hasMoreData = input.read() != -1;
+
+            if (hasMoreData) {
+                bodyDetails = "\nResponse: " + bodyDetails + "... " + (Files.size(response.body()) - 1024) + " byte omitted";
+            } else {
+                bodyDetails = "\nResponse: " + bodyDetails;
+            }
+        } catch (Exception ignored) {
+            System.out.println();
+        }
+
+        return "Failed to download " + url + ": HTTP Status Code " + response.statusCode() + bodyDetails;
     }
 
     private static void waitForRetry(HttpResponse<?> response) throws IOException {
