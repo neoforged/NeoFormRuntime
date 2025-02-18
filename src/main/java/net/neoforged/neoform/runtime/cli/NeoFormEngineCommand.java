@@ -71,6 +71,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
             if (!disableCacheMaintenance) {
                 cacheManager.performMaintenance();
+                lockManager.performMaintenance();
             }
 
             var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
