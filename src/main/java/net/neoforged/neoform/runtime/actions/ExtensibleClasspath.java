@@ -43,9 +43,7 @@ public class ExtensibleClasspath {
         var mavenCoordinate = library.getMavenCoordinate();
 
         for (var item : additionalClasspath) {
-            if (item instanceof ClasspathItem.MinecraftLibraryItem(
-                    MinecraftLibrary otherLib
-            ) && otherLib.equals(library)) {
+            if (item instanceof ClasspathItem.MinecraftLibraryItem(MinecraftLibrary otherLib) && otherLib.equals(library)) {
                 return true;
             } else if (item instanceof ClasspathItem.MavenCoordinateItem mavenCoordinateItem && mavenCoordinateItem.coordinate().equals(mavenCoordinate)) {
                 return true;
