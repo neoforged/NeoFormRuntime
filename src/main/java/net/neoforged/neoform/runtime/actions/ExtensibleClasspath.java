@@ -33,10 +33,25 @@ public class ExtensibleClasspath {
 
     public void addMinecraftLibraries(Collection<MinecraftLibrary> libraries) {
         for (var library : libraries) {
-            if (library.rulesMatch() && library.getArtifactDownload() != null) {
+            if (library.rulesMatch() && library.getArtifactDownload() != null && !containsLibrary(library)) {
                 add(ClasspathItem.of(library));
             }
         }
+    }
+
+    private boolean containsLibrary(MinecraftLibrary library) {
+        var mavenCoordinate = library.getMavenCoordinate();
+
+        for (var item : additionalClasspath) {
+            if (item instanceof ClasspathItem.MinecraftLibraryItem(
+                    MinecraftLibrary otherLib
+            ) && otherLib.equals(library)) {
+                return true;
+            } else if (item instanceof ClasspathItem.MavenCoordinateItem mavenCoordinateItem && mavenCoordinateItem.coordinate().equals(mavenCoordinate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void addMavenLibraries(Collection<MavenCoordinate> additionalLibraries) {
