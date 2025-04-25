@@ -185,7 +185,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
             if (validateAccessTransformers) {
                 if (accessTransformersValidationReport != null) {
-                    transformSources.addArg("--access-transformer-validation=report:" + accessTransformersValidationReport.toAbsolutePath());
+                    transformSources.addArg("--access-transformer-validation=report");
+                    transformSources.addArg("--access-transformer-validation-report=" + accessTransformersValidationReport.toAbsolutePath());
                 } else {
                     transformSources.addArg("--access-transformer-validation=error");
                 }
