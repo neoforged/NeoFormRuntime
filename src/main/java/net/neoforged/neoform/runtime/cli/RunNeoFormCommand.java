@@ -20,6 +20,7 @@ import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
+import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -58,8 +59,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses")
     List<Path> interfaceInjectionDataFiles = new ArrayList<>();
 
-    @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if they target members that do not exist")
+    @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if transform targets do not exist")
     boolean validateAccessTransformers;
+
+    @Nullable
+    @CommandLine.Option(names = "--validate-access-transformers-report", description = "When access transformer validation is enabled, errors will be written as a JSON report to the path specified by this option instead of raising fatal errors")
+    Path accessTransformersValidationReport;
 
     @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
     String parchmentData;
@@ -179,7 +184,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var transformSources = getOrAddTransformSourcesAction(engine);
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
             if (validateAccessTransformers) {
-                transformSources.addArg("--access-transformer-validation=error");
+                if (accessTransformersValidationReport != null) {
+                    transformSources.addArg("--access-transformer-validation=report:" + accessTransformersValidationReport.toAbsolutePath());
+                } else {
+                    transformSources.addArg("--access-transformer-validation=error");
+                }
             }
         }
 
