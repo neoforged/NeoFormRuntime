@@ -3,6 +3,7 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
+import net.neoforged.problems.Problem;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -48,6 +49,12 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     private List<Path> additionalAccessTransformers = new ArrayList<>();
 
     /**
+     * Path to a subset of access-transformers passed in {@link #additionalAccessTransformers} that will fail the build if
+     * any errors for them are reported during application.
+     */
+    private List<Path> criticalAccessTransformers = new ArrayList<>();
+
+    /**
      * Additional paths to interface injection data files.
      */
     private List<Path> injectedInterfaces = new ArrayList<>();
@@ -70,7 +77,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var args = new ArrayList<String>();
+
+        var problemsReport = environment.getWorkspace().resolve("problems.json");
+
         Collections.addAll(args,
+                "--problems-report", problemsReport.toAbsolutePath().toString(),
                 "--libraries-list", "{libraries}",
                 "--in-format", "ARCHIVE",
                 "--out-format", "ARCHIVE"
@@ -124,7 +135,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         Collections.addAll(args, "{input}", "{output}");
         setArgs(args);
 
-        super.run(environment);
+        try {
+            super.run(environment);
+        } finally {
+            environment.getProblemReporter().tryMergeFromFile(problemsReport, this::isRelevantProblem);
+        }
 
         // When no interface data is given, we still have to create an empty stubs zip to satisfy
         // the output
@@ -136,6 +151,14 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 throw new RuntimeException("Failed to create empty stub zip at " + stubsPath, e);
             }
         }
+    }
+
+    /**
+     * Filter out any access transformer problems that are for broken ATs from the underlying modding platform.
+     * The user cannot act on these problems.
+     */
+    private boolean isRelevantProblem(Problem problem) {
+        return problem.location() == null || criticalAccessTransformers.contains(problem.location().file());
     }
 
     @Override
@@ -165,6 +188,14 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {
         this.additionalAccessTransformers = List.copyOf(additionalAccessTransformers);
+    }
+
+    public List<Path> getCriticalAccessTransformers() {
+        return criticalAccessTransformers;
+    }
+
+    public void setCriticalAccessTransformers(List<Path> criticalAccessTransformers) {
+        this.criticalAccessTransformers = criticalAccessTransformers;
     }
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {

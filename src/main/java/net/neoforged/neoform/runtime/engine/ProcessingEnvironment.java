@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
+import net.neoforged.problems.ProblemReporter;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -52,6 +53,11 @@ public interface ProcessingEnvironment {
     void setOutput(String id, Path resultPath);
 
     boolean isVerbose();
+
+    /**
+     * Get a reporter for reporting problems that occurred during execution of this action.
+     */
+    ProblemReporter getProblemReporter();
 
     /**
      * Format a path as a command-line argument, trying to keep it terse.

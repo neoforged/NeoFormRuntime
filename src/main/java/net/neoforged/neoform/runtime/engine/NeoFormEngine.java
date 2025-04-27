@@ -38,6 +38,7 @@ import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
+import net.neoforged.problems.ProblemReporter;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -87,6 +88,11 @@ public class NeoFormEngine implements AutoCloseable {
      * Resources owned by the engine which will be closed when the engine closes.
      */
     private final List<AutoCloseable> managedResources = new ArrayList<>();
+
+    /**
+     * The current problem reporter.
+     */
+    private ProblemReporter problemReporter = ProblemReporter.NOOP;
 
     /**
      * The path to the java executable for running external tools.
@@ -608,6 +614,14 @@ public class NeoFormEngine implements AutoCloseable {
         this.javaExecutable = javaExecutable;
     }
 
+    public ProblemReporter getProblemReporter() {
+        return problemReporter;
+    }
+
+    public void setProblemReporter(ProblemReporter problemReporter) {
+        this.problemReporter = Objects.requireNonNull(problemReporter, "problemReporter");
+    }
+
     private class NodeProcessingEnvironment implements ProcessingEnvironment {
         private final Path workspace;
         private final ExecutionNode node;
@@ -670,7 +684,7 @@ public class NeoFormEngine implements AutoCloseable {
             return getPathArgument(resultPath);
         }
 
-        public Path extractData(String dataId) throws IOException {
+        public Path extractData(String dataId) {
             var dataSource = dataSources.get(dataId);
             if (dataSource == null) {
                 throw new IllegalArgumentException("Could not find data source " + dataId
@@ -757,6 +771,11 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public boolean isVerbose() {
             return verbose;
+        }
+
+        @Override
+        public ProblemReporter getProblemReporter() {
+            return problemReporter;
         }
     }
 }

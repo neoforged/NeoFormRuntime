@@ -4,6 +4,7 @@ import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.problems.FileProblemReporter;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine;
 
@@ -53,6 +54,10 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
     @Nullable
     Path javaExecutable;
 
+    @CommandLine.Option(names = "--problems-report", description = "Writes a JSON problem report to this file containing all problems that ocurred during execution of NFRT")
+    @Nullable
+    Path problemReport;
+
     protected abstract void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException;
 
     @Override
@@ -60,6 +65,12 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         var start = System.currentTimeMillis();
 
         var closables = new ArrayList<AutoCloseable>();
+
+        FileProblemReporter problemReporter = null;
+        if (problemReport != null) {
+            problemReporter = new FileProblemReporter(problemReport);
+            closables.add(problemReporter);
+        }
 
         var launcherInstallations = commonOptions.createLauncherInstallations();
 
@@ -78,6 +89,10 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
 
             var fileHashService = new FileHashService();
             try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
+                if (problemReporter != null) {
+                    engine.setProblemReporter(problemReporter);
+                }
+
                 if (javaExecutable != null) {
                     engine.setJavaExecutable(javaExecutable.toString());
                 } else if (javaHome != null) {
