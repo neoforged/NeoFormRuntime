@@ -52,11 +52,18 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--write-result", arity = "*")
     List<String> writeResults = new ArrayList<>();
 
-    @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields. prefix a path with '!' to indicate that it is a critical access-transformer for which any errors should fail the run.")
+    @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields")
     List<String> additionalAccessTransformers = new ArrayList<>();
+
+    @CommandLine.Option(names = "--validated-access-transformer", arity = "*", description = "same as --access-transformer, but files added using this option will fail the build if they contain targets that do not exist.")
+    List<String> validatedAccessTransformers = new ArrayList<>();
 
     @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses.")
     List<Path> interfaceInjectionDataFiles = new ArrayList<>();
+
+    @Deprecated
+    @CommandLine.Option(names = "--validate-access-transformers", description = "[DEPRECATED] Use --validated-access-transformer instead")
+    boolean validateAccessTransformers;
 
     @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
     String parchmentData;
@@ -212,23 +219,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
      * Configure the engine to apply additional user-supplied access transformers to the game sources.
      */
     private void applyAdditionalAccessTransformers(NeoFormEngine engine) {
-        if (!additionalAccessTransformers.isEmpty()) {
+        if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
             var transformSources = getOrAddTransformSourcesAction(engine);
+            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+            transformSources.setValidatedAccessTransformers(validatedAccessTransformers.stream().map(Paths::get).toList());
 
-            var additionalPaths = new ArrayList<Path>();
-            var criticalPaths = new ArrayList<Path>();
-            for (var entry : additionalAccessTransformers) {
-                if (entry.startsWith("!")) {
-                    Path path = Paths.get(entry.substring(1));
-                    additionalPaths.add(path);
-                    criticalPaths.add(path);
-                } else {
-                    additionalPaths.add(Paths.get(entry));
-                }
+            if (validateAccessTransformers) {
+                transformSources.addArg("--access-transformer-validation=error");
             }
-
-            transformSources.setAdditionalAccessTransformers(additionalPaths);
-            transformSources.setCriticalAccessTransformers(criticalPaths);
         }
     }
 

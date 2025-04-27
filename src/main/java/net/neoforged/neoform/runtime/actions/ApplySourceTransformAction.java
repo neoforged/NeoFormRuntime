@@ -2,8 +2,9 @@ package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
+import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
-import net.neoforged.problems.Problem;
+import net.neoforged.problems.FileProblemReporter;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -28,6 +29,8 @@ import java.util.zip.ZipOutputStream;
  * </ul>
  */
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
+    protected static final Logger LOG = Logger.create();
+
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -49,10 +52,10 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     private List<Path> additionalAccessTransformers = new ArrayList<>();
 
     /**
-     * Path to a subset of access-transformers passed in {@link #additionalAccessTransformers} that will fail the build if
+     * Same as {@link #additionalAccessTransformers}, but entries in this list will fail the build if
      * any errors for them are reported during application.
      */
-    private List<Path> criticalAccessTransformers = new ArrayList<>();
+    private List<Path> validatedAccessTransformers = new ArrayList<>();
 
     /**
      * Additional paths to interface injection data files.
@@ -137,8 +140,34 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
         try {
             super.run(environment);
-        } finally {
-            environment.getProblemReporter().tryMergeFromFile(problemsReport, this::isRelevantProblem);
+        } catch (Exception e) {
+            // Pass through *all* problems if possible
+            try {
+                environment.getProblemReporter().tryMergeFromFile(problemsReport);
+            } catch (IOException ex) {
+                LOG.warn("Failed to pass-through problem report from " + problemsReport + ": " + e);
+            }
+
+            throw e;
+        }
+
+        // Pass through any relevant problems to the outer problem context
+        if (Files.exists(problemsReport)) {
+            var problems = FileProblemReporter.loadRecords(problemsReport);
+            for (var problem : problems) {
+                if (problem.location() == null || validatedAccessTransformers.contains(problem.location().file())) {
+                    environment.getProblemReporter().report(problem);
+                }
+            }
+
+            // Now collect problems for any validated ATs and fail if there are any
+            var problemList = problems.stream()
+                    .filter(problem -> problem.location() != null && validatedAccessTransformers.contains(problem.location().file()))
+                    .map(p -> " - " + problems)
+                    .collect(Collectors.joining("\n"));
+            if (!problemList.isEmpty()) {
+                throw new RuntimeException("Access transformers failed validation:\n" + problemList);
+            }
         }
 
         // When no interface data is given, we still have to create an empty stubs zip to satisfy
@@ -151,14 +180,6 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 throw new RuntimeException("Failed to create empty stub zip at " + stubsPath, e);
             }
         }
-    }
-
-    /**
-     * Filter out any access transformer problems that are for broken ATs from the underlying modding platform.
-     * The user cannot act on these problems.
-     */
-    private boolean isRelevantProblem(Problem problem) {
-        return problem.location() == null || criticalAccessTransformers.contains(problem.location().file());
     }
 
     @Override
@@ -190,12 +211,12 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         this.additionalAccessTransformers = List.copyOf(additionalAccessTransformers);
     }
 
-    public List<Path> getCriticalAccessTransformers() {
-        return criticalAccessTransformers;
+    public List<Path> getValidatedAccessTransformers() {
+        return validatedAccessTransformers;
     }
 
-    public void setCriticalAccessTransformers(List<Path> criticalAccessTransformers) {
-        this.criticalAccessTransformers = criticalAccessTransformers;
+    public void setValidatedAccessTransformers(List<Path> validatedAccessTransformers) {
+        this.validatedAccessTransformers = validatedAccessTransformers;
     }
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {

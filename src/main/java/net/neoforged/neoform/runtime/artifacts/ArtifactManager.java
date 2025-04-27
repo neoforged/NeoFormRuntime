@@ -9,7 +9,6 @@ import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.manifests.LauncherManifest;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
 import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
-import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
@@ -275,7 +274,7 @@ public class ArtifactManager {
         }
 
         if (warnOnArtifactManifestMiss && !externallyProvided.isEmpty()) {
-            LOG.println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + artifactCoordinate + " is not present in the artifact manifest");
+            LOG.warn(artifactCoordinate + " is not present in the artifact manifest");
         }
         return null;
     }

@@ -106,7 +106,7 @@ dependencies {
     implementation 'org.eclipse.jdt:ecj:3.38.0'
     implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     implementation 'net.neoforged:srgutils:1.0.10'
-    implementation 'net.neoforged.installertools:problems-api:3.0.10-pr-15-problems'
+    implementation 'net.neoforged.installertools:problems-api:3.0.11-pr-15-problems'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
