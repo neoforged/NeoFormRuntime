@@ -104,6 +104,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 }
             }
 
+            for (var path : validatedAccessTransformers) {
+                args.add("--access-transformer");
+                args.add(environment.getPathArgument(path));
+            }
+
             for (var path : additionalAccessTransformers) {
                 args.add("--access-transformer");
                 args.add(environment.getPathArgument(path));
@@ -163,7 +168,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             // Now collect problems for any validated ATs and fail if there are any
             var problemList = problems.stream()
                     .filter(problem -> problem.location() != null && validatedAccessTransformers.contains(problem.location().file()))
-                    .map(p -> " - " + problems)
+                    .map(p -> " - " + p)
                     .collect(Collectors.joining("\n"));
             if (!problemList.isEmpty()) {
                 throw new RuntimeException("Access transformers failed validation:\n" + problemList);
