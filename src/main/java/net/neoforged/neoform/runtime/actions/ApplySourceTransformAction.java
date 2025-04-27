@@ -187,6 +187,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         super.computeCacheKey(ck);
         ck.addStrings("access transformers data ids", accessTransformersData);
         ck.addPaths("additional access transformers", additionalAccessTransformers);
+        ck.addPaths("validated access transformers", validatedAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
