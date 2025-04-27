@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
+import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
@@ -20,6 +21,7 @@ import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -31,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -150,6 +153,39 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         action.getClasspath().addPaths(List.of(neoforgeClasses));
                     }
             ));
+
+            // If the Forge (or NeoForge) version uses side annotation strippers, apply them after merging
+            // This is a legacy concept, see https://github.com/MinecraftForge/ForgeGradle/blob/477b8685abcfe76755c2d49f60b07fabbfdb8b5f/src/mcp/java/net/minecraftforge/gradle/mcp/function/SideAnnotationStripperFunction.java#L24
+            List<String> sasFiles = neoforgeConfig.sideAnnotationStrippers();
+            if (!sasFiles.isEmpty()) {
+                for (int i = 0; i < sasFiles.size(); i++) {
+                    engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
+                }
+
+                transforms.add(new ReplaceNodeOutput("rename", "output", "stripSideAnnotations",
+                        (builder, previousOutput) -> {
+                            builder.input("input", previousOutput.asInput());
+
+                            ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.SIDE_ANNOTATION_STRIPPER);
+                            List<String> args = new ArrayList<>();
+                            Collections.addAll(args,
+                                    "--strip",
+                                    "--input",
+                                    "{input}",
+                                    "--output",
+                                    "{output}"
+                            );
+                            for (int i = 0; i < sasFiles.size(); i++) {
+                                args.add("--data");
+                                args.add("{sasFile" + i + "}");
+                            }
+                            action.setArgs(args);
+                            builder.action(action);
+
+                            return builder.output("output", NodeOutputType.JAR, "The jar file with the desired side annotations removed");
+                        }
+                ));
+                }
 
             // Append a patch step to the NeoForge patches
             transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",

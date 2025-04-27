@@ -97,7 +97,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         command.add(environment.getPathArgument(toolArtifact.path()));
 
         // Program Arguments
-        for (var arg : args) {
+        var effectiveArgs = createEffectiveArgs(environment);
+
+        for (var arg : effectiveArgs) {
             // For specific tasks we "fixup" the neoform spec
             if (toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower")) {
                 arg = arg.replace("TRACE", "WARN");
@@ -219,5 +221,12 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setArgs(List<String> args) {
         this.args = Objects.requireNonNull(args);
+    }
+
+    /**
+     * Can be used by subclasses of this action to manipulate the arguments for a single run.
+     */
+    protected List<String> createEffectiveArgs(ProcessingEnvironment environment) throws IOException {
+        return args;
     }
 }
