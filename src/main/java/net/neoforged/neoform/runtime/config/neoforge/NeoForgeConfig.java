@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.config.neoforge;
 
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
@@ -27,7 +28,8 @@ public record NeoForgeConfig(
         @SerializedName("patchesModifiedPrefix") @Nullable String modifiedPathPrefix,
         Map<String, JsonObject> runs,
         List<MavenCoordinate> libraries,
-        List<String> modules
+        List<String> modules,
+        @SerializedName("sass") List<String> sideAnnotationStrippers
 ) {
     public static NeoForgeConfig from(ZipFile zipFile) throws IOException {
         byte[] configContent;
@@ -56,6 +58,11 @@ public record NeoForgeConfig(
         // 1.20.2 and later: "ats": "ats/"
         if (root.get("ats").isJsonArray()) {
             convertAccessTransformerPropertyFromForgeToNeoForge(root);
+        }
+
+        // Ensure that 'sass' is an empty list to avoid nullability issues
+        if (!root.has("sass")) {
+            root.add("sass", new JsonArray());
         }
 
         try {

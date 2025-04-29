@@ -59,6 +59,12 @@ public class ProcessGeneration {
     private boolean sourcesUseIntermediaryNames;
 
     /**
+     * SAS was used in Forge 1.20.1 and earlier to remove the "OnlyIn" annotation from client-only classes
+     * that we'd want to be able to use on the server as well.
+     */
+    private boolean supportsSideAnnotationStripping;
+
+    /**
      * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
      * SRG to official names for development.
      */
@@ -88,6 +94,8 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
+        result.supportsSideAnnotationStripping = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
+
         return result;
     }
 
@@ -103,6 +111,13 @@ public class ProcessGeneration {
      */
     public boolean sourcesUseIntermediaryNames() {
         return sourcesUseIntermediaryNames;
+    }
+
+    /**
+     * We only support side annotation stripping for Forge 1.20.1 and earlier.
+     */
+    public boolean supportsSideAnnotationStripping() {
+        return supportsSideAnnotationStripping;
     }
 
     /**

@@ -11,7 +11,8 @@ import java.util.Properties;
  */
 public enum ToolCoordinate {
     JAVA_SOURCE_TRANSFORMER,
-    DIFF_PATCH;
+    DIFF_PATCH,
+    MCF_SIDE_ANNOTATION_STRIPPER;
 
     private static final Properties VERSIONS;
 
