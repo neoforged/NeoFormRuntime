@@ -166,7 +166,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         (builder, previousOutput) -> {
                             builder.input("input", previousOutput.asInput());
 
-                            ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.SIDE_ANNOTATION_STRIPPER);
+                            ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.MCF_SIDE_ANNOTATION_STRIPPER);
                             List<String> args = new ArrayList<>();
                             Collections.addAll(args,
                                     "--strip",
