@@ -146,8 +146,8 @@ public class ArtifactManager {
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         // Special case: NeoForge reference libraries that are only available via the Mojang download server
-        if (mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging")
-                || mavenCoordinate.groupId().equals("net.minecraft") && mavenCoordinate.artifactId().equals("launchwrapper")) {
+        if ((mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging"))
+                || (mavenCoordinate.groupId().equals("net.minecraft") && mavenCoordinate.artifactId().equals("launchwrapper"))) {
             return get(mavenCoordinate, MINECRAFT_LIBRARIES_URI);
         }
 
@@ -285,11 +285,11 @@ public class ArtifactManager {
             return artifact;
         }
 
-        // See if it's a dynamic version and match against all entries
+        // Find any manifest entry for the same group/artifact/classifier and evaluate if it matches a dynamic version constraint
         if (artifactCoordinate.isDynamicVersion()) {
             for (var entry : externallyProvided.entrySet()) {
-                if (artifactCoordinate.matchesVersion(entry.getKey().version())
-                        && entry.getKey().withVersion(artifactCoordinate.version()).equals(artifactCoordinate)) {
+                if (artifactCoordinate.equalsWithoutVersion(entry.getKey())
+                        && artifactCoordinate.matchesVersion(entry.getKey().version())) {
                     return entry.getValue();
                 }
             }

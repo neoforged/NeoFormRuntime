@@ -84,8 +84,8 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
      */
     public Path toRelativeRepositoryPath() {
         final String fileName = artifactId + "-" + version +
-                                (!classifier.isEmpty() ? "-" + classifier : "") +
-                                (!extension.isEmpty() ? "." + extension : ".jar");
+                (!classifier.isEmpty() ? "-" + classifier : "") +
+                (!extension.isEmpty() ? "." + extension : ".jar");
 
         String[] groups = groupId.split("\\.");
         Path result = Paths.get(groups[0]);
@@ -142,6 +142,15 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
     public boolean isDynamicVersion() {
         // We only support extremely simple cases right now.
         return version.endsWith("+");
+    }
+
+    /**
+     * True if this and the given coordinate have the same {@code group}, {@code artifact} and {@code classifier}.
+     */
+    public boolean equalsWithoutVersion(MavenCoordinate other) {
+        return Objects.equals(groupId, other.groupId)
+                && Objects.equals(artifactId, other.artifactId)
+                && Objects.equals(classifier, other.classifier);
     }
 
     public boolean matchesVersion(String version) {
