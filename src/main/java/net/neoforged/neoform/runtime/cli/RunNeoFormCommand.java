@@ -58,10 +58,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--access-transformer", arity = "*", description = "path to an access transformer file, which widens the access modifiers of classes/methods/fields")
     List<String> additionalAccessTransformers = new ArrayList<>();
 
-    @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses")
+    @CommandLine.Option(names = "--validated-access-transformer", arity = "*", description = "same as --access-transformer, but files added using this option will fail the build if they contain targets that do not exist.")
+    List<String> validatedAccessTransformers = new ArrayList<>();
+
+    @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses.")
     List<Path> interfaceInjectionDataFiles = new ArrayList<>();
 
-    @CommandLine.Option(names = "--validate-access-transformers", description = "Whether access transformers should be validated and fatal errors should arise if they target members that do not exist")
+    @Deprecated
+    @CommandLine.Option(names = "--validate-access-transformers", description = "[DEPRECATED] Use --validated-access-transformer instead")
     boolean validateAccessTransformers;
 
     @CommandLine.Option(names = "--parchment-data", description = "Path or Maven coordinates of parchment data to use")
@@ -213,13 +217,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             engine.loadNeoFormData(neoFormDataPath, dist);
         }
 
-        if (!additionalAccessTransformers.isEmpty()) {
-            var transformSources = getOrAddTransformSourcesAction(engine);
-            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
-            if (validateAccessTransformers) {
-                transformSources.addArg("--access-transformer-validation=error");
-            }
-        }
+        applyAdditionalAccessTransformers(engine);
 
         if (parchmentData != null) {
             var parchmentDataFile = artifactManager.get(parchmentData);
@@ -253,6 +251,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         execute(engine);
+    }
+
+    /**
+     * Configure the engine to apply additional user-supplied access transformers to the game sources.
+     */
+    private void applyAdditionalAccessTransformers(NeoFormEngine engine) {
+        if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
+            var transformSources = getOrAddTransformSourcesAction(engine);
+            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+            transformSources.setValidatedAccessTransformers(validatedAccessTransformers.stream().map(Paths::get).toList());
+
+            if (validateAccessTransformers) {
+                transformSources.addArg("--access-transformer-validation=error");
+            }
+        }
     }
 
     private static NodeOutput createCompiledWithNeoForge(NeoFormEngine engine, ZipFile neoforgeClassesZip) {

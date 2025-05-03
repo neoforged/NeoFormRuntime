@@ -20,6 +20,10 @@ public final class Logger {
         return new Logger();
     }
 
+    public void warn(String message) {
+        println("  " + AnsiColor.YELLOW + "WARNING: " + AnsiColor.RESET + message);
+    }
+
     public void println(String text) {
         closeSpinner();
 

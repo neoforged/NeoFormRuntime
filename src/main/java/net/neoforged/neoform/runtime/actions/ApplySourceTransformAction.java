@@ -2,7 +2,10 @@ package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
+import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
+import net.neoforged.problems.FileProblemReporter;
+import net.neoforged.problems.Problem;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -27,6 +30,8 @@ import java.util.zip.ZipOutputStream;
  * </ul>
  */
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
+    protected static final Logger LOG = Logger.create();
+
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -46,6 +51,12 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
      * A description of the format can be found in the <a href="https://docs.neoforged.net/docs/advanced/accesstransformers">NeoForge documentation</a>.
      */
     private List<Path> additionalAccessTransformers = new ArrayList<>();
+
+    /**
+     * Same as {@link #additionalAccessTransformers}, but entries in this list will fail the build if
+     * any errors for them are reported during application.
+     */
+    private List<Path> validatedAccessTransformers = new ArrayList<>();
 
     /**
      * Additional paths to interface injection data files.
@@ -70,7 +81,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var args = new ArrayList<String>();
+
+        var problemsReport = environment.getWorkspace().resolve("problems.json");
+
         Collections.addAll(args,
+                "--problems-report", problemsReport.toAbsolutePath().toString(),
                 "--libraries-list", "{libraries}",
                 "--in-format", "ARCHIVE",
                 "--out-format", "ARCHIVE"
@@ -88,6 +103,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                         args.add(environment.getPathArgument(path));
                     });
                 }
+            }
+
+            for (var path : validatedAccessTransformers) {
+                args.add("--access-transformer");
+                args.add(environment.getPathArgument(path));
             }
 
             for (var path : additionalAccessTransformers) {
@@ -124,7 +144,45 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         Collections.addAll(args, "{input}", "{output}");
         setArgs(args);
 
-        super.run(environment);
+        try {
+            super.run(environment);
+        } catch (Exception e) {
+            // Pass through *all* problems if possible
+            try {
+                environment.getProblemReporter().tryMergeFromFile(problemsReport);
+            } catch (IOException ex) {
+                LOG.warn("Failed to pass-through problem report from " + problemsReport + ": " + e);
+            }
+
+            throw e;
+        }
+
+        // Pass through any relevant problems to the outer problem context
+        if (Files.exists(problemsReport)) {
+            var validatedPaths = validatedAccessTransformers.stream()
+                    .map(p -> p.toAbsolutePath().normalize())
+                    .collect(Collectors.toSet());
+
+            var problems = FileProblemReporter.loadRecords(problemsReport);
+            for (var problem : problems) {
+                var problemPath = getNormalizedProblemPath(problem);
+                if (problemPath == null || validatedPaths.contains(problemPath)) {
+                    environment.getProblemReporter().report(problem);
+                }
+            }
+
+            // Now collect problems for any validated ATs and fail if there are any
+            var problemList = problems.stream()
+                    .filter(problem -> {
+                        var path = getNormalizedProblemPath(problem);
+                        return path != null && validatedPaths.contains(path);
+                    })
+                    .map(p -> " - " + p)
+                    .collect(Collectors.joining("\n"));
+            if (!problemList.isEmpty()) {
+                throw new RuntimeException("Access transformers failed validation:\n" + problemList);
+            }
+        }
 
         // When no interface data is given, we still have to create an empty stubs zip to satisfy
         // the output
@@ -138,11 +196,17 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         }
     }
 
+    @Nullable
+    private static Path getNormalizedProblemPath(Problem problem) {
+        return problem.location() != null ? problem.location().file().toAbsolutePath().normalize() : null;
+    }
+
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
         ck.addStrings("access transformers data ids", accessTransformersData);
         ck.addPaths("additional access transformers", additionalAccessTransformers);
+        ck.addPaths("validated access transformers", validatedAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
@@ -165,6 +229,14 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {
         this.additionalAccessTransformers = List.copyOf(additionalAccessTransformers);
+    }
+
+    public List<Path> getValidatedAccessTransformers() {
+        return validatedAccessTransformers;
+    }
+
+    public void setValidatedAccessTransformers(List<Path> validatedAccessTransformers) {
+        this.validatedAccessTransformers = validatedAccessTransformers;
     }
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {
