@@ -5,6 +5,7 @@ import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import net.neoforged.problems.FileProblemReporter;
+import net.neoforged.problems.Problem;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -158,16 +159,24 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
         // Pass through any relevant problems to the outer problem context
         if (Files.exists(problemsReport)) {
+            var validatedPaths = validatedAccessTransformers.stream()
+                    .map(p -> p.normalize().toAbsolutePath())
+                    .collect(Collectors.toSet());
+
             var problems = FileProblemReporter.loadRecords(problemsReport);
             for (var problem : problems) {
-                if (problem.location() == null || validatedAccessTransformers.contains(problem.location().file())) {
+                var problemPath = getNormalizedProblemPath(problem);
+                if (problemPath == null || validatedPaths.contains(problemPath)) {
                     environment.getProblemReporter().report(problem);
                 }
             }
 
             // Now collect problems for any validated ATs and fail if there are any
             var problemList = problems.stream()
-                    .filter(problem -> problem.location() != null && validatedAccessTransformers.contains(problem.location().file()))
+                    .filter(problem -> {
+                        var path = getNormalizedProblemPath(problem);
+                        return path != null && validatedPaths.contains(path);
+                    })
                     .map(p -> " - " + p)
                     .collect(Collectors.joining("\n"));
             if (!problemList.isEmpty()) {
@@ -185,6 +194,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 throw new RuntimeException("Failed to create empty stub zip at " + stubsPath, e);
             }
         }
+    }
+
+    @Nullable
+    private static Path getNormalizedProblemPath(Problem problem) {
+        return problem.location() != null ? problem.location().file().normalize().toAbsolutePath() : null;
     }
 
     @Override
