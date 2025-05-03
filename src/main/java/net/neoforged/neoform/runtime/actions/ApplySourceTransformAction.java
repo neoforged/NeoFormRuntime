@@ -160,7 +160,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         // Pass through any relevant problems to the outer problem context
         if (Files.exists(problemsReport)) {
             var validatedPaths = validatedAccessTransformers.stream()
-                    .map(p -> p.normalize().toAbsolutePath())
+                    .map(p -> p.toAbsolutePath().normalize())
                     .collect(Collectors.toSet());
 
             var problems = FileProblemReporter.loadRecords(problemsReport);
@@ -198,7 +198,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     @Nullable
     private static Path getNormalizedProblemPath(Problem problem) {
-        return problem.location() != null ? problem.location().file().normalize().toAbsolutePath() : null;
+        return problem.location() != null ? problem.location().file().toAbsolutePath().normalize() : null;
     }
 
     @Override
