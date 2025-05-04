@@ -18,9 +18,8 @@ public class CreateLibrariesOptionsFileAction extends BuiltInAction implements E
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
 
-        var effectiveClasspath = classpath.copy();
-        effectiveClasspath.addMinecraftLibraries(versionManifest.libraries());
-        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspath.getEffectiveClasspath());
+        var effectiveClasspathItems = classpath.mergeWithMinecraftLibraries(versionManifest).getEffectiveClasspath();
+        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
 
         var vineflowerArgs = classpath.stream().map(l -> "-e=" + l.toAbsolutePath()).toList();
 

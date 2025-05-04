@@ -138,4 +138,13 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
                 version
         );
     }
+
+    /**
+     * True if this and the given coordinate have the same {@code group}, {@code artifact} and {@code classifier}.
+     */
+    public boolean equalsWithoutVersion(MavenCoordinate other) {
+        return Objects.equals(groupId, other.groupId)
+                && Objects.equals(artifactId, other.artifactId)
+                && Objects.equals(classifier, other.classifier);
+    }
 }
