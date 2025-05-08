@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -59,15 +60,6 @@ public class CacheManager implements AutoCloseable {
     private final Path intermediateResultsDir;
     private final Path assetsDir;
     private final Path workspacesDir;
-
-    /**
-     * Maximum age of cache entries in the intermediate work cache in hours.
-     */
-    private long maxAgeInHours = 24 * 31;
-    /**
-     * Maximum overall size of the intermediate work cache.
-     */
-    private long maxSize = 1024 * 1024 * 1024;
 
     private boolean disabled;
     private boolean analyzeMisses;
@@ -126,6 +118,61 @@ public class CacheManager implements AutoCloseable {
         cleanUpIntermediateResults();
     }
 
+    private record Preferences(long maxAgeDays, long maxSizeMegabytes) {
+        Preferences {
+            if (maxAgeDays < 0) {
+                throw new IllegalArgumentException("maxAgeDays must be >= 0");
+            }
+            if (maxSizeMegabytes < 0) {
+                throw new IllegalArgumentException("maxSizeMegabytes must be >= 0");
+            }
+        }
+
+        public long maxSizeBytes() {
+            return maxSizeMegabytes * 1024 * 1024;
+        }
+    }
+    private static final String PREFERENCES_FILE = "nfrt_cache.properties";
+
+    /**
+     * Maximum age of cache entries in the intermediate work cache in hours.
+     */
+    private static final long DEFAULT_MAX_AGE_DAYS = 31;
+    /**
+     * Maximum overall size of the intermediate work cache.
+     */
+    private static final long DEFAULT_MAX_SIZE_MEGABYTES = 1024;
+
+    private Preferences loadPreferences() {
+        var preferencesFile = homeDir.resolve(PREFERENCES_FILE);
+        if (Files.isRegularFile(preferencesFile)) {
+            try {
+                // Java properties files
+                try (var in = Files.newInputStream(preferencesFile)) {
+                    var props = new Properties();
+                    props.load(in);
+
+                    long maxAgeDays = Long.parseLong(props.getProperty("max_age_days"));
+                    long maxSizeMegabytes = Long.parseLong(props.getProperty("max_size_mb"));
+                    return new Preferences(maxAgeDays, maxSizeMegabytes);
+                }
+            } catch (IOException | NumberFormatException e) {
+                LOG.warn("Failed to read cache properties %s, will overwrite. Exception: %s".formatted(preferencesFile, e));
+            }
+        }
+
+        var defaultProps = new Properties();
+        defaultProps.setProperty("max_age_days", String.valueOf(DEFAULT_MAX_AGE_DAYS));
+        defaultProps.setProperty("max_size_mb", String.valueOf(DEFAULT_MAX_SIZE_MEGABYTES));
+        try (var out = Files.newOutputStream(preferencesFile)) {
+            defaultProps.store(out, "NFRT Cache Configuration");
+        } catch (IOException e) {
+            LOG.warn("Failed to write default cache properties %s. Exception: %s".formatted(preferencesFile, e));
+        }
+
+        return new Preferences(DEFAULT_MAX_AGE_DAYS, DEFAULT_MAX_SIZE_MEGABYTES);
+    }
+
     /**
      * Cleans the cache of intermediate results based on two goals:
      * <ol>
@@ -140,8 +187,9 @@ public class CacheManager implements AutoCloseable {
         }
 
         LOG.println("Cleaning intermediate results cache in " + intermediateResultsDir);
-        LOG.println(" Maximum age: " + maxAgeInHours + "h");
-        LOG.println(" Maximum cache size: " + StringUtil.formatBytes(maxSize));
+        var preferences = loadPreferences();
+        LOG.println(" Maximum age: " + preferences.maxAgeDays + "d");
+        LOG.println(" Maximum cache size: " + StringUtil.formatBytes(preferences.maxSizeBytes()));
 
         record CacheEntry(Path file, String filename, String cacheKey, long lastModified, long size) {
         }
@@ -162,8 +210,8 @@ public class CacheManager implements AutoCloseable {
                         entries.add(new CacheEntry(file, filename, cacheKey, attrs.lastModifiedTime().toMillis(), attrs.size()));
 
                         if (filename.substring(cacheKey.length()).equals(".txt")) {
-                            long ageInHours = Duration.between(attrs.lastModifiedTime().toInstant(), now).toHours();
-                            if (ageInHours > maxAgeInHours) {
+                            long ageInDays = Duration.between(attrs.lastModifiedTime().toInstant(), now).toDays();
+                            if (ageInDays >= preferences.maxAgeDays) {
                                 expiredEntryPrefixes.add(cacheKey);
                             }
                         }
@@ -209,7 +257,7 @@ public class CacheManager implements AutoCloseable {
             totalSize -= freedSpace;
         }
 
-        if (totalSize <= maxSize) {
+        if (totalSize <= preferences.maxSizeBytes()) {
             return;
         }
 
@@ -221,7 +269,7 @@ public class CacheManager implements AutoCloseable {
         long freedSpace = 0;
         var deletedEntries = 0;
         for (var group : groupedEntries) {
-            if (totalSize <= maxSize) {
+            if (totalSize <= preferences.maxSizeBytes()) {
                 break;
             }
 
