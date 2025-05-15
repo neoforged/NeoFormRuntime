@@ -11,8 +11,8 @@ import java.util.List;
 
 public abstract class RecompileSourcesAction extends BuiltInAction implements ExecutionNodeAction {
 
-    private final ExtensibleClasspath classpath = new ExtensibleClasspath();
-    private final ExtensibleClasspath sourcepath = new ExtensibleClasspath();
+    private ExtensibleClasspath classpath = new ExtensibleClasspath();
+    private ExtensibleClasspath sourcepath = new ExtensibleClasspath();
     private int targetJavaVersion = 21;
 
     @Override
@@ -53,8 +53,16 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
         return classpath;
     }
 
+    public void setClasspath(ExtensibleClasspath classpath) {
+        this.classpath = classpath;
+    }
+
     public ExtensibleClasspath getSourcepath() {
         return sourcepath;
+    }
+
+    public void setSourcepath(ExtensibleClasspath sourcepath) {
+        this.sourcepath = sourcepath;
     }
 
     public int getTargetJavaVersion() {
@@ -64,4 +72,6 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
     public void setTargetJavaVersion(int targetJavaVersion) {
         this.targetJavaVersion = targetJavaVersion;
     }
+
+    public abstract RecompileSourcesAction copy();
 }
