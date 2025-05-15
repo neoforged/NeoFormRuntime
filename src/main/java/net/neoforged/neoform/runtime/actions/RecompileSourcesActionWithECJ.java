@@ -212,6 +212,15 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
         ck.add("compiler type", "eclipse");
     }
 
+    @Override
+    public RecompileSourcesAction copy() {
+        var ret = new RecompileSourcesActionWithECJ();
+        ret.setClasspath(getClasspath().copy());
+        ret.setSourcepath(getSourcepath().copy());
+        ret.setTargetJavaVersion(getTargetJavaVersion());
+        return ret;
+    }
+
     static class ECJFilesystem extends FileSystem {
         protected ECJFilesystem(Classpath[] paths, String[] initialFileNames, boolean annotationsFromClasspath) {
             super(paths, initialFileNames, annotationsFromClasspath);

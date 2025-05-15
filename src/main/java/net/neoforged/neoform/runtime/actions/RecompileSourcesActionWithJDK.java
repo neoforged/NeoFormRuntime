@@ -108,4 +108,13 @@ public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
                 "-implicit:none" // Prevents source files from the source-path from being emitted
         );
     }
+
+    @Override
+    public RecompileSourcesAction copy() {
+        var ret = new RecompileSourcesActionWithJDK();
+        ret.setClasspath(getClasspath().copy());
+        ret.setSourcepath(getSourcepath().copy());
+        ret.setTargetJavaVersion(getTargetJavaVersion());
+        return ret;
+    }
 }
