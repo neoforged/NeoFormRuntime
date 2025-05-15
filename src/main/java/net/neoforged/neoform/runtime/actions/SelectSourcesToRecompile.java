@@ -3,10 +3,12 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -66,38 +68,35 @@ public class SelectSourcesToRecompile extends BuiltInAction {
             }
         }
 
-        // Copy unchanged classes
-        try (var os = Files.newOutputStream(unchangedClasses);
-             var zos = new ZipOutputStream(os)) {
+        // Copy unchanged classes, by first copying the whole zip then deleting unwanted entries using NIO.
+        // This is faster than working with ZipFile streams which inflate and deflate all the entries.
+        Files.copy(originalClasses, unchangedClasses);
+        try (var zfs = FileSystems.newFileSystem(unchangedClasses, Map.of("create", "false"))) {
 
             try (var originalZip = new ZipFile(originalClasses.toFile())) {
                 var entries = originalZip.entries();
                 while (entries.hasMoreElements()) {
                     var entry = entries.nextElement();
-                    if (!entry.isDirectory()) {
-                        // Remove trailing .class
-                        var sourceName = entry.getName();
-                        if (sourceName.endsWith(".class")) {
-                            sourceName = sourceName.substring(0, sourceName.length() - 6);
-                        }
-                        // Remove inner class suffix
-                        sourceName = sourceName.split("\\$")[0];
-                        // Add trailing .java
-                        sourceName += ".java";
+                    if (entry.isDirectory()) {
+                        continue;
+                    }
+                    // Remove trailing .class
+                    var sourceName = entry.getName();
+                    if (sourceName.endsWith(".class")) {
+                        sourceName = sourceName.substring(0, sourceName.length() - 6);
+                    }
+                    // Remove inner class suffix
+                    sourceName = sourceName.split("\\$")[0];
+                    // Add trailing .java
+                    sourceName += ".java";
 
-                        if (changedSourcePaths.contains(sourceName)) {
-                            // Skip this entry
-                            continue;
-                        }
+                    if (!changedSourcePaths.contains(sourceName)) {
+                        // Skip this entry
+                        continue;
                     }
 
-                    try (var is = originalZip.getInputStream(entry)) {
-                        // Copy to output
-                        var copiedEntry = new ZipEntry(entry.getName());
-                        zos.putNextEntry(copiedEntry);
-                        is.transferTo(zos);
-                        zos.closeEntry();
-                    }
+                    // Delete!
+                    Files.delete(zfs.getPath(entry.getName()));
                 }
             }
         }
