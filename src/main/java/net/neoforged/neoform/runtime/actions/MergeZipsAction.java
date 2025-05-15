@@ -3,15 +3,12 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.util.List;
-import java.util.zip.ZipException;
+import java.util.Map;
 import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
-// TODO: would be good to "merge" with MergeWithSourcesAction?
 public class MergeZipsAction extends BuiltInAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
@@ -19,23 +16,21 @@ public class MergeZipsAction extends BuiltInAction {
         var extraClassesFile = environment.getRequiredInputPath("classes2");
         var output = environment.getOutputPath("output");
 
-        try (var os = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(output)))) {
+        // Copy the largest jar then use NIO to insert extra entries.
+        // This is faster than working with ZipFile streams which inflate and deflate all the entries.
+        Files.copy(classesFile, output);
+        try (var zfs = FileSystems.newFileSystem(output, Map.of("create", false))) {
+            var zfsRoot = zfs.getPath("/");
 
-            boolean first = true;
-            for (var sourceZip : List.of(classesFile, extraClassesFile)) {
-                try (var in = new ZipInputStream(new BufferedInputStream(Files.newInputStream(sourceZip)))) {
-                    for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
-                        if (!first && entry.isDirectory()) {
-                            // Skip directories in case they would be duplicated
-                            // TODO: a bit crude
-                            continue;
-                        }
-                        os.putNextEntry(entry);
-                        in.transferTo(os);
-                        os.closeEntry();
+            // Copy the extra classes to the output zip
+            try (var in = new ZipInputStream(new BufferedInputStream(Files.newInputStream(extraClassesFile)))) {
+                for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
+                    if (entry.isDirectory()) {
+                        continue;
                     }
+                    var targetPath = zfsRoot.resolve(entry.getName());
+                    Files.copy(in, targetPath);
                 }
-                first = false;
             }
         }
     }
