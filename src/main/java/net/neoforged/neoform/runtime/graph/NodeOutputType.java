@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.graph;
 
 public enum NodeOutputType {
     JAR(".jar"),
+    JAR_MANIFEST(".MF"),
     TXT(".txt"),
     ZIP(".zip"),
     JSON(".json"),
