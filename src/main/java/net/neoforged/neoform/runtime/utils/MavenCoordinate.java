@@ -84,8 +84,8 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
      */
     public Path toRelativeRepositoryPath() {
         final String fileName = artifactId + "-" + version +
-                                (!classifier.isEmpty() ? "-" + classifier : "") +
-                                (!extension.isEmpty() ? "." + extension : ".jar");
+                (!classifier.isEmpty() ? "-" + classifier : "") +
+                (!extension.isEmpty() ? "." + extension : ".jar");
 
         String[] groups = groupId.split("\\.");
         Path result = Paths.get(groups[0]);
@@ -137,5 +137,29 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
                 classifier,
                 version
         );
+    }
+
+    public boolean isDynamicVersion() {
+        // We only support extremely simple cases right now.
+        return version.endsWith("+");
+    }
+
+    /**
+     * True if this and the given coordinate have the same {@code group}, {@code artifact} and {@code classifier}.
+     */
+    public boolean equalsWithoutVersion(MavenCoordinate other) {
+        return Objects.equals(groupId, other.groupId)
+                && Objects.equals(artifactId, other.artifactId)
+                && Objects.equals(classifier, other.classifier);
+    }
+
+    public boolean matchesVersion(String version) {
+        // "+" acts as a prefix match according to Gradle
+        // https://docs.gradle.org/current/userguide/dependency_versions.html#sec:single-version-declarations
+        if (this.version.endsWith("+")) {
+            return version.startsWith(this.version.substring(0, this.version.length() - 1));
+        } else {
+            return this.version.equals(version);
+        }
     }
 }
