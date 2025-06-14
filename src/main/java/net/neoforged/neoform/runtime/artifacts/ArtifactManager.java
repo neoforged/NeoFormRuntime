@@ -238,7 +238,7 @@ public class ArtifactManager {
         for (var artifactId : properties.stringPropertyNames()) {
             var value = properties.getProperty(artifactId);
             try {
-                var parse = normalizeExtension(MavenCoordinate.parse(artifactId));
+                var parse = MavenCoordinate.parse(artifactId);
                 externallyProvided.put(parse, getArtifactFromPath(value));
             } catch (Exception e) {
                 System.err.println("Failed to pre-load artifact '" + artifactId + "' from path '" + value + "': " + e);
@@ -258,8 +258,6 @@ public class ArtifactManager {
     }
 
     private Artifact getFromExternalManifest(MavenCoordinate artifactCoordinate) {
-        artifactCoordinate = normalizeExtension(artifactCoordinate);
-
         var artifact = externallyProvided.get(artifactCoordinate);
         if (artifact != null) {
             return artifact;
@@ -315,19 +313,5 @@ public class ArtifactManager {
 
     public void setWarnOnArtifactManifestMiss(boolean warnOnArtifactManifestMiss) {
         this.warnOnArtifactManifestMiss = warnOnArtifactManifestMiss;
-    }
-
-    // Normalize "jar" extensions to "" since they're the default
-    private static MavenCoordinate normalizeExtension(MavenCoordinate coordinate) {
-        if (coordinate.extension().equals("jar")) {
-            return new MavenCoordinate(
-                    coordinate.groupId(),
-                    coordinate.artifactId(),
-                    "",
-                    coordinate.classifier(),
-                    coordinate.version()
-            );
-        }
-        return coordinate;
     }
 }
