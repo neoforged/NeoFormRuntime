@@ -40,9 +40,6 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
         Objects.requireNonNull(groupId);
         Objects.requireNonNull(artifactId);
         Objects.requireNonNull(version);
-        if (extension != null) {
-            extension = extension.toLowerCase(Locale.ROOT);
-        }
         // Normalize the extension ("jar" is default according to Maven)
         if (extension == null || "jar".equals(extension)) {
             extension = "";
