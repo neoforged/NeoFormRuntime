@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -39,7 +40,8 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
         Objects.requireNonNull(groupId);
         Objects.requireNonNull(artifactId);
         Objects.requireNonNull(version);
-        if (extension == null) {
+        // Normalize the extension ("jar" is default according to Maven)
+        if (extension == null || "jar".equals(extension)) {
             extension = "";
         }
         if (classifier == null) {
@@ -137,5 +139,16 @@ public record MavenCoordinate(String groupId, String artifactId, String extensio
                 classifier,
                 version
         );
+    }
+
+    /**
+     * Returns {@code true} if this and the given coordinate have the same
+     * {@code groupId}, {@code artifactId}, {@code classifier}, and {@code extension}, ignoring {@code version}.
+     */
+    public boolean equalsWithoutVersion(MavenCoordinate other) {
+        return Objects.equals(groupId, other.groupId)
+                && Objects.equals(artifactId, other.artifactId)
+                && Objects.equals(classifier, other.classifier)
+                && Objects.equals(extension, other.extension);
     }
 }

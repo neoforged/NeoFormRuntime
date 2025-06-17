@@ -20,7 +20,7 @@ public class ProcessGeneration {
                 .thenComparingInt(MinecraftReleaseVersion::minor)
                 .thenComparingInt(MinecraftReleaseVersion::patch);
 
-        private static final Pattern RELEASE_VERSION = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)$");
+        private static final Pattern RELEASE_VERSION = Pattern.compile("^(\\d+)\\.(\\d+)(?:\\.(\\d+))?$");
 
         @Nullable
         public static MinecraftReleaseVersion parse(String version) {
@@ -29,7 +29,7 @@ public class ProcessGeneration {
                 return new MinecraftReleaseVersion(
                         Integer.parseUnsignedInt(m.group(1)),
                         Integer.parseUnsignedInt(m.group(2)),
-                        Integer.parseUnsignedInt(m.group(3))
+                        m.group(3) != null ? Integer.parseUnsignedInt(m.group(3)) : 0
                 );
             }
             return null;

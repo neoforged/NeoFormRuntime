@@ -33,6 +33,12 @@ class MavenCoordinateTest {
     }
 
     @Test
+    void testDefaultExtensionCoercion() {
+        var coordinate = new MavenCoordinate("g", "a", "jar", "", "v");
+        assertEquals("", coordinate.extension());
+    }
+
+    @Test
     void testNullClassifierCoercion() {
         var coordinate = new MavenCoordinate("g", "a", "", null, "v");
         assertEquals("", coordinate.classifier());

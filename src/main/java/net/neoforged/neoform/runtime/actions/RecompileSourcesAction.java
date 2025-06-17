@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.actions;
 
+import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
@@ -26,10 +27,7 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
     protected final List<Path> getEffectiveClasspath(ProcessingEnvironment environment) throws IOException {
         var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
 
-        // Merge the original Minecraft classpath with the libs required by additional patches that we made
-        var effectiveClasspath = classpath.copy();
-        effectiveClasspath.addMinecraftLibraries(versionManifest.libraries());
-        var effectiveClasspathItems = effectiveClasspath.getEffectiveClasspath();
+        var effectiveClasspathItems = classpath.mergeWithMinecraftLibraries(versionManifest).getEffectiveClasspath();
 
         var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
 
