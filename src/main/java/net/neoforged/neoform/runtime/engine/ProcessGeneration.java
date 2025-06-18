@@ -43,7 +43,7 @@ public class ProcessGeneration {
 
     private static final MinecraftReleaseVersion MC_1_17_1 = new MinecraftReleaseVersion(1, 17, 1);
     private static final MinecraftReleaseVersion MC_1_20_1 = new MinecraftReleaseVersion(1, 20, 1);
-    private static final MinecraftReleaseVersion MC_1_21_4 = new MinecraftReleaseVersion(1, 21, 4);
+    private static final MinecraftReleaseVersion MC_1_21_6 = new MinecraftReleaseVersion(1, 21, 6);
 
     /**
      * Indicates whether the Minecraft server jar file contains third party
@@ -101,8 +101,8 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
-        // Technically 1.21.4 does not directly support this, but it does not harm it either
-        result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_4);
+        // In 1.21.6 and later, manifest entries should be generated as they may be used instead of RuntimeDistCleaner
+        result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
 
         result.supportsSideAnnotationStripping = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
