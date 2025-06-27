@@ -90,7 +90,7 @@ dependencies {
     compileOnly 'org.jetbrains:annotations:26.0.2'
     implementation 'info.picocli:picocli:4.7.6'
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'org.eclipse.jdt:ecj:3.38.0'
+    implementation 'org.eclipse.jdt:ecj:3.42.0'
     implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     implementation 'net.neoforged:srgutils:1.0.10'
     implementation 'net.neoforged.installertools:problems-api:3.0.3'
