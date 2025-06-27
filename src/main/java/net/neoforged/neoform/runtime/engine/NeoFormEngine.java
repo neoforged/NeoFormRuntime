@@ -324,6 +324,26 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
+
+                // When generating Minecraft artifacts that join the client and server, we generate a MANIFEST.MF that
+                // indicates files exclusive to one or the other. This started in Minecraft 1.21.6.
+                if (processGeneration.generateDistSourceManifest() && config.dist().equals("joined")) {
+                    if ("stripClient".equals(step.getId())) {
+                        // Prefer the already extracted server, otherwise download it
+                        var serverJarInput = graph.hasOutput("extractServer", "output") ?
+                                graph.getRequiredOutput("extractServer", "output").asInput()
+                                : graph.getRequiredOutput("downloadServer", "output").asInput();
+
+                        action.generateSplitManifest("client", "server");
+                        builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, serverJarInput);
+                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                    } else if ("stripServer".equals(step.getId())) {
+                        action.generateSplitManifest("server", "client");
+                        builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, graph.getRequiredOutput("downloadClient", "output").asInput());
+                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                    }
+                }
+
                 processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
                 builder.action(action);
             }
@@ -401,6 +421,7 @@ public class NeoFormEngine implements AutoCloseable {
                 if ("output".equals(variable)) {
                     var type = switch (step.type()) {
                         case "mergeMappings" -> NodeOutputType.TSRG;
+                        case "generateSplitManifest" -> NodeOutputType.JAR_MANIFEST;
                         default -> NodeOutputType.JAR;
                     };
                     if (!builder.hasOutput(variable)) {

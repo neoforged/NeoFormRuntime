@@ -163,6 +163,11 @@ idea {
                     programParameters = "--help"
                     moduleRef(project, sourceSets.main)
                 }
+                "Run Neoforge 1.21.6 (joined) + Parchment"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.6.1-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21.5:2025.06.15@zip --parchment-conflict-prefix=p_ --write-result=compiled:build/minecraft-1.21.6.jar --write-result=clientResources:build/client-extra-1.21.6.jar --write-result=sources:build/minecraft-sources-1.21.6.jar"
+                    moduleRef(project, sourceSets.main)
+                }
                 "Run Neoforge 1.21 (joined) + Parchment"(Application) {
                     mainClass = mainClassName
                     programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21:2024.06.23@zip --parchment-conflict-prefix=p_ --write-result=compiled:build/minecraft-1.21.jar --write-result=clientResources:build/client-extra-1.21.jar --write-result=sources:build/minecraft-sources-1.21.jar"
