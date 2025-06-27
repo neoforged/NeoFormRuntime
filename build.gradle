@@ -96,7 +96,7 @@ dependencies {
     implementation 'net.neoforged.installertools:problems-api:3.0.3'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
-    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation platform('org.junit:junit-bom:5.13.2')
     testImplementation platform('org.mockito:mockito-bom:5.12.0')
     testImplementation platform('org.assertj:assertj-bom:3.26.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
