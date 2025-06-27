@@ -87,7 +87,7 @@ configurations {
 }
 
 dependencies {
-    compileOnly 'org.jetbrains:annotations:24.1.0'
+    compileOnly 'org.jetbrains:annotations:26.0.2'
     implementation 'info.picocli:picocli:4.7.6'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.eclipse.jdt:ecj:3.38.0'
