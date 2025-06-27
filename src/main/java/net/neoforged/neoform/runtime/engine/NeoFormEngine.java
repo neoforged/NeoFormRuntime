@@ -324,9 +324,12 @@ public class NeoFormEngine implements AutoCloseable {
                 var action = new SplitResourcesFromClassesAction();
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
+
+                // When generating Minecraft artifacts that join the client and server, we generate a MANIFEST.MF that
+                // indicates files exclusive to one or the other. This started in Minecraft 1.21.6.
                 if (processGeneration.generateDistSourceManifest() && config.dist().equals("joined")) {
                     if ("stripClient".equals(step.getId())) {
-                        // Prefer the already extracted server
+                        // Prefer the already extracted server, otherwise download it
                         var serverJarInput = graph.hasOutput("extractServer", "output") ?
                                 graph.getRequiredOutput("extractServer", "output").asInput()
                                 : graph.getRequiredOutput("downloadServer", "output").asInput();

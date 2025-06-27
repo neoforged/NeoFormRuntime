@@ -27,10 +27,18 @@ import java.util.zip.ZipFile;
 
 /**
  * Copies a Jar file while applying a filename filter.
+ * <p>Optionally, this also {@link #generateSplitManifest creates and injects} a {@code MANIFEST.MF} file that details files that are exclusive
+ * to the distribution of Minecraft being processed by this action.
  */
 public final class SplitResourcesFromClassesAction extends BuiltInAction {
 
+    /**
+     * @see #generateSplitManifest
+     */
     public static final String INPUT_OTHER_DIST_JAR = "otherDistJar";
+    /**
+     * @see #generateSplitManifest
+     */
     public static final String INPUT_MAPPINGS = "mappings";
 
     /**
@@ -97,7 +105,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
                     continue; // For simplicity, we ignore directories completely
                 }
 
-                // If we injected a manifest earlier, ignore any subsequent manifests
+                // If this task generates its own manifest, ignore any manifests found in the input jar
                 if (generateDistManifestSettings != null && entry.getName().equals(JarFile.MANIFEST_NAME)) {
                     continue;
                 }
@@ -195,7 +203,14 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
     /**
      * Enable generation of a Jar manifest in the output resources jar which contains
      * entries detailing which distribution each file came from.
-     * This adds new required inputs.
+     * <p>This adds required inputs {@link #INPUT_MAPPINGS} and {@link #INPUT_OTHER_DIST_JAR} to this action.
+     * <p>Common values for distributions are {@code client} and {@code server}.
+     *
+     * @param distId      The name for the distribution that the main input file is from. It is used in the
+     *                    generated manifest for files that are only present in the main input, but not in the
+     *                    {@linkplain #INPUT_OTHER_DIST_JAR jar file of the other distribution}.
+     * @param otherDistId The name for the Minecraft distribution for the jar file given in {@link #INPUT_OTHER_DIST_JAR}.
+     *                    It is used in the generated manifest for files that are only present in that jar file.
      */
     public void generateSplitManifest(String distId, String otherDistId) {
         generateDistManifestSettings = new GenerateDistManifestSettings(
