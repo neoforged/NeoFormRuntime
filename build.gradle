@@ -179,6 +179,11 @@ idea {
                     programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
+                "Experiments"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --verbose --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --interface-injection-data=interfaces_test.json --validated-access-transformer=test_at.cfg --write-result=node.injectModifiedClasses.output.output:build/injectModifiedClasses-output.jar"
+                    moduleRef(project, sourceSets.main)
+                }
                 "Run Neoform 1.21 (joined)"(Application) {
                     mainClass = mainClassName
                     programParameters = "run --dist joined --neoform net.neoforged:neoform:1.21-20240613.152323@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
