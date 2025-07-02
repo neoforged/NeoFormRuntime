@@ -67,7 +67,7 @@ public class CacheManager implements AutoCloseable {
     /**
      * Maximum overall size of the intermediate work cache.
      */
-    private long maxSize = 1024 * 1024 * 1024;
+    private long maxSize = 10L * 1024 * 1024 * 1024;
 
     private boolean disabled;
     private boolean analyzeMisses;
