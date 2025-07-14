@@ -26,9 +26,15 @@ public interface ProcessingEnvironment {
      *     <li>Declared outputs of the node.</li>
      *     <li>Data directories found in the configuration, which will be unpacked to the {@linkplain #getWorkspace() workspace}, and their
      *     path being used as the value of the variable.</li>
+     *     <li>Additional paths added with {@link #addInterpolationPath}.</li>
      * </ul>
      */
     String interpolateString(String text) throws IOException;
+
+    /**
+     * Adds an interpolation variable to the environment, for use through {@link #interpolateString}.
+     */
+    void addInterpolationPath(String variable, Path value);
 
     /**
      * Extract data from the configuration archive, whose location is declared in the config under the given id.

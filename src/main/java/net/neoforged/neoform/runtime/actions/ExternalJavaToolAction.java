@@ -4,6 +4,7 @@ import net.neoforged.neoform.runtime.artifacts.Artifact;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
+import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -17,6 +18,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +41,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private URI repositoryUrl;
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
+    // TODO: add as cache key
+    @Nullable
+    private ListLibrariesFile listLibraries = null;
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -66,6 +71,13 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
+        var workingDir = environment.getWorkspace();
+
+        // Write MC libraries to a file if needed
+        if (listLibraries != null) {
+            listLibraries.writeFile(environment);
+        }
+
         Artifact toolArtifact;
         if (repositoryUrl != null) {
             toolArtifact = environment.getArtifactManager().get(toolArtifactId, repositoryUrl);
@@ -82,8 +94,6 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         } else {
             javaExecutablePath = environment.getJavaExecutable();
         }
-
-        var workingDir = environment.getWorkspace();
 
         var command = new ArrayList<String>();
         command.add(javaExecutablePath);
@@ -219,5 +229,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setArgs(List<String> args) {
         this.args = Objects.requireNonNull(args);
+    }
+
+    public ListLibrariesFile generateLibrariesFile() {
+        return this.listLibraries = new ListLibrariesFile();
     }
 }

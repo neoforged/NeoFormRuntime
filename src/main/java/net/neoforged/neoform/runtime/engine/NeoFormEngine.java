@@ -159,7 +159,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder));
     }
 
-    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
+    public NeoFormDistConfig loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -170,12 +170,18 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         loadNeoFormProcess(distConfig);
+
+        return distConfig;
     }
 
     public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
         processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
 
         for (var step : distConfig.steps()) {
+            if (step.name().equals("listLibraries")) {
+                // We fold listLibraries inside the steps that use it
+                continue;
+            }
             addNodeForStep(graph, distConfig, step);
         }
 
@@ -290,6 +296,10 @@ public class NeoFormEngine implements AutoCloseable {
             for (String variable : variables) {
                 var resolvedOutput = graph.getOutput(variable);
                 if (resolvedOutput == null) {
+                    if (variable.equals("listLibrariesOutput")) {
+                        // We fold listLibraries inside the steps that use it
+                        continue;
+                    }
                     if (dataSources.containsKey(variable)) {
                         continue; // it's legal to transitively reference entries in the data dictionary
                     }
@@ -362,7 +372,7 @@ public class NeoFormEngine implements AutoCloseable {
                     throw new IllegalArgumentException("Step " + step.getId() + " references undefined function " + step.type());
                 }
 
-                applyFunctionToNode(step, function, builder);
+                applyFunctionToNode(config, step, function, builder);
             }
         }
 
@@ -378,7 +388,7 @@ public class NeoFormEngine implements AutoCloseable {
         return result;
     }
 
-    private void applyFunctionToNode(NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
+    private void applyFunctionToNode(NeoFormDistConfig config, NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
         var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
         var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
@@ -391,6 +401,7 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         // Now resolve the remaining placeholders.
+        boolean[] usesLibraryList = new boolean[] { false };
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
             while (matcher.find()) {
@@ -408,6 +419,8 @@ public class NeoFormEngine implements AutoCloseable {
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
+                } else if (variable.equals("listLibrariesOutput")) {
+                    usesLibraryList[0] = true;
                 } else if (variable.endsWith("Output")) {
                     // The only remaining supported variable form is referencing outputs of other steps
                     // this is done via <stepName>Output.
@@ -434,6 +447,12 @@ public class NeoFormEngine implements AutoCloseable {
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
+        if (usesLibraryList[0]) {
+            builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
+            var listLibrariesFile = action.generateLibrariesFile();
+            listLibrariesFile.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+            listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
+        }
         builder.action(action);
     }
 
@@ -626,6 +645,7 @@ public class NeoFormEngine implements AutoCloseable {
         private final Path workspace;
         private final ExecutionNode node;
         private final Map<String, Path> outputValues;
+        private final Map<String, Path> extraInterpolations = new HashMap<>();
 
         public NodeProcessingEnvironment(Path workspace, ExecutionNode node, Map<String, Path> outputValues) {
             this.workspace = workspace;
@@ -677,11 +697,38 @@ public class NeoFormEngine implements AutoCloseable {
             } else if ("log".equals(variable)) {
                 // Old MCP versions support "log" to point to a path
                 resultPath = workspace.resolve("log.txt");
+            } else if (extraInterpolations.containsKey(variable)) {
+                resultPath = extraInterpolations.get(variable);
             } else {
                 throw new IllegalArgumentException("Variable " + variable + " is neither an input, output or configuration data");
             }
 
             return getPathArgument(resultPath);
+        }
+
+        @Override
+        public void addInterpolationPath(String variable, Path value) {
+            // TODO: these checks are not great...
+            if (node.inputs().get(variable) != null) {
+                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
+                                                   + " as it is already defined as an input of node " + node.id());
+            }
+            if (node.outputs().containsKey(variable)) {
+                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
+                                                   + " as it is already defined as an output of node " + node.id());
+            }
+            if (dataSources.containsKey(variable)) {
+                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
+                                                   + " as it is already defined as a data source in the NeoForm archive.");
+            }
+            if ("log".equals(variable)) {
+                throw new IllegalArgumentException("Cannot add interpolation path for variable \"log\" as it's a special case.");
+            }
+            if (extraInterpolations.containsKey(variable)) {
+                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
+                                                   + " as it is already defined as an extra interpolation path.");
+            }
+            extraInterpolations.put(variable, value);
         }
 
         public Path extractData(String dataId) {
