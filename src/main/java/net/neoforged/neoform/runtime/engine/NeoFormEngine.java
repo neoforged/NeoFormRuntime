@@ -4,9 +4,11 @@ import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
+import net.neoforged.neoform.runtime.actions.ExtensibleClasspath;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
+import net.neoforged.neoform.runtime.actions.ListLibraries;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -390,6 +392,7 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         // Now resolve the remaining placeholders.
+        boolean[] usesListLibraries = new boolean[] { false };
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
             while (matcher.find()) {
@@ -408,7 +411,7 @@ public class NeoFormEngine implements AutoCloseable {
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
                 } else if ("listLibrariesOutput".equals(variable)) {
-                    // We fold listLibraries inside the steps that use it
+                    usesListLibraries[0] = true;
                 } else if (variable.endsWith("Output")) {
                     // The only remaining supported variable form is referencing outputs of other steps
                     // this is done via <stepName>Output.
@@ -437,11 +440,13 @@ public class NeoFormEngine implements AutoCloseable {
         action.setArgs(resolvedArgs);
         builder.action(action);
 
-        // Add the manifest as an input in case the action uses {listLibrariesOutput}
-        builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-        var listLibrariesFile = action.getListLibraries();
-        listLibrariesFile.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-        listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
+        if (usesListLibraries[0]) {
+            builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
+            var listLibraries = new ListLibraries();
+            listLibraries.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+            listLibraries.getClasspath().addMavenLibraries(config.libraries());
+            action.setListLibraries(listLibraries);
+        }
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {

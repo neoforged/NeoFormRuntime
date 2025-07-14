@@ -39,7 +39,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private URI repositoryUrl;
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
-    private final ListLibraries listLibraries = new ListLibraries();
+    @Nullable
+    private ListLibraries listLibraries = null;
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -67,7 +68,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
-        var listLibrariesFile = listLibraries.writeFile(environment);
+        var listLibrariesFile = listLibraries != null ? listLibraries.writeFile(environment) : null;
 
         Artifact toolArtifact;
         if (repositoryUrl != null) {
@@ -105,7 +106,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             if (toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower")) {
                 arg = arg.replace("TRACE", "WARN");
             }
-            arg = arg.replace("{listLibrariesOutput}", environment.getPathArgument(listLibrariesFile));
+            if (listLibrariesFile != null) {
+                arg = arg.replace("{listLibrariesOutput}", environment.getPathArgument(listLibrariesFile));
+            }
 
             command.add(environment.interpolateString(arg));
         }
@@ -190,7 +193,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
-        listLibraries.computeCacheKey(ck);
+        if (listLibraries != null) {
+            listLibraries.computeCacheKey(ck);
+        }
     }
 
     public MavenCoordinate getToolArtifactId() {
@@ -226,7 +231,12 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         this.args = Objects.requireNonNull(args);
     }
 
+    @Nullable
     public ListLibraries getListLibraries() {
         return this.listLibraries;
+    }
+
+    public void setListLibraries(@Nullable ListLibraries listLibraries) {
+        this.listLibraries = listLibraries;
     }
 }
