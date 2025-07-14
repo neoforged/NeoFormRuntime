@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class ListLibrariesFile {
-    private final ExtensibleClasspath classpath = new ExtensibleClasspath();
+    private ExtensibleClasspath classpath = new ExtensibleClasspath();
 
     /**
      * Writes the library list to a file. The file is available as the interpolation variable {@code listLibrariesOutput}.
@@ -29,5 +29,9 @@ public class ListLibrariesFile {
 
     public ExtensibleClasspath getClasspath() {
         return classpath;
+    }
+
+    public void setClasspath(ExtensibleClasspath classpath) {
+        this.classpath = classpath;
     }
 }

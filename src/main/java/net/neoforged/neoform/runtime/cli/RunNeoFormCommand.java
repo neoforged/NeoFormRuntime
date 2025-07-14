@@ -86,7 +86,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
 
-        NeoFormDistConfig config;
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
             var neoforgeZipFile = engine.addManagedResource(new JarFile(neoforgeArtifact.path().toFile()));
@@ -101,7 +100,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 neoformArtifact = artifactManager.get(neoforgeConfig.neoformArtifact()).path();
             }
 
-            config = engine.loadNeoFormData(neoformArtifact, dist);
+            engine.loadNeoFormData(neoformArtifact, dist);
 
             // Add NeoForge specific data sources
             engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
@@ -117,7 +116,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             engine.addManagedResource(neoforgeSourcesZip);
             engine.addManagedResource(neoforgeClassesZip);
 
-            var transformSources = getOrAddTransformSourcesAction(engine, config);
+            var transformSources = getOrAddTransformSourcesAction(engine);
 
             transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
@@ -216,10 +215,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
 
-            config = engine.loadNeoFormData(neoFormDataPath, dist);
+            engine.loadNeoFormData(neoFormDataPath, dist);
         }
 
-        applyAdditionalAccessTransformers(engine, config);
+        applyAdditionalAccessTransformers(engine);
 
         if (parchmentData != null) {
             var parchmentDataFile = artifactManager.get(parchmentData);
@@ -232,14 +231,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // Before 1.20.2, sources were still in SRG, while parchment was defined using Mojang names.
             // Hence, we need to apply Parchment after we remap SRG to Mojang names
             if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(engine, config, jstConsumer)));
+                engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(engine, jstConsumer)));
             } else {
-                jstConsumer.accept(getOrAddTransformSourcesAction(engine, config));
+                jstConsumer.accept(getOrAddTransformSourcesAction(engine));
             }
         }
 
         if (!interfaceInjectionDataFiles.isEmpty()) {
-            var transformNode = getOrAddTransformSourcesNode(engine, config);
+            var transformNode = getOrAddTransformSourcesNode(engine);
             ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
 
             // Add the stub source jar to the recomp classpath
@@ -258,9 +257,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     /**
      * Configure the engine to apply additional user-supplied access transformers to the game sources.
      */
-    private void applyAdditionalAccessTransformers(NeoFormEngine engine, NeoFormDistConfig config) {
+    private void applyAdditionalAccessTransformers(NeoFormEngine engine) {
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
-            var transformSources = getOrAddTransformSourcesAction(engine, config);
+            var transformSources = getOrAddTransformSourcesAction(engine);
             transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
             transformSources.setValidatedAccessTransformers(validatedAccessTransformers.stream().map(Paths::get).toList());
 
@@ -374,11 +373,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
     }
 
-    private static ApplySourceTransformAction getOrAddTransformSourcesAction(NeoFormEngine engine, NeoFormDistConfig config) {
-        return (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine, config).action();
+    private static ApplySourceTransformAction getOrAddTransformSourcesAction(NeoFormEngine engine) {
+        return (ApplySourceTransformAction) getOrAddTransformSourcesNode(engine).action();
     }
 
-    private static ExecutionNode getOrAddTransformSourcesNode(NeoFormEngine engine, NeoFormDistConfig config) {
+    private static ExecutionNode getOrAddTransformSourcesNode(NeoFormEngine engine) {
         var graph = engine.getGraph();
         var transformNode = graph.getNode("transformSources");
         if (transformNode != null) {
@@ -394,21 +393,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 "patch",
                 "output",
                 "transformSources",
-                sourceTransform(engine, config, applySourceTransformAction -> {
+                sourceTransform(engine, applySourceTransformAction -> {
                 })
         ).apply(engine, graph);
 
-        return getOrAddTransformSourcesNode(engine, config);
+        return getOrAddTransformSourcesNode(engine);
     }
 
-    private static ReplaceNodeOutput.NodeFactory sourceTransform(NeoFormEngine engine, NeoFormDistConfig config, Consumer<ApplySourceTransformAction> actionConsumer) {
+    private static ReplaceNodeOutput.NodeFactory sourceTransform(NeoFormEngine engine, Consumer<ApplySourceTransformAction> actionConsumer) {
         return (builder, previousNodeOutput) -> {
             builder.input("input", previousNodeOutput.asInput());
-            var action = new ApplySourceTransformAction();
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var listLibrariesFile = action.getListLibraries();
-            listLibrariesFile.getClasspath().setOverriddenClasspath(engine.getBuildOptions().getOverriddenCompileClasspath());
-            listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
+            var action = new ApplySourceTransformAction();
+            // Copy listLibraries classpath from rename action
+            var renameAction = (ExternalJavaToolAction) engine.getGraph().getNode("rename").action();
+            action.getListLibraries().setClasspath(renameAction.getListLibraries().getClasspath().copy());
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");

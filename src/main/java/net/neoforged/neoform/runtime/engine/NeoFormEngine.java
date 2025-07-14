@@ -1,7 +1,6 @@
 package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
-import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
@@ -159,7 +158,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder));
     }
 
-    public NeoFormDistConfig loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
+    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -170,8 +169,6 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         loadNeoFormProcess(distConfig);
-
-        return distConfig;
     }
 
     public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
@@ -335,14 +332,6 @@ public class NeoFormEngine implements AutoCloseable {
                 // The Minecraft jar contains nothing of interest in META-INF, and the signature files are useless.
                 action.addDenyPatterns("META-INF/.*");
                 processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
-                builder.action(action);
-            }
-            case "listLibraries" -> {
-                builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-                builder.output("output", NodeOutputType.TXT, "A list of all external JAR files needed to decompile/recompile");
-                var action = new CreateLibrariesOptionsFileAction();
-                action.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-                action.getClasspath().addMavenLibraries(config.libraries());
                 builder.action(action);
             }
             case "inject" -> {
