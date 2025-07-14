@@ -21,9 +21,8 @@ public class ListLibraries {
     public Path writeFile(ProcessingEnvironment environment) throws IOException {
         var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
 
-        var effectiveClasspath = classpath.copy();
-        effectiveClasspath.addMinecraftLibraries(versionManifest.libraries());
-        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspath.getEffectiveClasspath());
+        var effectiveClasspathItems = classpath.mergeWithMinecraftLibraries(versionManifest).getEffectiveClasspath();
+        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
 
         var vineflowerArgs = classpath.stream().map(l -> "-e=" + l.toAbsolutePath()).toList();
 

@@ -4,6 +4,7 @@ import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.manifests.MinecraftLibrary;
+import net.neoforged.neoform.runtime.manifests.MinecraftVersionManifest;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,8 +52,33 @@ public class ExtensibleClasspath {
         }
     }
 
+    public void addAll(Iterable<ClasspathItem> classpathItems) {
+        for (var classpathItem : classpathItems) {
+            add(classpathItem);
+        }
+    }
+
     public void add(ClasspathItem classpathItem) {
+        // Ensure that previously added libraries of the same group:artifact:classifier are overridden to avoid
+        // the same library from being present on the classpath twice.
+        var coordinate = getMavenCoordinate(classpathItem);
+        if (coordinate != null) {
+            this.additionalClasspath.removeIf(existingItem -> {
+                var existingCoord = getMavenCoordinate(existingItem);
+                return existingCoord != null && existingCoord.equalsWithoutVersion(coordinate);
+            });
+        }
+
         this.additionalClasspath.add(classpathItem);
+    }
+
+    @Nullable
+    private MavenCoordinate getMavenCoordinate(ClasspathItem classpathItem) {
+        return switch (classpathItem) {
+            case ClasspathItem.MavenCoordinateItem mavenCoordinateItem -> mavenCoordinateItem.coordinate();
+            case ClasspathItem.MinecraftLibraryItem minecraftLibraryItem -> minecraftLibraryItem.library().getMavenCoordinate();
+            default -> null;
+        };
     }
 
     public List<ClasspathItem> getAdditionalClasspath() {
@@ -60,7 +86,9 @@ public class ExtensibleClasspath {
     }
 
     public void setAdditionalClasspath(List<ClasspathItem> additionalClasspath) {
-        this.additionalClasspath = new ArrayList<>(Objects.requireNonNull(additionalClasspath, "additionalClasspath"));
+        Objects.requireNonNull(additionalClasspath, "additionalClasspath");
+        this.additionalClasspath.clear();
+        additionalClasspath.forEach(this::add);
     }
 
     public @Nullable List<ClasspathItem> getOverriddenClasspath() {
@@ -112,6 +140,22 @@ public class ExtensibleClasspath {
                 case ClasspathItem.PathItem(Path path) -> ck.addPath(component, path);
                 case ClasspathItem.NodeOutputItem(NodeOutput output) -> ck.addPath(component, output.getResultPath());
             }
+        }
+    }
+
+    /**
+     * Merges the libraries from a Minecraft version manifest with the entries in this classpath.
+     * Entries in the manifest are considered to be of lower priority than the entries already present
+     * in the classpath.
+     */
+    public ExtensibleClasspath mergeWithMinecraftLibraries(MinecraftVersionManifest versionManifest) {
+        if (overriddenClasspath == null) {
+            var mergedClasspath = new ExtensibleClasspath();
+            mergedClasspath.addMinecraftLibraries(versionManifest.libraries());
+            mergedClasspath.addAll(getEffectiveClasspath());
+            return mergedClasspath;
+        } else {
+            return this;
         }
     }
 

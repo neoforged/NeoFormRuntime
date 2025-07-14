@@ -4,7 +4,7 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'com.gradleup.shadow' version '8.3.0'
-    id "net.neoforged.gradleutils" version "3.0.0"
+    id "net.neoforged.gradleutils" version "5.0.1"
     id "org.jetbrains.gradle.plugin.idea-ext" version "1.1.8"
 }
 
@@ -87,19 +87,20 @@ configurations {
 }
 
 dependencies {
-    compileOnly 'org.jetbrains:annotations:24.1.0'
+    compileOnly 'org.jetbrains:annotations:26.0.2'
     implementation 'info.picocli:picocli:4.7.6'
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'org.eclipse.jdt:ecj:3.38.0'
+    implementation 'org.eclipse.jdt:ecj:3.42.0'
     implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     implementation 'net.neoforged:srgutils:1.0.10'
     implementation 'net.neoforged.installertools:problems-api:3.0.3'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation platform('org.mockito:mockito-bom:5.12.0')
-    testImplementation platform('org.assertj:assertj-bom:3.26.3')
+    testImplementation platform('org.junit:junit-bom:5.13.2')
+    testImplementation platform('org.mockito:mockito-bom:5.18.0')
+    testImplementation platform('org.assertj:assertj-bom:3.27.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
     testImplementation 'org.mockito:mockito-junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
@@ -161,6 +162,11 @@ idea {
                 "Show Help"(Application) {
                     mainClass = mainClassName
                     programParameters = "--help"
+                    moduleRef(project, sourceSets.main)
+                }
+                "Run Neoforge 1.21.6 (joined) + Parchment"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.6.1-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21.5:2025.06.15@zip --parchment-conflict-prefix=p_ --write-result=compiled:build/minecraft-1.21.6.jar --write-result=clientResources:build/client-extra-1.21.6.jar --write-result=sources:build/minecraft-sources-1.21.6.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.21 (joined) + Parchment"(Application) {

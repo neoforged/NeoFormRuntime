@@ -93,7 +93,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
                 "--out-format", "ARCHIVE"
         );
 
-        if (!accessTransformersData.isEmpty() || !additionalAccessTransformers.isEmpty()) {
+        if (!accessTransformersData.isEmpty() || !additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
             args.add("--enable-accesstransformers");
 
             for (var dataId : accessTransformersData) {

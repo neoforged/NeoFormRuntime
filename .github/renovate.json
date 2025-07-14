@@ -17,9 +17,15 @@
   ],
   "packageRules": [
     {
-      "matchDatasources": ["maven"],
-      "matchPackagePatterns": ["^net\\.fabricmc\\."],
-      "registryUrls": ["https://maven.fabricmc.net/"]
+      "matchDatasources": [
+        "maven"
+      ],
+      "registryUrls": [
+        "https://maven.fabricmc.net/"
+      ],
+      "matchPackageNames": [
+        "/^net\\.fabricmc\\./"
+      ]
     }
-   ]
+  ]
 }
