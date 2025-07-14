@@ -401,7 +401,6 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         // Now resolve the remaining placeholders.
-        boolean[] usesLibraryList = new boolean[] { false };
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
             while (matcher.find()) {
@@ -419,8 +418,8 @@ public class NeoFormEngine implements AutoCloseable {
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
-                } else if (variable.equals("listLibrariesOutput")) {
-                    usesLibraryList[0] = true;
+                } else if ("listLibrariesOutput".equals(variable)) {
+                    // We fold listLibraries inside the steps that use it
                 } else if (variable.endsWith("Output")) {
                     // The only remaining supported variable form is referencing outputs of other steps
                     // this is done via <stepName>Output.
@@ -447,13 +446,13 @@ public class NeoFormEngine implements AutoCloseable {
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
-        if (usesLibraryList[0]) {
-            builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var listLibrariesFile = action.generateLibrariesFile();
-            listLibrariesFile.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-            listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
-        }
         builder.action(action);
+
+        // Add the manifest as an input in case the action uses {listLibrariesOutput}
+        builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
+        var listLibrariesFile = action.getListLibraries();
+        listLibrariesFile.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+        listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {
@@ -645,7 +644,6 @@ public class NeoFormEngine implements AutoCloseable {
         private final Path workspace;
         private final ExecutionNode node;
         private final Map<String, Path> outputValues;
-        private final Map<String, Path> extraInterpolations = new HashMap<>();
 
         public NodeProcessingEnvironment(Path workspace, ExecutionNode node, Map<String, Path> outputValues) {
             this.workspace = workspace;
@@ -697,38 +695,11 @@ public class NeoFormEngine implements AutoCloseable {
             } else if ("log".equals(variable)) {
                 // Old MCP versions support "log" to point to a path
                 resultPath = workspace.resolve("log.txt");
-            } else if (extraInterpolations.containsKey(variable)) {
-                resultPath = extraInterpolations.get(variable);
             } else {
                 throw new IllegalArgumentException("Variable " + variable + " is neither an input, output or configuration data");
             }
 
             return getPathArgument(resultPath);
-        }
-
-        @Override
-        public void addInterpolationPath(String variable, Path value) {
-            // TODO: these checks are not great...
-            if (node.inputs().get(variable) != null) {
-                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
-                                                   + " as it is already defined as an input of node " + node.id());
-            }
-            if (node.outputs().containsKey(variable)) {
-                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
-                                                   + " as it is already defined as an output of node " + node.id());
-            }
-            if (dataSources.containsKey(variable)) {
-                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
-                                                   + " as it is already defined as a data source in the NeoForm archive.");
-            }
-            if ("log".equals(variable)) {
-                throw new IllegalArgumentException("Cannot add interpolation path for variable \"log\" as it's a special case.");
-            }
-            if (extraInterpolations.containsKey(variable)) {
-                throw new IllegalArgumentException("Cannot add interpolation path for variable " + variable
-                                                   + " as it is already defined as an extra interpolation path.");
-            }
-            extraInterpolations.put(variable, value);
         }
 
         public Path extractData(String dataId) {

@@ -406,7 +406,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.input("input", previousNodeOutput.asInput());
             var action = new ApplySourceTransformAction();
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var listLibrariesFile = action.getListLibrariesFile();
+            var listLibrariesFile = action.getListLibraries();
             listLibrariesFile.getClasspath().setOverriddenClasspath(engine.getBuildOptions().getOverriddenCompileClasspath());
             listLibrariesFile.getClasspath().addMavenLibraries(config.libraries());
             builder.action(action);

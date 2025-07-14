@@ -5,6 +5,7 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class ListLibrariesFile {
     private final ExtensibleClasspath classpath = new ExtensibleClasspath();
@@ -12,7 +13,7 @@ public class ListLibrariesFile {
     /**
      * Writes the library list to a file. The file is available as the interpolation variable {@code listLibrariesOutput}.
      */
-    public void writeFile(ProcessingEnvironment environment) throws IOException {
+    public Path writeFile(ProcessingEnvironment environment) throws IOException {
         var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
 
         var effectiveClasspath = classpath.copy();
@@ -23,7 +24,7 @@ public class ListLibrariesFile {
 
         var libraryListFile = environment.getWorkspace().resolve("libraries.txt");
         Files.write(libraryListFile, vineflowerArgs);
-        environment.addInterpolationPath("listLibrariesOutput", libraryListFile);
+        return libraryListFile;
     }
 
     public ExtensibleClasspath getClasspath() {

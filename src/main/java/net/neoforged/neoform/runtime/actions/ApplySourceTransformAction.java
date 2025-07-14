@@ -33,7 +33,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     protected static final Logger LOG = Logger.create();
 
     // TODO: add to cache key
-    private final ListLibrariesFile listLibrariesFile = new ListLibrariesFile();
+    private final ListLibrariesFile listLibraries = new ListLibrariesFile();
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -86,10 +86,10 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
         var problemsReport = environment.getWorkspace().resolve("problems.json");
 
-        listLibrariesFile.writeFile(environment);
+        var listLibrariesFile = listLibraries.writeFile(environment);
         Collections.addAll(args,
                 "--problems-report", problemsReport.toAbsolutePath().toString(),
-                "--libraries-list", "{listLibrariesOutput}",
+                "--libraries-list", environment.getPathArgument(listLibrariesFile),
                 "--in-format", "ARCHIVE",
                 "--out-format", "ARCHIVE"
         );
@@ -218,8 +218,8 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
-    public ListLibrariesFile getListLibrariesFile() {
-        return listLibrariesFile;
+    public ListLibrariesFile getListLibraries() {
+        return listLibraries;
     }
 
     public List<String> getAccessTransformersData() {
