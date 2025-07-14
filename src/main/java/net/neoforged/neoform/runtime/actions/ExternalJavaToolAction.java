@@ -39,7 +39,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private URI repositoryUrl;
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
-    private final ListLibrariesFile listLibraries = new ListLibrariesFile();
+    private final ListLibraries listLibraries = new ListLibraries();
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -67,9 +67,6 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
-        var workingDir = environment.getWorkspace();
-
-        // Write MC libraries to a file if needed
         var listLibrariesFile = listLibraries.writeFile(environment);
 
         Artifact toolArtifact;
@@ -88,6 +85,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         } else {
             javaExecutablePath = environment.getJavaExecutable();
         }
+
+        var workingDir = environment.getWorkspace();
 
         var command = new ArrayList<String>();
         command.add(javaExecutablePath);
@@ -191,6 +190,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
+        listLibraries.computeCacheKey(ck);
     }
 
     public MavenCoordinate getToolArtifactId() {
@@ -226,7 +226,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         this.args = Objects.requireNonNull(args);
     }
 
-    public ListLibrariesFile getListLibraries() {
+    public ListLibraries getListLibraries() {
         return this.listLibraries;
     }
 }

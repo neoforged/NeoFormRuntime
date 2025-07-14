@@ -32,8 +32,7 @@ import java.util.zip.ZipOutputStream;
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
     protected static final Logger LOG = Logger.create();
 
-    // TODO: add to cache key
-    private final ListLibrariesFile listLibraries = new ListLibrariesFile();
+    private final ListLibraries listLibraries = new ListLibraries();
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -215,10 +214,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             ck.addPath("parchment data", parchmentData);
         }
         ck.addStrings("additional arguments", additionalArguments);
+        listLibraries.computeCacheKey(ck);
         parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
-    public ListLibrariesFile getListLibraries() {
+    public ListLibraries getListLibraries() {
         return listLibraries;
     }
 

@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.actions;
 
+import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 
@@ -7,7 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class ListLibrariesFile {
+public class ListLibraries {
     private ExtensibleClasspath classpath = new ExtensibleClasspath();
 
     /**
@@ -25,6 +26,10 @@ public class ListLibrariesFile {
         var libraryListFile = environment.getWorkspace().resolve("libraries.txt");
         Files.write(libraryListFile, vineflowerArgs);
         return libraryListFile;
+    }
+
+    public void computeCacheKey(CacheKeyBuilder ck) {
+        classpath.computeCacheKey("listLibraries classpath", ck);
     }
 
     public ExtensibleClasspath getClasspath() {
