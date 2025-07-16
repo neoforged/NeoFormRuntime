@@ -39,6 +39,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private URI repositoryUrl;
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
+    @Nullable
+    private CreateLibrariesOptionsFile listLibraries = null;
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -66,6 +68,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
+        var listLibrariesFile = listLibraries != null ? listLibraries.writeFile(environment) : null;
+
         Artifact toolArtifact;
         if (repositoryUrl != null) {
             toolArtifact = environment.getArtifactManager().get(toolArtifactId, repositoryUrl);
@@ -101,6 +105,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             // For specific tasks we "fixup" the neoform spec
             if (toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower")) {
                 arg = arg.replace("TRACE", "WARN");
+            }
+            if (listLibrariesFile != null) {
+                arg = arg.replace("{listLibrariesOutput}", environment.getPathArgument(listLibrariesFile));
             }
 
             command.add(environment.interpolateString(arg));
@@ -186,6 +193,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
+        if (listLibraries != null) {
+            listLibraries.computeCacheKey(ck);
+        }
     }
 
     public MavenCoordinate getToolArtifactId() {
@@ -219,5 +229,14 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setArgs(List<String> args) {
         this.args = Objects.requireNonNull(args);
+    }
+
+    @Nullable
+    public CreateLibrariesOptionsFile getListLibraries() {
+        return this.listLibraries;
+    }
+
+    public void setListLibraries(@Nullable CreateLibrariesOptionsFile listLibraries) {
+        this.listLibraries = listLibraries;
     }
 }

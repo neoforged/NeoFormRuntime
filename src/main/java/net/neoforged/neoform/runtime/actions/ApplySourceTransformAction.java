@@ -32,6 +32,7 @@ import java.util.zip.ZipOutputStream;
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
     protected static final Logger LOG = Logger.create();
 
+    private final CreateLibrariesOptionsFile listLibraries = new CreateLibrariesOptionsFile();
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -84,9 +85,10 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
         var problemsReport = environment.getWorkspace().resolve("problems.json");
 
+        var listLibrariesFile = listLibraries.writeFile(environment);
         Collections.addAll(args,
                 "--problems-report", problemsReport.toAbsolutePath().toString(),
-                "--libraries-list", "{libraries}",
+                "--libraries-list", environment.getPathArgument(listLibrariesFile),
                 "--in-format", "ARCHIVE",
                 "--out-format", "ARCHIVE"
         );
@@ -212,7 +214,12 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             ck.addPath("parchment data", parchmentData);
         }
         ck.addStrings("additional arguments", additionalArguments);
+        listLibraries.computeCacheKey(ck);
         parserClasspath.computeCacheKey("parser classpath", ck);
+    }
+
+    public CreateLibrariesOptionsFile getListLibraries() {
+        return listLibraries;
     }
 
     public List<String> getAccessTransformersData() {

@@ -10,6 +10,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
+import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -230,7 +231,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // Before 1.20.2, sources were still in SRG, while parchment was defined using Mojang names.
             // Hence, we need to apply Parchment after we remap SRG to Mojang names
             if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(jstConsumer)));
+                engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(engine, jstConsumer)));
             } else {
                 jstConsumer.accept(getOrAddTransformSourcesAction(engine));
             }
@@ -392,18 +393,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 "patch",
                 "output",
                 "transformSources",
-                sourceTransform(applySourceTransformAction -> {
+                sourceTransform(engine, applySourceTransformAction -> {
                 })
         ).apply(engine, graph);
 
         return getOrAddTransformSourcesNode(engine);
     }
 
-    private static ReplaceNodeOutput.NodeFactory sourceTransform(Consumer<ApplySourceTransformAction> actionConsumer) {
+    private static ReplaceNodeOutput.NodeFactory sourceTransform(NeoFormEngine engine, Consumer<ApplySourceTransformAction> actionConsumer) {
         return (builder, previousNodeOutput) -> {
             builder.input("input", previousNodeOutput.asInput());
-            builder.inputFromNodeOutput("libraries", "listLibraries", "output");
+            builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
             var action = new ApplySourceTransformAction();
+            // Copy listLibraries classpath from rename action
+            var renameAction = (ExternalJavaToolAction) engine.getGraph().getNode("rename").action();
+            action.getListLibraries().setClasspath(renameAction.getListLibraries().getClasspath().copy());
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");

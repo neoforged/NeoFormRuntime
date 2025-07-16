@@ -1,13 +1,13 @@
 package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
-import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFileAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
+import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFile;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -176,6 +176,10 @@ public class NeoFormEngine implements AutoCloseable {
         processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
 
         for (var step : distConfig.steps()) {
+            if (step.name().equals("listLibraries")) {
+                // We fold listLibraries inside the steps that use it
+                continue;
+            }
             addNodeForStep(graph, distConfig, step);
         }
 
@@ -290,6 +294,10 @@ public class NeoFormEngine implements AutoCloseable {
             for (String variable : variables) {
                 var resolvedOutput = graph.getOutput(variable);
                 if (resolvedOutput == null) {
+                    if (variable.equals("listLibrariesOutput")) {
+                        // We fold listLibraries inside the steps that use it
+                        continue;
+                    }
                     if (dataSources.containsKey(variable)) {
                         continue; // it's legal to transitively reference entries in the data dictionary
                     }
@@ -347,14 +355,6 @@ public class NeoFormEngine implements AutoCloseable {
                 processGeneration.getAdditionalDenyListForMinecraftJars().forEach(action::addDenyPatterns);
                 builder.action(action);
             }
-            case "listLibraries" -> {
-                builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-                builder.output("output", NodeOutputType.TXT, "A list of all external JAR files needed to decompile/recompile");
-                var action = new CreateLibrariesOptionsFileAction();
-                action.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-                action.getClasspath().addMavenLibraries(config.libraries());
-                builder.action(action);
-            }
             case "inject" -> {
                 var injectionSource = getRequiredDataSource("inject");
 
@@ -382,7 +382,7 @@ public class NeoFormEngine implements AutoCloseable {
                     throw new IllegalArgumentException("Step " + step.getId() + " references undefined function " + step.type());
                 }
 
-                applyFunctionToNode(step, function, builder);
+                applyFunctionToNode(config, step, function, builder);
             }
         }
 
@@ -398,7 +398,7 @@ public class NeoFormEngine implements AutoCloseable {
         return result;
     }
 
-    private void applyFunctionToNode(NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
+    private void applyFunctionToNode(NeoFormDistConfig config, NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
         var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
         var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
@@ -411,6 +411,7 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         // Now resolve the remaining placeholders.
+        boolean[] usesListLibraries = new boolean[] { false };
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
             while (matcher.find()) {
@@ -429,6 +430,8 @@ public class NeoFormEngine implements AutoCloseable {
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
+                } else if ("listLibrariesOutput".equals(variable)) {
+                    usesListLibraries[0] = true;
                 } else if (variable.endsWith("Output")) {
                     // The only remaining supported variable form is referencing outputs of other steps
                     // this is done via <stepName>Output.
@@ -456,6 +459,14 @@ public class NeoFormEngine implements AutoCloseable {
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
         builder.action(action);
+
+        if (usesListLibraries[0]) {
+            builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
+            var listLibraries = new CreateLibrariesOptionsFile();
+            listLibraries.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
+            listLibraries.getClasspath().addMavenLibraries(config.libraries());
+            action.setListLibraries(listLibraries);
+        }
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {
