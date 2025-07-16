@@ -4,11 +4,10 @@ import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
-import net.neoforged.neoform.runtime.actions.ExtensibleClasspath;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
-import net.neoforged.neoform.runtime.actions.ListLibraries;
+import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFile;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -463,7 +462,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         if (usesListLibraries[0]) {
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var listLibraries = new ListLibraries();
+            var listLibraries = new CreateLibrariesOptionsFile();
             listLibraries.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
             listLibraries.getClasspath().addMavenLibraries(config.libraries());
             action.setListLibraries(listLibraries);

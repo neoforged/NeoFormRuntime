@@ -40,7 +40,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private List<String> jvmArgs = new ArrayList<>();
     private List<String> args = new ArrayList<>();
     @Nullable
-    private ListLibraries listLibraries = null;
+    private CreateLibrariesOptionsFile listLibraries = null;
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -232,11 +232,11 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     }
 
     @Nullable
-    public ListLibraries getListLibraries() {
+    public CreateLibrariesOptionsFile getListLibraries() {
         return this.listLibraries;
     }
 
-    public void setListLibraries(@Nullable ListLibraries listLibraries) {
+    public void setListLibraries(@Nullable CreateLibrariesOptionsFile listLibraries) {
         this.listLibraries = listLibraries;
     }
 }

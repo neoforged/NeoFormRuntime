@@ -32,7 +32,7 @@ import java.util.zip.ZipOutputStream;
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
     protected static final Logger LOG = Logger.create();
 
-    private final ListLibraries listLibraries = new ListLibraries();
+    private final CreateLibrariesOptionsFile listLibraries = new CreateLibrariesOptionsFile();
     /**
      * Additional libraries to be added to the classpath for parsing the sources.
      * Minecraft libraries are pulled in automatically from the same source used by the
@@ -218,7 +218,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
-    public ListLibraries getListLibraries() {
+    public CreateLibrariesOptionsFile getListLibraries() {
         return listLibraries;
     }
 
