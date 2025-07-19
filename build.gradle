@@ -94,6 +94,7 @@ dependencies {
     implementation 'net.fabricmc:fabric-loom-native:0.2.1'
     implementation 'net.neoforged:srgutils:1.0.10'
     implementation 'net.neoforged.installertools:problems-api:3.0.3'
+    implementation 'org.apache.commons:commons-compress:1.27.1'
     annotationProcessor 'info.picocli:picocli-codegen:4.7.6'
 
     testImplementation platform('org.junit:junit-bom:5.13.2')
