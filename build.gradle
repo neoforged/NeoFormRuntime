@@ -234,6 +234,11 @@ idea {
                     programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-properties build/assets.properties --write-json build/assets.json"
                     moduleRef(project, sourceSets.main)
                 }
+                "NeoForm 1.21 (joined) strip only"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoform net.neoforged:neoform:1.21-20240613.152323@zip --write-result=node.stripClient.output.output:build/stripped-client.jar --write-result=node.stripServer.output.output:build/stripped-server.jar"
+                    moduleRef(project, sourceSets.main)
+                }
             }
         }
     }
