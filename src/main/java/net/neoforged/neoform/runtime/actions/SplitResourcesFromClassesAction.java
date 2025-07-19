@@ -222,6 +222,8 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
+        // TODO: remove :P
+        ck.add("force rerun", "" + Math.random());
         ck.addStrings("deny patterns", denyListPatterns.stream().map(Pattern::pattern).toList());
         if (generateDistManifestSettings != null) {
             ck.add("generate dist manifest - our dist", generateDistManifestSettings.distId);
