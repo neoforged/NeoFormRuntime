@@ -117,6 +117,9 @@ public class InjectFromZipFileSource implements InjectSource {
                         continue;
                     }
                     copiedEntry.setMethod(entry.getMethod());
+                    copiedEntry.setCrc(entry.getCrc());
+                    copiedEntry.setSize(entry.getSize());
+                    copiedEntry.setTime(entry.getTime());
 
                     out.putNextEntry(copiedEntry);
                     contentFilter.copy(entry, in, out);
