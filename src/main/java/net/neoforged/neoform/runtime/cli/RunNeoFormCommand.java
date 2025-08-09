@@ -255,7 +255,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // TODO: what if there is no transformSources node yet?
         var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
-        sourceTransform(action -> {})
+        sourceTransform(engine, action -> {})
                 .make(applyAdditionalTransformsBuilder, graph.getRequiredOutput("transformSources", "output"));
         var applyAdditionalTransforms = applyAdditionalTransformsBuilder.build();
         // TODO: ugly
