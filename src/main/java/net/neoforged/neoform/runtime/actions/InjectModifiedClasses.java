@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.util.Map;
 import java.util.zip.ZipInputStream;
 
-public class MergeZipsAction extends BuiltInAction {
+public class InjectModifiedClasses extends BuiltInAction {
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var classesFile = environment.getRequiredInputPath("classes");

@@ -72,7 +72,6 @@ public class SelectSourcesToRecompile extends BuiltInAction {
         // This is faster than working with ZipFile streams which inflate and deflate all the entries.
         Files.copy(originalClasses, unchangedClasses);
         try (var zfs = FileSystems.newFileSystem(unchangedClasses, Map.of("create", "false"))) {
-
             try (var originalZip = new ZipFile(originalClasses.toFile())) {
                 var entries = originalZip.entries();
                 while (entries.hasMoreElements()) {

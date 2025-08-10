@@ -5,14 +5,13 @@ import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
-import net.neoforged.neoform.runtime.actions.MergeZipsAction;
+import net.neoforged.neoform.runtime.actions.InjectModifiedClasses;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.SelectSourcesToRecompile;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
-import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -83,6 +82,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
     }
+
+    @CommandLine.Option(names = "--partial-recompile", description = "[EXPERIMENTAL] Enables partial recompilation for user-defined transforms")
+    boolean partialRecompile;
 
     @Override
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
@@ -253,49 +255,64 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         var graph = engine.getGraph();
 
-        // TODO: what if there is no transformSources node yet?
-        var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
-        sourceTransform(engine, action -> {})
-                .make(applyAdditionalTransformsBuilder, graph.getRequiredOutput("transformSources", "output"));
-        var applyAdditionalTransforms = applyAdditionalTransformsBuilder.build();
-        // TODO: ugly
-        var sourceTransformAction = (ApplySourceTransformAction) applyAdditionalTransforms.action();
+        ExecutionNode sourceTransformNode;
+        ApplySourceTransformAction sourceTransformAction;
+        String recompilationNodeName;
 
-        new ReplaceNodeOutput(
-                "recompile",
-                "output",
-                (engine_, recompileOutput) -> {
-                    var selectSourcesBuilder = graph.nodeBuilder("selectSourcesToRecompile");
-                    selectSourcesBuilder.inputFromNodeOutput("originalSources", "transformSources", "output");
-                    selectSourcesBuilder.input("originalClasses", recompileOutput.asInput());
-                    selectSourcesBuilder.input("transformedSources", applyAdditionalTransforms.getRequiredOutput("output").asInput());
-                    var unchangedClasses = selectSourcesBuilder.output("unchangedClasses", NodeOutputType.JAR, "Classes that were already compiled and whose corresponding sources did not change.");
-                    var changedSourcesOnly = selectSourcesBuilder.output("changedSourcesOnly", NodeOutputType.JAR, "Sources that were changed and need to be recompiled.");
-                    selectSourcesBuilder.action(new SelectSourcesToRecompile());
-                    var selectSources = selectSourcesBuilder.build();
+        if (partialRecompile) {
+            // If there is a source transform (Parchment or NeoForge's AT), its output is the baseline.
+            // Else it's the output of patch (NeoForm with no Parchment applied).
+            var startingSources = graph.getNode("transformSources") != null
+                    ? graph.getRequiredOutput("transformSources", "output")
+                    : graph.getRequiredOutput("patch", "output");
+            var recompileOutput = graph.getRequiredOutput("recompile", "output");
+            var recompileAction = (RecompileSourcesAction) recompileOutput.getNode().action();
 
-                    var recompileModifiedSources = graph.nodeBuilder("recompileModifiedSources");
-                    recompileModifiedSources.input("sources", changedSourcesOnly.asInput());
-                    recompileModifiedSources.input("versionManifest", recompileOutput.getNode().getRequiredInput("versionManifest"));
-                    var modifiedClasses = recompileModifiedSources.output("output", NodeOutputType.JAR, "Compiled minecraft sources that were changed.");
+            // Second transform action for additional transforms
+            var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
+            sourceTransform(engine, action -> {})
+                    .make(applyAdditionalTransformsBuilder, startingSources);
+            sourceTransformNode = applyAdditionalTransformsBuilder.build();
+            sourceTransformAction = (ApplySourceTransformAction) sourceTransformNode.action();
 
-                    var recompileAction = (RecompileSourcesAction) recompileOutput.getNode().action();
-                    // TODO: we need to ensure that the original classpath is not modified after this
-                    RecompileSourcesAction recompileModifiedAction = recompileAction.copy();
-                    recompileModifiedAction.getClasspath().add(ClasspathItem.of(unchangedClasses));
-                    recompileModifiedSources.action(recompileModifiedAction);
-                    recompileModifiedSources.build();
+            // Split off sources that were modified by the second transform
+            var selectSourcesBuilder = graph.nodeBuilder("selectSourcesToRecompile");
+            selectSourcesBuilder.input("originalSources", startingSources.asInput());
+            selectSourcesBuilder.input("originalClasses", recompileOutput.asInput());
+            selectSourcesBuilder.input("transformedSources", sourceTransformNode.getRequiredOutput("output").asInput());
+            var unchangedClasses = selectSourcesBuilder.output("unchangedClasses", NodeOutputType.JAR, "Classes that were already compiled and whose corresponding sources did not change.");
+            var changedSourcesOnly = selectSourcesBuilder.output("changedSourcesOnly", NodeOutputType.JAR, "Sources that were changed and need to be recompiled.");
+            selectSourcesBuilder.action(new SelectSourcesToRecompile());
+            var selectSources = selectSourcesBuilder.build();
 
-                    var injectBuilder = graph.nodeBuilder("injectModifiedClasses");
-                    injectBuilder.input("classes", unchangedClasses.asInput());
-                    injectBuilder.input("classes2", modifiedClasses.asInput());
-                    var output = injectBuilder.output("output", NodeOutputType.JAR, "Compiled Minecraft sources with additional changes merged in.");
-                    injectBuilder.action(new MergeZipsAction());
-                    injectBuilder.build();
+            // Recompile modified sources
+            var recompileModifiedSources = graph.nodeBuilder("recompileModifiedSources");
+            recompileModifiedSources.input("sources", changedSourcesOnly.asInput());
+            recompileModifiedSources.input("versionManifest", recompileOutput.getNode().getRequiredInput("versionManifest"));
+            var modifiedClasses = recompileModifiedSources.output("output", NodeOutputType.JAR, "Compiled minecraft sources that were changed.");
+            RecompileSourcesAction recompileModifiedAction = recompileAction.copy();
+            recompileModifiedAction.getClasspath().add(ClasspathItem.of(unchangedClasses));
+            recompileModifiedSources.action(recompileModifiedAction);
+            recompileModifiedSources.build();
 
-                    return new ReplaceNodeOutput.ReplacementResult(output, List.of(selectSources));
-                })
-                .apply(engine, graph);
+            // Recombine with the unmodified classes that were already recompiled before
+            var injectBuilder = graph.nodeBuilder("injectModifiedClasses");
+            injectBuilder.input("classes", unchangedClasses.asInput());
+            injectBuilder.input("classes2", modifiedClasses.asInput());
+            var injectedOutput = injectBuilder.output("output", NodeOutputType.JAR, "Compiled Minecraft sources with additional changes merged in.");
+            injectBuilder.action(new InjectModifiedClasses());
+            injectBuilder.build();
+
+            // Since we replace one node by many, we cannot use the ReplaceNodeOutput with the usual factory,
+            // but rather directly call this helper
+            ReplaceNodeOutput.replaceOutput(graph, recompileOutput, injectedOutput, selectSources);
+
+            recompilationNodeName = "recompileModifiedSources";
+        } else {
+            sourceTransformNode = getOrAddTransformSourcesNode(engine);
+            sourceTransformAction = (ApplySourceTransformAction) sourceTransformNode.action();
+            recompilationNodeName = "recompile";
+        }
 
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
             sourceTransformAction.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
@@ -311,10 +328,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // Add the stub source jar to the recomp classpath
             engine.applyTransform(new ModifyAction<>(
-                    "recompileModifiedSources",
+                    recompilationNodeName,
                     RecompileSourcesAction.class,
                     action -> {
-                        action.getSourcepath().add(ClasspathItem.of(applyAdditionalTransforms.getRequiredOutput("stubs")));
+                        action.getSourcepath().add(ClasspathItem.of(sourceTransformNode.getRequiredOutput("stubs")));
                     }
             ));
         }
