@@ -267,7 +267,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     ? graph.getRequiredOutput("transformSources", "output")
                     : graph.getRequiredOutput("patch", "output");
             var recompileOutput = graph.getRequiredOutput("recompile", "output");
-            var recompileAction = (RecompileSourcesAction) recompileOutput.getNode().action();
+            var recompileNode = recompileOutput.getNode();
+            var recompileAction = (RecompileSourcesAction) recompileNode.action();
 
             // Second transform action for additional transforms
             var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
@@ -309,7 +310,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // but rather directly call this helper
             ReplaceNodeOutput.replaceOutput(graph, recompileOutput, injectedOutput, List.of(selectSources));
             // We also need to replace usages of the sources
-            ReplaceNodeOutput.replaceOutput(graph, startingSources, transformedSources, List.of(sourceTransformNode, selectSources));
+            ReplaceNodeOutput.replaceOutput(graph, startingSources, transformedSources, List.of(recompileNode, sourceTransformNode, selectSources));
 
             recompilationNodeName = "recompileModifiedSources";
         } else {
