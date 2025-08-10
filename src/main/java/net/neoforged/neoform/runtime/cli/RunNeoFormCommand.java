@@ -260,15 +260,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         String recompilationNodeName;
 
         if (partialRecompile) {
-            // TODO: probably not working as expected in 1.20.1 and older versions?
-            // If there is a source transform (Parchment or NeoForge's AT), its output is the baseline.
-            // Else it's the output of patch (NeoForm with no Parchment applied).
-            var startingSources = graph.getNode("transformSources") != null
-                    ? graph.getRequiredOutput("transformSources", "output")
-                    : graph.getRequiredOutput("patch", "output");
             var recompileOutput = graph.getRequiredOutput("recompile", "output");
             var recompileNode = recompileOutput.getNode();
             var recompileAction = (RecompileSourcesAction) recompileNode.action();
+            var startingSources = recompileNode.getRequiredInput("sources").parentOutput();
 
             // Second transform action for additional transforms
             var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
