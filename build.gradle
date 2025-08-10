@@ -181,7 +181,7 @@ idea {
                 }
                 "Experiments"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --verbose --partial-recompile --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --interface-injection-data=interfaces_test.json --validated-access-transformer=test_at.cfg --write-result=compiled:build/compiled-output.jar"
+                    programParameters = "run --verbose --partial-recompile --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --interface-injection-data=interfaces_test.json --validated-access-transformer=test_at.cfg --write-result=node.sourcesWithNeoForge.output.output:build/sources-with-neoforge.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.21 (joined)"(Application) {

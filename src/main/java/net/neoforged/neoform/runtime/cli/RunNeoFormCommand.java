@@ -260,6 +260,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         String recompilationNodeName;
 
         if (partialRecompile) {
+            // TODO: probably not working as expected in 1.20.1 and older versions?
             // If there is a source transform (Parchment or NeoForge's AT), its output is the baseline.
             // Else it's the output of patch (NeoForm with no Parchment applied).
             var startingSources = graph.getNode("transformSources") != null
@@ -274,12 +275,13 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     .make(applyAdditionalTransformsBuilder, startingSources);
             sourceTransformNode = applyAdditionalTransformsBuilder.build();
             sourceTransformAction = (ApplySourceTransformAction) sourceTransformNode.action();
+            var transformedSources = sourceTransformNode.getRequiredOutput("output");
 
             // Split off sources that were modified by the second transform
             var selectSourcesBuilder = graph.nodeBuilder("selectSourcesToRecompile");
             selectSourcesBuilder.input("originalSources", startingSources.asInput());
             selectSourcesBuilder.input("originalClasses", recompileOutput.asInput());
-            selectSourcesBuilder.input("transformedSources", sourceTransformNode.getRequiredOutput("output").asInput());
+            selectSourcesBuilder.input("transformedSources", transformedSources.asInput());
             var unchangedClasses = selectSourcesBuilder.output("unchangedClasses", NodeOutputType.JAR, "Classes that were already compiled and whose corresponding sources did not change.");
             var changedSourcesOnly = selectSourcesBuilder.output("changedSourcesOnly", NodeOutputType.JAR, "Sources that were changed and need to be recompiled.");
             selectSourcesBuilder.action(new SelectSourcesToRecompile());
@@ -305,7 +307,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             // Since we replace one node by many, we cannot use the ReplaceNodeOutput with the usual factory,
             // but rather directly call this helper
-            ReplaceNodeOutput.replaceOutput(graph, recompileOutput, injectedOutput, selectSources);
+            ReplaceNodeOutput.replaceOutput(graph, recompileOutput, injectedOutput, List.of(selectSources));
+            // We also need to replace usages of the sources
+            ReplaceNodeOutput.replaceOutput(graph, startingSources, transformedSources, List.of(sourceTransformNode, selectSources));
 
             recompilationNodeName = "recompileModifiedSources";
         } else {

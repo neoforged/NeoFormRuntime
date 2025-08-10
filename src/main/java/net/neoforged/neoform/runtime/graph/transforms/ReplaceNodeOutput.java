@@ -6,6 +6,8 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 
+import java.util.List;
+
 public final class ReplaceNodeOutput extends GraphTransform {
     private final String nodeId;
     private final String outputId;
@@ -45,18 +47,18 @@ public final class ReplaceNodeOutput extends GraphTransform {
         var newNode = builder.build();
 
         // Find all uses of the old output and replace them with our new output
-        replaceOutput(graph, originalOutput, newOutput, newNode);
+        replaceOutput(graph, originalOutput, newOutput, List.of(newNode));
     }
 
     /**
      * General output -> output replacement.
      *
-     * @param toIgnore node for which the {@code originalOutput} should not be replaced by the {@code newOutput},
-     *                 because it is part of the replacement pipeline
+     * @param toIgnore nodes for which the {@code originalOutput} should not be replaced by the {@code newOutput},
+     *                 because they are part of the replacement pipeline
      */
-    public static void replaceOutput(ExecutionGraph graph, NodeOutput originalOutput, NodeOutput newOutput, ExecutionNode toIgnore) {
+    public static void replaceOutput(ExecutionGraph graph, NodeOutput originalOutput, NodeOutput newOutput, List<ExecutionNode> toIgnore) {
         for (var node : graph.getNodes()) {
-            if (node != toIgnore) {
+            if (!toIgnore.contains(node)) {
                 for (var nodeInput : node.inputs().values()) {
                     nodeInput.replaceReferences(originalOutput, newOutput);
                 }
