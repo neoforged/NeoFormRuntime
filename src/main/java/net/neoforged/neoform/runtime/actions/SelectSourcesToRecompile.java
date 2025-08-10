@@ -89,13 +89,10 @@ public class SelectSourcesToRecompile extends BuiltInAction {
                     // Add trailing .java
                     sourceName += ".java";
 
-                    if (!changedSourcePaths.contains(sourceName)) {
-                        // Skip this entry
-                        continue;
+                    if (changedSourcePaths.contains(sourceName)) {
+                        // Delete!
+                        Files.delete(zfs.getPath(entry.getName()));
                     }
-
-                    // Delete!
-                    Files.delete(zfs.getPath(entry.getName()));
                 }
             }
         }

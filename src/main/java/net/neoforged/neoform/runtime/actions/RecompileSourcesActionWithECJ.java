@@ -215,8 +215,10 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
     @Override
     public RecompileSourcesAction copy() {
         var ret = new RecompileSourcesActionWithECJ();
-        ret.setClasspath(getClasspath().copy());
-        ret.setSourcepath(getSourcepath().copy());
+        ret.getClasspath().setOverriddenClasspath(getClasspath().getOverriddenClasspath());
+        ret.getClasspath().setAdditionalClasspath(getClasspath().getAdditionalClasspath());
+        ret.getSourcepath().setOverriddenClasspath(getSourcepath().getOverriddenClasspath());
+        ret.getSourcepath().setAdditionalClasspath(getSourcepath().getAdditionalClasspath());
         ret.setTargetJavaVersion(getTargetJavaVersion());
         return ret;
     }

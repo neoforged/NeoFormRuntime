@@ -6,8 +6,6 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 
-import java.util.List;
-
 public final class ReplaceNodeOutput extends GraphTransform {
     private final String nodeId;
     private final String outputId;

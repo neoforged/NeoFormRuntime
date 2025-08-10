@@ -1,6 +1,5 @@
 package net.neoforged.neoform.runtime.graph;
 
-import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.Logger;
 
@@ -144,16 +143,6 @@ public final class ExecutionNode {
 
     public ExecutionNodeAction action() {
         return action;
-    }
-
-    // TODO: not sure yet if this is useful
-    public <T extends ExecutionNodeAction> T actionAs(Class<T> clazz) {
-        if (clazz.isInstance(action)) {
-            return (T) action;
-        } else {
-            throw new IllegalStateException("Node " + id + " has a different action type than expected. Expected: "
-                    + clazz + " but got " + action.getClass());
-        }
     }
 
     @Override

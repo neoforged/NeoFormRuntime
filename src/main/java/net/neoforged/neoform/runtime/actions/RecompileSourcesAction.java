@@ -1,6 +1,5 @@
 package net.neoforged.neoform.runtime.actions;
 
-import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
@@ -12,8 +11,8 @@ import java.util.List;
 
 public abstract class RecompileSourcesAction extends BuiltInAction implements ExecutionNodeAction {
 
-    private ExtensibleClasspath classpath = new ExtensibleClasspath();
-    private ExtensibleClasspath sourcepath = new ExtensibleClasspath();
+    private final ExtensibleClasspath classpath = new ExtensibleClasspath();
+    private final ExtensibleClasspath sourcepath = new ExtensibleClasspath();
     private int targetJavaVersion = 21;
 
     @Override
@@ -51,16 +50,8 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
         return classpath;
     }
 
-    public void setClasspath(ExtensibleClasspath classpath) {
-        this.classpath = classpath;
-    }
-
     public ExtensibleClasspath getSourcepath() {
         return sourcepath;
-    }
-
-    public void setSourcepath(ExtensibleClasspath sourcepath) {
-        this.sourcepath = sourcepath;
     }
 
     public int getTargetJavaVersion() {
