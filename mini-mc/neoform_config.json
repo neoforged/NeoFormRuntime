@@ -1,0 +1,303 @@
+{
+  "spec": 4,
+  "version": "mini",
+  "official": true,
+  "java_target": 21,
+  "encoding": "UTF-8",
+  "data": {
+    "mappings": "config/joined.tsrg",
+    "inject": "config/inject/",
+    "patches": {
+      "client": "patches/client/",
+      "joined": "patches/joined/",
+      "server": "patches/server/"
+    }
+  },
+  "steps": {
+    "joined": [
+      {
+        "type": "downloadManifest"
+      },
+      {
+        "type": "downloadJson"
+      },
+      {
+        "type": "downloadClient"
+      },
+      {
+        "type": "downloadServer"
+      },
+      {
+        "name": "extractServer",
+        "type": "bundleExtractJar",
+        "input": "{downloadServerOutput}"
+      },
+      {
+        "type": "downloadClientMappings"
+      },
+      {
+        "type": "mergeMappings",
+        "official": "{downloadClientMappingsOutput}"
+      },
+      {
+        "type": "strip",
+        "name": "stripClient",
+        "input": "{downloadClientOutput}"
+      },
+      {
+        "type": "strip",
+        "name": "stripServer",
+        "input": "{extractServerOutput}"
+      },
+      {
+        "type": "merge",
+        "client": "{stripClientOutput}",
+        "server": "{stripServerOutput}",
+        "version": "mini"
+      },
+      {
+        "type": "listLibraries"
+      },
+      {
+        "type": "rename",
+        "input": "{mergeOutput}",
+        "libraries": "{listLibrariesOutput}",
+        "mappings": "{mergeMappingsOutput}"
+      },
+      {
+        "type": "decompile",
+        "libraries": "{listLibrariesOutput}",
+        "input": "{renameOutput}"
+      },
+      {
+        "type": "inject",
+        "input": "{decompileOutput}"
+      },
+      {
+        "type": "patch",
+        "input": "{injectOutput}"
+      }
+    ],
+    "client": [
+      {
+        "type": "downloadManifest"
+      },
+      {
+        "type": "downloadJson"
+      },
+      {
+        "type": "downloadClient"
+      },
+      {
+        "type": "downloadClientMappings"
+      },
+      {
+        "type": "mergeMappings",
+        "official": "{downloadClientMappingsOutput}"
+      },
+      {
+        "type": "strip",
+        "input": "{downloadClientOutput}"
+      },
+      {
+        "type": "listLibraries"
+      },
+      {
+        "type": "rename",
+        "input": "{stripOutput}",
+        "libraries": "{listLibrariesOutput}",
+        "mappings": "{mergeMappingsOutput}"
+      },
+      {
+        "type": "decompile",
+        "libraries": "{listLibrariesOutput}",
+        "input": "{renameOutput}"
+      },
+      {
+        "type": "inject",
+        "input": "{decompileOutput}"
+      },
+      {
+        "type": "patch",
+        "input": "{injectOutput}"
+      }
+    ],
+    "server": [
+      {
+        "type": "downloadManifest"
+      },
+      {
+        "type": "downloadJson"
+      },
+      {
+        "type": "downloadServer"
+      },
+      {
+        "name": "extractServer",
+        "type": "bundleExtractJar",
+        "input": "{downloadServerOutput}"
+      },
+      {
+        "type": "downloadClientMappings"
+      },
+      {
+        "type": "mergeMappings",
+        "official": "{downloadClientMappingsOutput}"
+      },
+      {
+        "type": "strip",
+        "input": "{extractServerOutput}"
+      },
+      {
+        "type": "listLibraries",
+        "bundle": "{downloadServerOutput}"
+      },
+      {
+        "type": "rename",
+        "input": "{stripOutput}",
+        "libraries": "{listLibrariesOutput}",
+        "mappings": "{mergeMappingsOutput}"
+      },
+      {
+        "type": "decompile",
+        "libraries": "{listLibrariesOutput}",
+        "input": "{renameOutput}"
+      },
+      {
+        "type": "inject",
+        "input": "{decompileOutput}"
+      },
+      {
+        "type": "patch",
+        "input": "{injectOutput}"
+      }
+    ]
+  },
+  "functions": {
+    "decompile": {
+      "version": "org.vineflower:vineflower:1.11.1",
+      "args": [
+        "--decompile-inner",
+        "--remove-bridge",
+        "--decompile-generics",
+        "--ascii-strings",
+        "--remove-synthetic",
+        "--include-classpath",
+        "--variable-renaming=jad",
+        "--ignore-invalid-bytecode",
+        "--bytecode-source-mapping",
+        "--dump-code-lines",
+        "--indent-string=    ",
+        "--log-level=TRACE",
+        "-cfg",
+        "{libraries}",
+        "{input}",
+        "{output}"
+      ],
+      "jvmargs": [
+        "-Xmx4G"
+      ],
+      "repo": null,
+      "java_version": 21
+    },
+    "merge": {
+      "version": "net.neoforged:mergetool:2.0.7:fatjar",
+      "args": [
+        "--client",
+        "{client}",
+        "--server",
+        "{server}",
+        "--ann",
+        "{version}",
+        "--output",
+        "{output}",
+        "--inject",
+        "false"
+      ],
+      "jvmargs": [
+
+      ],
+      "repo": null
+    },
+    "rename": {
+      "version": "net.neoforged:AutoRenamingTool:2.0.8:all",
+      "args": [
+        "--input",
+        "{input}",
+        "--output",
+        "{output}",
+        "--map",
+        "{mappings}",
+        "--cfg",
+        "{libraries}",
+        "--ann-fix",
+        "--ids-fix",
+        "--src-fix",
+        "--record-fix",
+        "--unfinal-params"
+      ],
+      "jvmargs": [
+
+      ],
+      "repo": null
+    },
+    "mergeMappings": {
+      "version": "net.neoforged.installertools:installertools:2.1.2:fatjar",
+      "args": [
+        "--task",
+        "MERGE_MAPPING",
+        "--left",
+        "{mappings}",
+        "--right",
+        "{official}",
+        "--right-names",
+        "right,left",
+        "--classes",
+        "--fields",
+        "--methods",
+        "--output",
+        "{output}"
+      ],
+      "jvmargs": [
+
+      ],
+      "repo": null
+    },
+    "bundleExtractJar": {
+      "version": "net.neoforged.installertools:installertools:2.1.2:fatjar",
+      "args": [
+        "--task",
+        "bundler_extract",
+        "--input",
+        "{input}",
+        "--output",
+        "{output}",
+        "--jar-only"
+      ],
+      "jvmargs": [
+
+      ],
+      "repo": null
+    }
+  },
+  "libraries": {
+    "client": [
+      "com.google.code.findbugs:jsr305:3.0.2",
+      "ca.weblite:java-objc-bridge:1.1",
+      "org.jetbrains:annotations:26.0.2",
+      "org.checkerframework:checker-qual:3.49.0"
+    ],
+    "server": [
+      "com.google.code.findbugs:jsr305:3.0.2",
+      "org.jetbrains:annotations:26.0.2",
+      "org.checkerframework:checker-qual:3.49.0"
+    ],
+    "joined": [
+      "com.google.code.findbugs:jsr305:3.0.2",
+      "ca.weblite:java-objc-bridge:1.1",
+      "net.neoforged:mergetool:2.0.7:api",
+      "org.jetbrains:annotations:26.0.2",
+      "org.checkerframework:checker-qual:3.49.0"
+    ]
+  }
+}

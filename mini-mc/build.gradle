@@ -1,0 +1,9 @@
+plugins {
+    id 'java'
+}
+
+tasks.register('neoformZip', Zip) {
+    from('neoform_config.json') {
+        rename { 'config.json' }
+    }
+}

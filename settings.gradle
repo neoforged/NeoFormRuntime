@@ -4,3 +4,5 @@ plugins {
 }
 
 rootProject.name = 'neoform-runtime'
+
+include 'mini-mc'
