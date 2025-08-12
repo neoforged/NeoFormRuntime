@@ -1,9 +1,229 @@
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import proguard.gradle.ProGuardTask
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.security.DigestInputStream
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.guardsquare:proguard-gradle:7.7.0'
+    }
+}
+
 plugins {
-    id 'java'
+    id 'java-library'
+}
+
+group = 'net.neoforged'
+base {
+    archivesName = "mini-mc"
+}
+
+sourceSets {
+    clientOnly
+}
+
+dependencies {
+    clientOnlyImplementation(project(":mini-mc")) {
+        capabilities {
+            requireCapability 'net.neoforged:mini-mc'
+        }
+    }
 }
 
 tasks.register('neoformZip', Zip) {
     from('neoform_config.json') {
         rename { 'config.json' }
+    }
+}
+
+def clientOnlyJar = tasks.register('clientOnlyJar', Jar) {
+    archiveClassifier.set('client-only')
+    from sourceSets.clientOnly.output
+}
+
+def commonJar = tasks.named('jar', Jar)
+
+def obfuscateCommonJar = tasks.register('obfuscateCommonJar', ProGuardTask) {
+    configuration file('proguard.pro')
+
+    injars(commonJar.flatMap { it.archiveFile })
+
+    // Automatically handle the Java version of this build.
+    if (System.getProperty('java.version').startsWith('1.')) {
+        // Before Java 9, the runtime classes were packaged in a single jar file.
+        libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
+    } else {
+        // As of Java 9, the runtime classes are packaged in modular jmod files.
+        libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+    }
+
+    outjars(layout.buildDirectory.file("libs/mini-mc-obfuscated.jar"))
+
+    printmapping(layout.buildDirectory.file("libs/common-mappings.map"))
+}
+
+def clientJar = tasks.register('clientJar', Jar) {
+    archiveClassifier.set('client')
+    from zipTree(commonJar.flatMap { it.archiveFile })
+    from zipTree(clientOnlyJar.flatMap { it.archiveFile })
+}
+
+def obfuscateClientJar = tasks.register('obfuscateClientJar', ProGuardTask) {
+    configuration file('proguard.pro')
+
+    injars(clientJar.flatMap { it.archiveFile })
+
+    // Automatically handle the Java version of this build.
+    if (System.getProperty('java.version').startsWith('1.')) {
+        // Before Java 9, the runtime classes were packaged in a single jar file.
+        libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
+    } else {
+        // As of Java 9, the runtime classes are packaged in modular jmod files.
+        libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+    }
+
+    outjars(layout.buildDirectory.file("libs/mini-mc-client-obfuscated.jar"))
+
+    printmapping(layout.buildDirectory.file("libs/client-mappings.map"))
+}
+
+// TODO: all this gradle mess will likely end up in a Java program that takes care of all the intermediate steps
+
+def generateVersionsList = tasks.register('generateVersionsList', GenerateVersionsList) {
+    it.commonJar.fileProvider obfuscateCommonJar.map { it.outJarFileCollection.singleFile }
+    it.output = file('build/distributions/versions.list')
+}
+
+abstract class GenerateVersionsList extends DefaultTask {
+    @InputFile
+    abstract RegularFileProperty getCommonJar();
+
+    @OutputFile
+    abstract RegularFileProperty getOutput();
+
+    @TaskAction
+    void generateVersionsList() {
+        String contents = "${HashUtil.hashFile(commonJar.get().asFile.toPath(), "SHA-256")}\tmain\tmain/server-main.jar";
+        output.get().asFile.text = contents;
+    }
+}
+
+def serverJar = tasks.register('serverJar', Jar) {
+    archiveClassifier.set('server')
+    manifest {
+        attributes(
+                'Bundler-Format': '1.0'
+        )
+    }
+    from(obfuscateCommonJar.map { it.outJarFileCollection }) {
+        into 'META-INF/versions/main'
+        rename { 'server-main.jar' }
+    }
+    into('META-INF') {
+        from file("libraries.list")
+        from generateVersionsList
+    }
+}
+
+tasks.register('generateVersionManifest', GenerateVersionManifest) {
+    inputFile = project.file('version_manifest.json')
+    outputFile = project.file('build/distributions/version_manifest.json')
+    it.clientJar.fileProvider obfuscateClientJar.map { it.outJarFileCollection.singleFile }
+    it.clientMappings.fileProvider obfuscateClientJar.map { it.printMappingFile }
+    it.serverJar = serverJar.flatMap { it.archiveFile }
+    it.serverMappings.fileProvider obfuscateCommonJar.map { it.printMappingFile }
+}
+
+abstract class GenerateVersionManifest extends DefaultTask {
+    @InputFile
+    abstract RegularFileProperty getInputFile();
+
+    @OutputFile
+    abstract RegularFileProperty getOutputFile();
+
+    @InputFile
+    abstract RegularFileProperty getClientJar();
+
+    @InputFile
+    abstract RegularFileProperty getClientMappings();
+
+    @InputFile
+    abstract RegularFileProperty getServerJar();
+
+    @InputFile
+    abstract RegularFileProperty getServerMappings();
+
+    @TaskAction
+    void generateVersionManifest() {
+        var manifest = JsonParser.parseString(inputFile.get().asFile.text).asJsonObject;
+
+        var downloads = new JsonObject();
+        downloads.add("client", downloadEntry(clientJar));
+        downloads.add("client_mappings", downloadEntry(clientMappings));
+        downloads.add("server", downloadEntry(serverJar));
+        downloads.add("server_mappings", downloadEntry(serverMappings));
+
+        manifest.add("downloads", downloads);
+
+        var gson = new GsonBuilder().setPrettyPrinting().create();
+        outputFile.get().asFile.text = gson.toJson(manifest);
+    }
+
+    private static JsonObject downloadEntry(RegularFileProperty file) {
+        var path = file.get().asFile.toPath();
+        var ret = new JsonObject();
+        ret.addProperty("sha1", HashUtil.sha1(path));
+        ret.addProperty("size", Files.size(path));
+        ret.addProperty("url", path.toUri().toURL().toString());
+        return ret;
+    }
+}
+
+class HashUtil {
+    public static String sha1(java.nio.file.Path path) throws IOException {
+        return hashFile(path, "SHA-1");
+    }
+
+    public static String sha1(String value) {
+        return sha1(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static String sha1(byte[] value) {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA1");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
+        digest.update(value);
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    public static String hashFile(java.nio.file.Path path, String algorithm) throws IOException {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(algorithm);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
+        try (var ins = Files.newInputStream(path);
+             var din = new DigestInputStream(ins, digest)) {
+            byte[] buffer = new byte[8192];
+            while (din.read(buffer) != -1) {
+            }
+        }
+
+        return HexFormat.of().formatHex(digest.digest());
     }
 }

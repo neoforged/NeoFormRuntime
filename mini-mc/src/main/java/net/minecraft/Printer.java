@@ -1,9 +1,9 @@
 package net.minecraft;
 
-class Printer {
+public class Printer {
     private final String message;
 
-    Printer(String message) {
+    public Printer(String message) {
         this.message = message;
     }
 

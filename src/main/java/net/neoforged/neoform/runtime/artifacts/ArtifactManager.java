@@ -170,6 +170,10 @@ public class ArtifactManager {
      * Special purpose method to get the version manifest for a specific Minecraft version.
      */
     public Artifact getVersionManifest(String minecraftVersion) throws IOException {
+        if ("mini".equals(minecraftVersion)) {
+            return Artifact.ofPath(Path.of("mini-mc", "build", "distributions", "version_manifest.json"));
+        }
+
         // Check local Minecraft launchers for a copy of it
         for (var root : launcherInstallations.getInstallationRoots()) {
             var localPath = root.resolve("versions").resolve(minecraftVersion).resolve(minecraftVersion + ".json");
