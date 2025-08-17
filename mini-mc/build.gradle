@@ -1,6 +1,13 @@
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import javax.inject.Inject
+import net.neoforged.srgutils.IMappingBuilder
+import net.neoforged.srgutils.IMappingFile
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.Type
+import org.objectweb.asm.tree.ClassNode
 import proguard.gradle.ProGuardTask
 
 import java.nio.charset.StandardCharsets
@@ -15,6 +22,9 @@ buildscript {
     }
     dependencies {
         classpath 'com.guardsquare:proguard-gradle:7.7.0'
+        classpath 'net.neoforged:srgutils:1.0.10'
+        classpath 'org.ow2.asm:asm:9.7'
+        classpath 'org.ow2.asm:asm-tree:9.7'
     }
 }
 
@@ -36,12 +46,6 @@ dependencies {
         capabilities {
             requireCapability 'net.neoforged:mini-mc'
         }
-    }
-}
-
-tasks.register('neoformZip', Zip) {
-    from('neoform_config.json') {
-        rename { 'config.json' }
     }
 }
 
@@ -226,4 +230,71 @@ class HashUtil {
 
         return HexFormat.of().formatHex(digest.digest());
     }
+}
+
+abstract class GenerateJoinedTsrg extends DefaultTask {
+    @InputFile
+    abstract RegularFileProperty getObfuscatedClientJar();
+
+    @OutputFile
+    abstract RegularFileProperty getMappings();
+
+    @Inject
+    abstract ArchiveOperations getArchiveOperations();
+
+    @TaskAction
+    void generateJoinedTsrg() {
+        var builder = IMappingBuilder.create("obf", "srg", "id");
+
+        int id = 0;
+
+        for (File file : archiveOperations.zipTree(obfuscatedClientJar).files) {
+            if (!file.name.endsWith(".class")) {
+                continue;
+            }
+
+            ClassNode cn = new ClassNode(Opcodes.ASM9);
+            ClassReader cr = new ClassReader(file.bytes);
+            cr.accept(cn, ClassReader.SKIP_CODE);
+
+            var clazz = builder.addClass(cn.name, cn.name, "" + id++);
+            for (var field : cn.fields) {
+                clazz.field(field.name, field.name, "" + id++).descriptor(field.desc);
+            }
+            for (var method : cn.methods) {
+                var m = clazz.method(method.desc, method.name, method.name, "" + id++);
+                var mt = Type.getMethodType(method.desc);
+
+                int paramIndex = 0;
+                for (var paramType : mt.getArgumentTypes()) {
+                    int paramId = id++;
+                    m.parameter(paramIndex++, "o", "p_%d_".formatted(paramId), "" + paramId);
+                }
+            }
+        }
+
+        var file = builder.build();
+        file.write(mappings.get().asFile.toPath(), IMappingFile.Format.TSRG2);
+    }
+}
+
+def generateJoinedTsrg = tasks.register("generateJoinedTsrg", GenerateJoinedTsrg) {
+    obfuscatedClientJar.fileProvider obfuscateClientJar.map { it.outJarFileCollection.singleFile }
+    mappings = layout.buildDirectory.file("libs/joined.tsrg")
+}
+
+def neoFormZip = tasks.register('neoFormZip', Zip) {
+    from('neoform_config.json') {
+        rename { 'config.json' }
+    }
+    into('config') {
+        from generateJoinedTsrg.flatMap { it.mappings }
+    }
+    into('patches/joined') {
+        from files("neoform_patches")
+    }
+}
+
+tasks.named("assemble") {
+    dependsOn generateVersionManifest, neoFormZip
 }

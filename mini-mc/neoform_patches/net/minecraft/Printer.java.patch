@@ -1,0 +1,11 @@
+--- a/net/minecraft/Printer.java
++++ b/net/minecraft/Printer.java
+@@ -10,4 +10,8 @@
+     public void print() {
+         System.out.println(this.message);
+     }
++
++    public void printPatchedIn() {
++        System.out.println("Patched-in method (by NeoForm) ;)");
++    }
+ }

@@ -208,7 +208,7 @@
         "--server",
         "{server}",
         "--ann",
-        "{version}",
+        "1.21.8",
         "--output",
         "{output}",
         "--inject",

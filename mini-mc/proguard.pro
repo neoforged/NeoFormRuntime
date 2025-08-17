@@ -10,3 +10,12 @@
 -keepclasseswithmembers public class * {
     public static void main(java.lang.String[]);
 }
+
+# Put everything into the root package, same as MC
+-repackageclasses
+# Try to keep parameter names?
+-keepparameternames
+# Keep attributes?
+-keepattributes Exceptions,InnerClasses,Signature,Deprecated,SourceFile,LineNumberTable,*Annotation*,EnclosingMethod,Record,LineNumberTable,LocalVariableTypeTable
+# Also the LVT itself?
+-keepattributes LocalVariableTable

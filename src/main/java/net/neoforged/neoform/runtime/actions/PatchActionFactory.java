@@ -24,7 +24,8 @@ public final class PatchActionFactory {
 
         var action = new ExternalJavaToolAction(ToolCoordinate.DIFF_PATCH);
         action.setArgs(List.of(
-                "{input}", patchesArchive.toString(),
+                // TODO: I had to add toAbsolutePath() here to make this work with a given relative path
+                "{input}", patchesArchive.toAbsolutePath().toString(),
                 "--prefix", patchesInZip,
                 "--patch",
                 "--archive", "ZIP",
