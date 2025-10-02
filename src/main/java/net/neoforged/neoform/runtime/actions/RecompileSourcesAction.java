@@ -1,6 +1,5 @@
 package net.neoforged.neoform.runtime.actions;
 
-import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
@@ -62,4 +61,6 @@ public abstract class RecompileSourcesAction extends BuiltInAction implements Ex
     public void setTargetJavaVersion(int targetJavaVersion) {
         this.targetJavaVersion = targetJavaVersion;
     }
+
+    public abstract RecompileSourcesAction copy();
 }

@@ -5,12 +5,13 @@ import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
+import net.neoforged.neoform.runtime.actions.InjectModifiedClasses;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
+import net.neoforged.neoform.runtime.actions.SelectSourcesToRecompile;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
-import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -81,6 +82,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         @CommandLine.Option(names = "--neoforge")
         String neoforge;
     }
+
+    @CommandLine.Option(names = "--partial-recompile", description = "[EXPERIMENTAL] Enables partial recompilation for user-defined transforms")
+    boolean partialRecompile;
 
     @Override
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
@@ -218,8 +222,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             engine.loadNeoFormData(neoFormDataPath, dist);
         }
 
-        applyAdditionalAccessTransformers(engine);
-
         if (parchmentData != null) {
             var parchmentDataFile = artifactManager.get(parchmentData);
             Consumer<ApplySourceTransformAction> jstConsumer = transformSources -> {
@@ -237,35 +239,101 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
-        if (!interfaceInjectionDataFiles.isEmpty()) {
-            var transformNode = getOrAddTransformSourcesNode(engine);
-            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
-
-            // Add the stub source jar to the recomp classpath
-            engine.applyTransform(new ModifyAction<>(
-                    "recompile",
-                    RecompileSourcesAction.class,
-                    action -> {
-                        action.getSourcepath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
-                    }
-            ));
-        }
+        applyAdditionalTransforms(engine);
 
         execute(engine);
     }
 
     /**
-     * Configure the engine to apply additional user-supplied access transformers to the game sources.
+     * Configure the engine to apply additional user-supplied access transformers and interfaces to the game sources.
+     * This is done by re-transforming the sources a second time, and only recompiling changed sources.
      */
-    private void applyAdditionalAccessTransformers(NeoFormEngine engine) {
+    private void applyAdditionalTransforms(NeoFormEngine engine) {
+        if (additionalAccessTransformers.isEmpty() && validatedAccessTransformers.isEmpty() && interfaceInjectionDataFiles.isEmpty()) {
+            return;
+        }
+
+        var graph = engine.getGraph();
+
+        ExecutionNode sourceTransformNode;
+        ApplySourceTransformAction sourceTransformAction;
+        String recompilationNodeName;
+
+        if (partialRecompile) {
+            var recompileOutput = graph.getRequiredOutput("recompile", "output");
+            var recompileNode = recompileOutput.getNode();
+            var recompileAction = (RecompileSourcesAction) recompileNode.action();
+            var startingSources = recompileNode.getRequiredInput("sources").parentOutput();
+
+            // Second transform action for additional transforms
+            var applyAdditionalTransformsBuilder = graph.nodeBuilder("applyAdditionalTransforms");
+            sourceTransform(engine, action -> {})
+                    .make(applyAdditionalTransformsBuilder, startingSources);
+            sourceTransformNode = applyAdditionalTransformsBuilder.build();
+            sourceTransformAction = (ApplySourceTransformAction) sourceTransformNode.action();
+            var transformedSources = sourceTransformNode.getRequiredOutput("output");
+
+            // Split off sources that were modified by the second transform
+            var selectSourcesBuilder = graph.nodeBuilder("selectSourcesToRecompile");
+            selectSourcesBuilder.input("originalSources", startingSources.asInput());
+            selectSourcesBuilder.input("originalClasses", recompileOutput.asInput());
+            selectSourcesBuilder.input("transformedSources", transformedSources.asInput());
+            var unchangedClasses = selectSourcesBuilder.output("unchangedClasses", NodeOutputType.JAR, "Classes that were already compiled and whose corresponding sources did not change.");
+            var changedSourcesOnly = selectSourcesBuilder.output("changedSourcesOnly", NodeOutputType.JAR, "Sources that were changed and need to be recompiled.");
+            selectSourcesBuilder.action(new SelectSourcesToRecompile());
+            var selectSources = selectSourcesBuilder.build();
+
+            // Recompile modified sources
+            var recompileModifiedSources = graph.nodeBuilder("recompileModifiedSources");
+            recompileModifiedSources.input("sources", changedSourcesOnly.asInput());
+            recompileModifiedSources.input("versionManifest", recompileOutput.getNode().getRequiredInput("versionManifest"));
+            var modifiedClasses = recompileModifiedSources.output("output", NodeOutputType.JAR, "Compiled minecraft sources that were changed.");
+            RecompileSourcesAction recompileModifiedAction = recompileAction.copy();
+            recompileModifiedAction.getClasspath().add(ClasspathItem.of(unchangedClasses));
+            recompileModifiedSources.action(recompileModifiedAction);
+            recompileModifiedSources.build();
+
+            // Recombine with the unmodified classes that were already recompiled before
+            var injectBuilder = graph.nodeBuilder("injectModifiedClasses");
+            injectBuilder.input("classes", unchangedClasses.asInput());
+            injectBuilder.input("classes2", modifiedClasses.asInput());
+            var injectedOutput = injectBuilder.output("output", NodeOutputType.JAR, "Compiled Minecraft sources with additional changes merged in.");
+            injectBuilder.action(new InjectModifiedClasses());
+            injectBuilder.build();
+
+            // Since we replace one node by many, we cannot use the ReplaceNodeOutput with the usual factory,
+            // but rather directly call this helper
+            ReplaceNodeOutput.replaceOutput(graph, recompileOutput, injectedOutput, List.of(selectSources));
+            // We also need to replace usages of the sources
+            ReplaceNodeOutput.replaceOutput(graph, startingSources, transformedSources, List.of(recompileNode, sourceTransformNode, selectSources));
+
+            recompilationNodeName = "recompileModifiedSources";
+        } else {
+            sourceTransformNode = getOrAddTransformSourcesNode(engine);
+            sourceTransformAction = (ApplySourceTransformAction) sourceTransformNode.action();
+            recompilationNodeName = "recompile";
+        }
+
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty()) {
-            var transformSources = getOrAddTransformSourcesAction(engine);
-            transformSources.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
-            transformSources.setValidatedAccessTransformers(validatedAccessTransformers.stream().map(Paths::get).toList());
+            sourceTransformAction.setAdditionalAccessTransformers(additionalAccessTransformers.stream().map(Paths::get).toList());
+            sourceTransformAction.setValidatedAccessTransformers(validatedAccessTransformers.stream().map(Paths::get).toList());
 
             if (validateAccessTransformers) {
-                transformSources.addArg("--access-transformer-validation=error");
+                sourceTransformAction.addArg("--access-transformer-validation=error");
             }
+        }
+
+        if (!interfaceInjectionDataFiles.isEmpty()) {
+            sourceTransformAction.setInjectedInterfaces(interfaceInjectionDataFiles);
+
+            // Add the stub source jar to the recomp classpath
+            engine.applyTransform(new ModifyAction<>(
+                    recompilationNodeName,
+                    RecompileSourcesAction.class,
+                    action -> {
+                        action.getSourcepath().add(ClasspathItem.of(sourceTransformNode.getRequiredOutput("stubs")));
+                    }
+            ));
         }
     }
 

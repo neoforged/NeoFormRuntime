@@ -1,0 +1,5 @@
+{
+  "net/minecraft/world/item/Item": [
+    "testproject/FunExtensions"
+  ]
+}
