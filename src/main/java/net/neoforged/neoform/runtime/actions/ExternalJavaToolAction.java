@@ -150,18 +150,11 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         // Vineflower will exit with code 0 even if it encountered some OOMs that caused some methods to fail to decompile.
         // This is of course problematic since patch application or recompilation will fail.
         // So we scan the log file for any hint of a java.lang.OutOfMemoryError
-        if (isVineflower) {
-            try (var reader = new BufferedReader(new FileReader(logFile, StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains("java.lang.OutOfMemoryError")) {
-                        // Tail the last few lines to provide some extra context
-                        tailLogFile(logFile);
+        if (isVineflower && fileContains(logFile, "java.lang.OutOfMemoryError")) {
+            // Tail the last few lines to provide some extra context
+            tailLogFile(logFile);
 
-                        throw new RuntimeException("Vineflower ran out of memory during decompilation. Try again.");
-                    }
-                }
-            }
+            throw new RuntimeException("Vineflower ran out of memory during decompilation. Try again.");
         }
     }
 
@@ -200,6 +193,18 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             System.err.println("Failed to tail log-file " + logFile);
         }
         System.err.println("------------------------------------------------------------");
+    }
+
+    private boolean fileContains(File file, String s) throws IOException {
+        try (var reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains(s)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
