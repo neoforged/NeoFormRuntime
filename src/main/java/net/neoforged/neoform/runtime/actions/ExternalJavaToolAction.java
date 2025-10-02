@@ -10,8 +10,10 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -101,9 +103,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         command.add(environment.getPathArgument(toolArtifact.path()));
 
         // Program Arguments
+        boolean isVineflower = toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower");
         for (var arg : args) {
             // For specific tasks we "fixup" the neoform spec
-            if (toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower")) {
+            if (isVineflower) {
                 arg = arg.replace("TRACE", "WARN");
             }
             if (listLibrariesFile != null) {
@@ -138,14 +141,21 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
         var exitCode = process.waitFor();
         if (exitCode != 0) {
-
-
             // Try tailing the last few lines of the log-file
             tailLogFile(logFile);
 
             throw new RuntimeException("Failed to execute tool");
         }
 
+        // Vineflower will exit with code 0 even if it encountered some OOMs that caused some methods to fail to decompile.
+        // This is of course problematic since patch application or recompilation will fail.
+        // So we scan the log file for any hint of a java.lang.OutOfMemoryError
+        if (isVineflower && fileContains(logFile, "java.lang.OutOfMemoryError")) {
+            // Tail the last few lines to provide some extra context
+            tailLogFile(logFile);
+
+            throw new RuntimeException("Vineflower ran out of memory during decompilation. Try again.");
+        }
     }
 
     private static String printableCommand(List<String> command) {
@@ -183,6 +193,18 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             System.err.println("Failed to tail log-file " + logFile);
         }
         System.err.println("------------------------------------------------------------");
+    }
+
+    private boolean fileContains(File file, String s) throws IOException {
+        try (var reader = new BufferedReader(new FileReader(file, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains(s)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
