@@ -11,6 +11,7 @@ import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
+import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -198,8 +199,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                     (builder, previousOutput) -> {
                         return PatchActionFactory.makeAction(builder,
-                                neoforgeArtifact.path(),
-                                neoforgeConfig.patchesFolder(),
+                                new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
                                 previousOutput,
                                 Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
                                 Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));

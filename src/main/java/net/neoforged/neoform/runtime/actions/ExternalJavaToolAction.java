@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.artifacts.Artifact;
+import net.neoforged.neoform.runtime.cache.CacheKey;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
@@ -20,8 +21,11 @@ import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +47,13 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private List<String> args = new ArrayList<>();
     @Nullable
     private CreateLibrariesOptionsFile listLibraries = null;
+    /**
+     * If the external tool relies on data being made available by the environment
+     * via argument interpolation, that external data has to be considered in the cache key.
+     * The values are modeled as suppliers because they only need to be queried/computed
+     * if the action is about to be run. Some NFRT runs may entirely skip it, and thus skip the hash too.
+     */
+    private final Map<String, Supplier<CacheKey.AnnotatedValue>> dataDependencyHashes = new HashMap<>();
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -215,6 +226,9 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
+        for (var entry : dataDependencyHashes.entrySet()) {
+            ck.add("data[" + entry.getKey() + "]", entry.getValue().get());
+        }
         if (listLibraries != null) {
             listLibraries.computeCacheKey(ck);
         }
@@ -260,5 +274,15 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setListLibraries(@Nullable CreateLibrariesOptionsFile listLibraries) {
         this.listLibraries = listLibraries;
+    }
+
+    /**
+     * If this external tools result depends on external data, adds the hash value of that
+     * external data to the cache key of this action under the given id.
+     */
+    public void addDataDependencyHash(String id, Supplier<CacheKey.AnnotatedValue> hash) {
+        if (dataDependencyHashes.put(id, hash) != null) {
+            throw new IllegalArgumentException("Data dependency " + id + " was registered twice.");
+        }
     }
 }
