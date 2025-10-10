@@ -1,13 +1,13 @@
 package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.actions.CreateLegacyMappingsAction;
+import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFile;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
-import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFile;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -156,7 +155,7 @@ public class NeoFormEngine implements AutoCloseable {
         if (dataSources.containsKey(id)) {
             throw new IllegalArgumentException("Data source " + id + " is already defined");
         }
-        dataSources.put(id, new DataSource(zipFile, sourceFolder));
+        dataSources.put(id, new DataSource(zipFile, sourceFolder, fileHashService));
     }
 
     public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
@@ -212,7 +211,7 @@ public class NeoFormEngine implements AutoCloseable {
         // SRG method and field names, and need to be remapped.
         if (processGeneration.sourcesUseIntermediaryNames()) {
             if (!graph.hasOutput("mergeMappings", "output")
-                || !graph.hasOutput("downloadClientMappings", "output")) {
+                    || !graph.hasOutput("downloadClientMappings", "output")) {
                 throw new IllegalStateException("NFRT currently does not support MCP versions that did not make use of official Mojang mappings (pre 1.17).");
             }
 
@@ -364,13 +363,10 @@ public class NeoFormEngine implements AutoCloseable {
                 ));
             }
             case "patch" -> {
-                var patchSource = getRequiredDataSource("patches");
-
                 builder.clearInputs();
                 PatchActionFactory.makeAction(
                         builder,
-                        Paths.get(patchSource.archive().getName()),
-                        config.getDataPathInZip("patches"),
+                        getRequiredDataSource("patches"),
                         graph.getRequiredOutput("inject", "output"),
                         "a/",
                         "b/"
@@ -411,7 +407,8 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         // Now resolve the remaining placeholders.
-        boolean[] usesListLibraries = new boolean[] { false };
+        Set<String> dataSourcesUsed = new HashSet<>();
+        boolean[] usesListLibraries = new boolean[]{false};
         Consumer<String> placeholderProcessor = text -> {
             var matcher = NeoFormInterpolator.TOKEN_PATTERN.matcher(text);
             while (matcher.find()) {
@@ -430,6 +427,8 @@ public class NeoFormEngine implements AutoCloseable {
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
+                    // But we do need to add a cache-key dependency on the NeoForm data file
+                    dataSourcesUsed.add(variable);
                 } else if ("listLibrariesOutput".equals(variable)) {
                     usesListLibraries[0] = true;
                 } else if (variable.endsWith("Output")) {
@@ -458,6 +457,11 @@ public class NeoFormEngine implements AutoCloseable {
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
+        // Add every referenced data source to the cache key
+        for (var dataSourceId : dataSourcesUsed) {
+            var dataSource = Objects.requireNonNull(dataSources.get(dataSourceId), dataSourceId);
+            action.addDataDependencyHash(dataSourceId, dataSource::cacheKey);
+        }
         builder.action(action);
 
         if (usesListLibraries[0]) {
@@ -654,6 +658,10 @@ public class NeoFormEngine implements AutoCloseable {
         this.problemReporter = Objects.requireNonNull(problemReporter, "problemReporter");
     }
 
+    public FileHashService getFileHashingService() {
+        return fileHashService;
+    }
+
     private class NodeProcessingEnvironment implements ProcessingEnvironment {
         private final Path workspace;
         private final ExecutionNode node;
@@ -720,7 +728,7 @@ public class NeoFormEngine implements AutoCloseable {
             var dataSource = dataSources.get(dataId);
             if (dataSource == null) {
                 throw new IllegalArgumentException("Could not find data source " + dataId
-                                                   + ". Available: " + dataSources.keySet());
+                        + ". Available: " + dataSources.keySet());
             }
 
             var archive = dataSource.archive();

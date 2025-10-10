@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.cache;
 
 import net.neoforged.neoform.runtime.cli.FileHashService;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -41,6 +42,10 @@ public class CacheKeyBuilder {
             throw new UncheckedIOException(e);
         }
 
+        add(component, hashValue, prettifyPath(path));
+    }
+
+    public static String prettifyPath(Path path) {
         // Prettify the path
         var userHome = Paths.get(System.getProperty("user.home"));
         String prettifiedPath;
@@ -49,8 +54,7 @@ public class CacheKeyBuilder {
         } else {
             prettifiedPath = path.toString();
         }
-
-        add(component, hashValue, prettifiedPath);
+        return prettifiedPath;
     }
 
     public void add(String component, String text) {
