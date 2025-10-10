@@ -21,10 +21,10 @@ import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.SequencedMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -53,7 +53,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
      * The values are modeled as suppliers because they only need to be queried/computed
      * if the action is about to be run. Some NFRT runs may entirely skip it, and thus skip the hash too.
      */
-    private final Map<String, Supplier<CacheKey.AnnotatedValue>> dataDependencyHashes = new HashMap<>();
+    private final SequencedMap<String, Supplier<CacheKey.AnnotatedValue>> dataDependencyHashes = new LinkedHashMap<>();
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
