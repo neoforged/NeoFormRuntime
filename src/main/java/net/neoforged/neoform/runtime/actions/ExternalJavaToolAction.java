@@ -114,7 +114,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         command.add(environment.getPathArgument(toolArtifact.path()));
 
         // Program Arguments
-        boolean isVineflower = toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower");
+        boolean isVineflower = isVineflower();
         for (var arg : args) {
             // For specific tasks we "fixup" the neoform spec
             if (isVineflower) {
@@ -167,6 +167,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
             throw new RuntimeException("Vineflower ran out of memory during decompilation. Try again.");
         }
+    }
+
+    private boolean isVineflower() {
+        return toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower");
     }
 
     private static String printableCommand(List<String> command) {
@@ -231,6 +235,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         if (listLibraries != null) {
             listLibraries.computeCacheKey(ck);
+        }
+        if (isVineflower()) {
+            // Force re-run in case a broken decomp was cached before the OOM check was added
+            ck.add("oom check", "true");
         }
     }
 
