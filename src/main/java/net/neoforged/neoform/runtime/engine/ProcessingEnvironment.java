@@ -3,6 +3,7 @@ package net.neoforged.neoform.runtime.engine;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.problems.ProblemReporter;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,7 +44,19 @@ public interface ProcessingEnvironment {
         }
     }
 
+    @Nullable
+    default Path getInputPath(String id) {
+        try {
+            return getInput(id, ResultRepresentation.PATH);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e); // Getting a path should not fail
+        }
+    }
+
     <T> T getRequiredInput(String id, ResultRepresentation<T> representation) throws IOException;
+
+    @Nullable
+    <T> T getInput(String id, ResultRepresentation<T> representation) throws IOException;
 
     /**
      * Also automatically calls {@link #setOutput(String, Path)} with the generated path.

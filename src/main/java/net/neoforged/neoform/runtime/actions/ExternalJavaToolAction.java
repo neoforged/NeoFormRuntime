@@ -115,6 +115,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
         // Program Arguments
         boolean isVineflower = isVineflower();
+        if (isVineflower) {
+            command.add("--thread-count");
+            command.add("4");
+        }
         for (var arg : args) {
             // For specific tasks we "fixup" the neoform spec
             if (isVineflower) {
