@@ -8,6 +8,7 @@ import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
+import net.neoforged.neoform.runtime.actions.MergeWithResourcesAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -199,6 +200,10 @@ public class NeoFormEngine implements AutoCloseable {
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
             graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+
+            // TODO: normal "resources" are actually not available?
+            createResultWithResources("compiledWithResources", "compiled");
+            createResultWithResources("sourcesAndCompiledWithResources", "sourcesAndCompiled");
         }
         if (graph.hasOutput("stripServer", "resourcesOutput")) {
             graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
@@ -479,6 +484,18 @@ public class NeoFormEngine implements AutoCloseable {
         builder.action(new DownloadFromVersionManifestAction(artifactManager, manifestEntry));
     }
 
+    private void createResultWithResources(String withResourcesId, String withoutResourcesId) {
+        var builder = graph.nodeBuilder(withResourcesId);
+        builder.input("classes", graph.getResult(withoutResourcesId).asInput());
+        // TODO: clientResources??? really??
+        builder.input("resources", graph.getResult("clientResources").asInput());
+        builder.action(new MergeWithResourcesAction());
+        var output = builder.output("output", NodeOutputType.JAR, "Result of " + withoutResourcesId + " with Minecraft resources added into the same jar.");
+        builder.build();
+
+        graph.setResult(withResourcesId, output);
+    }
+
     private void triggerAndWait(Collection<ExecutionNode> nodes) throws InterruptedException {
         record Pair(ExecutionNode node, CompletableFuture<Void> future) {
         }
@@ -574,9 +591,6 @@ public class NeoFormEngine implements AutoCloseable {
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
-            if (nodeOutput == null) {
-                throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
-            }
             nodes.add(nodeOutput.getNode());
         }
 
