@@ -32,6 +32,9 @@ public class SplitJarByDistAction extends BuiltInAction {
                 if (entry.isDirectory()) {
                     continue;
                 }
+                // TODO: the manifest might warrant some special handling to strip the dist flags
+
+                // TODO: this doesn't handle NeoForge-added classes, such as com.mojang.blaze3d.opengl.GlStateManager$StencilState.class
                 if (clientEntries.contains(entry.getName())) {
                     clientOnly.putNextEntry(entry);
                     input.transferTo(clientOnly);
