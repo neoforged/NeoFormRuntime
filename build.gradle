@@ -234,9 +234,9 @@ idea {
                     programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-properties build/assets.properties --write-json build/assets.json"
                     moduleRef(project, sourceSets.main)
                 }
-                "Create Minecraft jar 1.21.8 (NeoForge)"(Application) {
+                "Create Minecraft jar 1.21.10 (NeoForge)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "create-minecraft-jar --add-repository=https://prmaven.neoforged.net/InstallerTools/pr25 --neoforge net.neoforged:neoforge:21.8.36:userdev --output build/minecraft-by-binpatches.jar"
+                    programParameters = "create-minecraft-jar --add-repository=https://prmaven.neoforged.net/InstallerTools/pr26 --neoforge net.neoforged:neoforge:21.10.49-beta:userdev --output build/minecraft-by-binpatches.jar"
                     moduleRef(project, sourceSets.main)
                 }
             }

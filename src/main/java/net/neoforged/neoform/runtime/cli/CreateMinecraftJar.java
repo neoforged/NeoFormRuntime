@@ -97,8 +97,8 @@ public class CreateMinecraftJar implements Callable<Integer> {
             args.add("--input");
             args.add(clientArtifact.path().toAbsolutePath().toString());
             // TODO: so which one is it?
-//            args.add("--input");
-//            args.add(serverArtifact.path().toAbsolutePath().toString());
+            args.add("--input");
+            args.add(serverArtifact.path().toAbsolutePath().toString());
             args.add("--input-mappings");
             args.add(clientMappingsArtifact.path().toAbsolutePath().toString());
 
@@ -151,7 +151,7 @@ public class CreateMinecraftJar implements Callable<Integer> {
 //            }
 
             // TODO: how to choose the version?
-            var toolArtifact = artifactManager.get("net.neoforged.installertools:installertools:3.0.25:fatjar");
+            var toolArtifact = artifactManager.get("net.neoforged.installertools:installertools:3.0.18-moddev-support:fatjar");
 
             command.add("-jar");
             command.add(toolArtifact.path().toAbsolutePath().toString());
