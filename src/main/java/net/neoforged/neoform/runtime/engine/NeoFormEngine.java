@@ -527,7 +527,7 @@ public class NeoFormEngine implements AutoCloseable {
         var commonCompiledWithSources = addMergeWithSourcesStep("commonMergeWithSources", commonCompiled, commonSources);
         graph.setResult("commonCompiledWithSources", commonCompiledWithSources);
         var clientCompiledWithSources = addMergeWithSourcesStep("clientMergeWithSources", clientCompiled, clientSources);
-        graph.setResult("clientCompiledWithSources", clientCompiledWithSources);
+        graph.setResult("clientOnlyCompiledWithSources", clientCompiledWithSources);
     }
 
     private void triggerAndWait(Collection<ExecutionNode> nodes) throws InterruptedException {
