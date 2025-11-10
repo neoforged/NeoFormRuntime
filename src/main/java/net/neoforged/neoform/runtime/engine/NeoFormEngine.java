@@ -15,7 +15,9 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
+import net.neoforged.neoform.runtime.actions.SplitJarByDistAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
+import net.neoforged.neoform.runtime.actions.SplitSourcesByOnlyInAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.cache.CacheManager;
@@ -189,7 +191,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
 
-        var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
+        var sourcesAndCompiledOutput = addMergeWithSourcesStep("mergeWithSources", compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
         graph.setResult("vanillaDeobfuscated", renameOutput);
@@ -199,11 +201,17 @@ public class NeoFormEngine implements AutoCloseable {
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
-            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+            var clientResources = graph.getRequiredOutput("stripClient", "resourcesOutput");
+            graph.setResult("clientResources", clientResources);
 
             // TODO: normal "resources" are actually not available?
-            createResultWithResources("compiledWithResources", "compiled");
-            createResultWithResources("sourcesAndCompiledWithResources", "sourcesAndCompiled");
+            var compiledWithResources = createResultWithResources("compiledWithResources", "compiled", clientResources);
+            graph.setResult("compiledWithResources", compiledWithResources);
+            var sourcesAndCompiledWithResources = createResultWithResources("sourcesAndCompiledWithResources", "sourcesAndCompiled", clientResources);
+            graph.setResult("sourcesAndCompiledWithResources", sourcesAndCompiledWithResources);
+
+            // TODO: requires stripClient to exist
+            createSplitSourcesOutputs(compiledWithResources, sourcesOutput);
         }
         if (graph.hasOutput("stripServer", "resourcesOutput")) {
             graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
@@ -275,8 +283,8 @@ public class NeoFormEngine implements AutoCloseable {
         return compiledOutput;
     }
 
-    private NodeOutput addMergeWithSourcesStep(NodeOutput compiledOutput, NodeOutput sourcesOutput) {
-        var builder = graph.nodeBuilder("mergeWithSources");
+    private NodeOutput addMergeWithSourcesStep(String nodeName, NodeOutput compiledOutput, NodeOutput sourcesOutput) {
+        var builder = graph.nodeBuilder(nodeName);
         builder.input("classes", compiledOutput.asInput());
         builder.input("sources", sourcesOutput.asInput());
         var output = builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources including sources");
@@ -484,16 +492,42 @@ public class NeoFormEngine implements AutoCloseable {
         builder.action(new DownloadFromVersionManifestAction(artifactManager, manifestEntry));
     }
 
-    private void createResultWithResources(String withResourcesId, String withoutResourcesId) {
+    private NodeOutput createResultWithResources(String withResourcesId, String withoutResourcesId, NodeOutput resources) {
         var builder = graph.nodeBuilder(withResourcesId);
         builder.input("classes", graph.getResult(withoutResourcesId).asInput());
-        // TODO: clientResources??? really??
-        builder.input("resources", graph.getResult("clientResources").asInput());
+        builder.input("resources", resources.asInput());
         builder.action(new MergeWithResourcesAction());
         var output = builder.output("output", NodeOutputType.JAR, "Result of " + withoutResourcesId + " with Minecraft resources added into the same jar.");
         builder.build();
 
-        graph.setResult(withResourcesId, output);
+        return output;
+    }
+
+    private void createSplitSourcesOutputs(NodeOutput compiled, NodeOutput sources) {
+        var splitCompiledBuilder = graph.nodeBuilder("splitCompiledWithResources");
+        splitCompiledBuilder.input("input", compiled.asInput());
+        splitCompiledBuilder.action(new SplitJarByDistAction());
+        var commonCompiled = splitCompiledBuilder.output("common", NodeOutputType.JAR, "Common Minecraft classes and resources");
+        var clientCompiled = splitCompiledBuilder.output("clientOnly", NodeOutputType.JAR, "Client-exclusive Minecraft classes and resources");
+        splitCompiledBuilder.build();
+
+        graph.setResult("commonCompiled", commonCompiled);
+        graph.setResult("clientOnlyCompiled", clientCompiled);
+
+        var splitSourcesBuilder = graph.nodeBuilder("splitSources");
+        splitSourcesBuilder.input("input", sources.asInput());
+        splitSourcesBuilder.action(new SplitSourcesByOnlyInAction());
+        var commonSources = splitSourcesBuilder.output("common", NodeOutputType.JAR, "Common Minecraft sources");
+        var clientSources = splitSourcesBuilder.output("clientOnly", NodeOutputType.JAR, "Client-exclusive Minecraft sources");
+        splitSourcesBuilder.build();
+
+        graph.setResult("commonSources", commonSources);
+        graph.setResult("clientOnlySources", clientSources);
+
+        var commonCompiledWithSources = addMergeWithSourcesStep("commonMergeWithSources", commonCompiled, commonSources);
+        graph.setResult("commonCompiledWithSources", commonCompiledWithSources);
+        var clientCompiledWithSources = addMergeWithSourcesStep("clientMergeWithSources", clientCompiled, clientSources);
+        graph.setResult("clientCompiledWithSources", clientCompiledWithSources);
     }
 
     private void triggerAndWait(Collection<ExecutionNode> nodes) throws InterruptedException {
