@@ -5,6 +5,7 @@ import net.neoforged.neoform.runtime.actions.CreateLibrariesOptionsFile;
 import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
+import net.neoforged.neoform.runtime.actions.DownloadVersionManifestZipAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
@@ -24,6 +25,7 @@ import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormFunction;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormStep;
+import net.neoforged.neoform.runtime.downloads.DownloadManager;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
@@ -42,6 +44,7 @@ import net.neoforged.problems.ProblemReporter;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -66,6 +69,7 @@ import java.util.zip.ZipFile;
 public class NeoFormEngine implements AutoCloseable {
     private static final Logger LOG = Logger.create();
 
+    private final DownloadManager downloadManager;
     private final ArtifactManager artifactManager;
     private final FileHashService fileHashService;
     private final CacheManager cacheManager;
@@ -98,10 +102,12 @@ public class NeoFormEngine implements AutoCloseable {
      */
     private String javaExecutable;
 
-    public NeoFormEngine(ArtifactManager artifactManager,
+    public NeoFormEngine(DownloadManager downloadManager,
+                         ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
                          LockManager lockManager) {
+        this.downloadManager = downloadManager;
         this.artifactManager = artifactManager;
         this.fileHashService = fileHashService;
         this.cacheManager = cacheManager;
@@ -182,8 +188,6 @@ public class NeoFormEngine implements AutoCloseable {
             addNodeForStep(graph, distConfig, step);
         }
 
-        var renameOutput = graph.getRequiredOutput("rename", "output");
-
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
@@ -191,7 +195,11 @@ public class NeoFormEngine implements AutoCloseable {
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
-        graph.setResult("vanillaDeobfuscated", renameOutput);
+        if (processGeneration.obfuscated()) {
+            graph.setResult("vanillaDeobfuscated", graph.getRequiredOutput("rename", "output"));
+        } else {
+            graph.setResult("vanillaDeobfuscated", graph.getRequiredOutput("preProcessJar", "output"));
+        }
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
         graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
@@ -315,7 +323,12 @@ public class NeoFormEngine implements AutoCloseable {
             }
             case "downloadJson" -> {
                 builder.output("output", NodeOutputType.JSON, "Version manifest for a particular Minecraft version");
-                builder.action(new DownloadVersionManifestAction(artifactManager, config));
+                var downloadUrl = step.values().get("version_zip");
+                if (downloadUrl != null) {
+                    builder.action(new DownloadVersionManifestZipAction(downloadManager, URI.create(downloadUrl)));
+                } else {
+                    builder.action(new DownloadVersionManifestAction(artifactManager, config));
+                }
             }
             case "downloadClient" ->
                     createDownloadFromVersionManifest(builder, "client", NodeOutputType.JAR, "The main Minecraft client jar-file.");
@@ -343,11 +356,15 @@ public class NeoFormEngine implements AutoCloseable {
 
                         action.generateSplitManifest("client", "server");
                         builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, serverJarInput);
-                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        if (processGeneration.obfuscated()) {
+                            builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        }
                     } else if ("stripServer".equals(step.getId())) {
                         action.generateSplitManifest("server", "client");
                         builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, graph.getRequiredOutput("downloadClient", "output").asInput());
-                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        if (processGeneration.obfuscated()) {
+                            builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        }
                     }
                 }
 
@@ -363,11 +380,10 @@ public class NeoFormEngine implements AutoCloseable {
                 ));
             }
             case "patch" -> {
-                builder.clearInputs();
                 PatchActionFactory.makeAction(
                         builder,
                         getRequiredDataSource("patches"),
-                        graph.getRequiredOutput("inject", "output"),
+                        null,
                         "a/",
                         "b/"
                 );
@@ -446,14 +462,27 @@ public class NeoFormEngine implements AutoCloseable {
         resolvedJvmArgs.forEach(placeholderProcessor);
         resolvedArgs.forEach(placeholderProcessor);
 
-        MavenCoordinate toolArtifactCoordinate;
-        try {
-            toolArtifactCoordinate = MavenCoordinate.parse(function.toolArtifact());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
+        List<MavenCoordinate> toolClasspath = new ArrayList<>();
+        if (function.toolArtifact() != null) {
+            try {
+                toolClasspath.add(MavenCoordinate.parse(function.toolArtifact()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
+            }
+        } else {
+            if (function.classpath() == null) {
+                throw new IllegalArgumentException("Function for step " + step + " has no classpath property.");
+            }
+            for (String artifactId : function.classpath()) {
+                try {
+                    toolClasspath.add(MavenCoordinate.parse(artifactId));
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Function for step " + step + " has invalid classpath item: " + artifactId);
+                }
+            }
         }
 
-        var action = new ExternalJavaToolAction(toolArtifactCoordinate);
+        var action = new ExternalJavaToolAction(toolClasspath, function.mainClass());
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
@@ -787,6 +816,14 @@ public class NeoFormEngine implements AutoCloseable {
 
         @Override
         public <T> T getRequiredInput(String id, ResultRepresentation<T> representation) throws IOException {
+            return node.getRequiredInput(id).getValue(representation);
+        }
+
+        @Override
+        public <T> T getInput(String id, ResultRepresentation<T> representation) throws IOException {
+            if (!node.hasInput(id)) {
+                return null;
+            }
             return node.getRequiredInput(id).getValue(representation);
         }
 

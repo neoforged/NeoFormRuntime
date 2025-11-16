@@ -5,6 +5,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
@@ -13,11 +14,15 @@ public final class PatchActionFactory {
 
     public static NodeOutput makeAction(ExecutionNodeBuilder builder,
                                         DataSource patches,
-                                        NodeOutput sources,
+                                        @Nullable NodeOutput sources,
                                         String basePathPrefix,
                                         String modifiedPathPrefix) {
         Objects.requireNonNull(patches, "patches");
-        builder.input("input", sources.asInput());
+        if (sources != null ) {
+            builder.input("input", sources.asInput());
+        } else if (!builder.hasInput("input")) {
+            throw new IllegalStateException("The builder must have an input named 'input' when no explit sources are given.");
+        }
         var mainOutput = builder.output("output", NodeOutputType.ZIP, "ZIP file containing the patched sources");
         builder.output("outputRejects", NodeOutputType.ZIP, "ZIP file containing the rejected patches");
 

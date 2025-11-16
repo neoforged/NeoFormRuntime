@@ -88,7 +88,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
             var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
 
             var fileHashService = new FileHashService();
-            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
+            try (var engine = new NeoFormEngine(downloadManager, artifactManager, fileHashService, cacheManager, lockManager)) {
                 if (problemReporter != null) {
                     engine.setProblemReporter(problemReporter);
                 }

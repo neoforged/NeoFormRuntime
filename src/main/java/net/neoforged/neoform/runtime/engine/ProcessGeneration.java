@@ -71,6 +71,8 @@ public class ProcessGeneration {
      */
     private boolean generateDistSourceManifest;
 
+    private boolean obfuscated;
+
     /**
      * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
      * SRG to official names for development.
@@ -80,6 +82,12 @@ public class ProcessGeneration {
         var releaseVersion = MinecraftReleaseVersion.parse(minecraftVersion);
 
         var result = new ProcessGeneration();
+
+        if (minecraftVersion.endsWith("_unobfuscated")) {
+            result.obfuscated = false;
+        } else {
+            result.obfuscated = true;
+        }
 
         // Minecraft 1.17.1 and older directly shaded dependency class files into the server.jar
         // while newer versions use embedded jar files instead.
@@ -143,6 +151,13 @@ public class ProcessGeneration {
      */
     public boolean generateDistSourceManifest() {
         return generateDistSourceManifest;
+    }
+
+    /**
+     * {@return true if this Minecraft version publishes obfuscated Jar files}
+     */
+    public boolean obfuscated() {
+        return obfuscated;
     }
 
     /**

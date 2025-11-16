@@ -348,7 +348,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 ));
 
         if (neededResults.isEmpty()) {
-            System.err.println("No results requested. Available results: " + engine.getAvailableResults());
+            System.err.println("No results requested using --write-result=<result>:<path>. Available results: " + engine.getAvailableResults());
             System.exit(1);
         }
 
