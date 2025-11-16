@@ -196,11 +196,9 @@ public class NeoFormEngine implements AutoCloseable {
 
         // Register the sources and the compiled binary as results
         if (processGeneration.obfuscated()) {
-            var renameOutput = graph.getRequiredOutput("rename", "output");
-            graph.setResult("vanillaDeobfuscated", renameOutput);
+            graph.setResult("vanillaDeobfuscated", graph.getRequiredOutput("rename", "output"));
         } else {
-            var mergedOutput = graph.getRequiredOutput("merge", "output");
-            graph.setResult("vanillaDeobfuscated", mergedOutput);
+            graph.setResult("vanillaDeobfuscated", graph.getRequiredOutput("preProcessJar", "output"));
         }
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
