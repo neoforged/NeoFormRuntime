@@ -382,11 +382,10 @@ public class NeoFormEngine implements AutoCloseable {
                 ));
             }
             case "patch" -> {
-                builder.clearInputs();
                 PatchActionFactory.makeAction(
                         builder,
                         getRequiredDataSource("patches"),
-                        graph.getRequiredOutput("inject", "output"),
+                        null,
                         "a/",
                         "b/"
                 );
