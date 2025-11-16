@@ -38,12 +38,12 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     /**
      * The classpath of the tool.
      */
-    private List<MavenCoordinate> classpath;
+    private final List<MavenCoordinate> classpath;
     /**
      * The tools main class. Can be null if {@link #classpath} contains exactly one item and that item is executable.
      */
     @Nullable
-    private String mainClass;
+    private final String mainClass;
     /**
      * Specific maven repository URL to load the tool from.
      */
@@ -150,7 +150,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         if (mainClass != null) {
             LOG.println(" ↳ Running external tool " + mainClass);
         } else {
-            LOG.println(" ↳ Running external tool " + toolArtifacts.getFirst());
+            LOG.println(" ↳ Running external tool " + classpath.getFirst());
         }
         if (environment.isVerbose()) {
             LOG.println(" " + AnsiColor.MUTED + printableCommand(command) + AnsiColor.RESET);
