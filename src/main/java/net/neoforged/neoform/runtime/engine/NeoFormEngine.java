@@ -465,14 +465,27 @@ public class NeoFormEngine implements AutoCloseable {
         resolvedJvmArgs.forEach(placeholderProcessor);
         resolvedArgs.forEach(placeholderProcessor);
 
-        MavenCoordinate toolArtifactCoordinate;
-        try {
-            toolArtifactCoordinate = MavenCoordinate.parse(function.toolArtifact());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
+        List<MavenCoordinate> toolClasspath = new ArrayList<>();
+        if (function.toolArtifact() != null) {
+            try {
+                toolClasspath.add(MavenCoordinate.parse(function.toolArtifact()));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
+            }
+        } else {
+            if (function.classpath() == null) {
+                throw new IllegalArgumentException("Function for step " + step + " has no classpath property.");
+            }
+            for (String artifactId : function.classpath()) {
+                try {
+                    toolClasspath.add(MavenCoordinate.parse(artifactId));
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Function for step " + step + " has invalid classpath item: " + artifactId);
+                }
+            }
         }
 
-        var action = new ExternalJavaToolAction(toolArtifactCoordinate);
+        var action = new ExternalJavaToolAction(toolClasspath, function.mainClass());
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
