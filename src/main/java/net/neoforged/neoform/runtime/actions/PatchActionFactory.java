@@ -18,7 +18,7 @@ public final class PatchActionFactory {
                                         String basePathPrefix,
                                         String modifiedPathPrefix) {
         Objects.requireNonNull(patches, "patches");
-        if (sources != null ) {
+        if (sources != null) {
             builder.input("input", sources.asInput());
         } else if (!builder.hasInput("input")) {
             throw new IllegalStateException("The builder must have an input named 'input' when no explit sources are given.");
