@@ -55,7 +55,7 @@ public class ExecutionGraph {
             var outputId = matcher.group(2);
             return getRequiredOutput(step, outputId);
         }
-        return null;
+        throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + results.keySet());
     }
 
     public Map<String, NodeOutput> getResults() {

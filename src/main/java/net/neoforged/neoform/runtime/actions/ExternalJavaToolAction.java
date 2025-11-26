@@ -183,7 +183,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }).collect(Collectors.joining(" "));
     }
 
-    private void tailLogFile(File logFile) {
+    public static void tailLogFile(File logFile) {
         System.err.println("Last lines of " + logFile + ":");
         System.err.println("------------------------------------------------------------");
         try (var raf = new RandomAccessFile(logFile, "r")) {
