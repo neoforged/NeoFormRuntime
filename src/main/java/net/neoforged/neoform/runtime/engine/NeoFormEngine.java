@@ -605,6 +605,9 @@ public class NeoFormEngine implements AutoCloseable {
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
+            if (nodeOutput == null) {
+                throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
+            }
             nodes.add(nodeOutput.getNode());
         }
 
