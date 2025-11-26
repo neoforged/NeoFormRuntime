@@ -125,6 +125,10 @@ public final class ExecutionNode {
         return inputs;
     }
 
+    public boolean hasInput(String id) {
+        return inputs.containsKey(id);
+    }
+
     public boolean hasOutput(String id) {
         return outputs.containsKey(id);
     }
