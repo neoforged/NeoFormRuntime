@@ -40,6 +40,7 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import net.neoforged.problems.ProblemReporter;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -796,6 +797,7 @@ public class NeoFormEngine implements AutoCloseable {
             return node.getRequiredInput(id).getValue(representation);
         }
 
+        @Nullable
         @Override
         public <T> T getInput(String id, ResultRepresentation<T> representation) throws IOException {
             return node.hasInput(id) ? node.getRequiredInput(id).getValue(representation) : null;
