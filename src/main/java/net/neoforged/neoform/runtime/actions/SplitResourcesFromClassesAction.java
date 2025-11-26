@@ -3,6 +3,9 @@ package net.neoforged.neoform.runtime.actions;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.srgutils.IMappingFile;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.BufferedOutputStream;
@@ -18,12 +21,9 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
-import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 /**
  * Copies a Jar file while applying a filename filter.
@@ -81,11 +81,12 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
                     .asMatchPredicate();
         }
 
+        // TODO: new ZipFile is deprecated
         try (var jar = new ZipFile(inputJar.toFile());
              var classesFileOut = new BufferedOutputStream(Files.newOutputStream(classesJar));
              var resourcesFileOut = new BufferedOutputStream(Files.newOutputStream(resourcesJar));
-             var classesJarOut = new JarOutputStream(classesFileOut);
-             var resourcesJarOut = new JarOutputStream(resourcesFileOut);
+             var classesJarOut = new ZipArchiveOutputStream(classesFileOut);
+             var resourcesJarOut = new ZipArchiveOutputStream(resourcesFileOut);
         ) {
             if (generateDistManifestSettings != null) {
                 generateDistSourceManifest(
@@ -98,7 +99,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
                 );
             }
 
-            var entries = jar.entries();
+            var entries = jar.getEntries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
                 if (entry.isDirectory()) {
@@ -119,11 +120,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
 
                 var destinationStream = filename.endsWith(".class") ? classesJarOut : resourcesJarOut;
 
-                destinationStream.putNextEntry(entry);
-                try (var is = jar.getInputStream(entry)) {
-                    is.transferTo(destinationStream);
-                }
-                destinationStream.closeEntry();
+                destinationStream.addRawArchiveEntry(entry, jar.getRawInputStream(entry));
             }
         }
     }
@@ -134,7 +131,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
                                                    Path otherDistJarPath,
                                                    @Nullable
                                                    Path mappingsPath,
-                                                   JarOutputStream resourcesJarOut) throws IOException {
+                                                   ZipArchiveOutputStream resourcesJarOut) throws IOException {
         var mappings = mappingsPath != null ? IMappingFile.load(mappingsPath.toFile()) : null;
 
         // Use the time-stamp of either of the two input files (whichever is newer)
@@ -153,11 +150,11 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
         addSourceDistEntries(ourFiles, theirFiles, distId, mappings, manifest);
         addSourceDistEntries(theirFiles, ourFiles, otherDistId, mappings, manifest);
 
-        var manifestEntry = new ZipEntry(JarFile.MANIFEST_NAME);
+        var manifestEntry = new ZipArchiveEntry(JarFile.MANIFEST_NAME);
         manifestEntry.setTimeLocal(MANIFEST_TIME);
-        resourcesJarOut.putNextEntry(manifestEntry);
+        resourcesJarOut.putArchiveEntry(manifestEntry);
         manifest.write(resourcesJarOut);
-        resourcesJarOut.closeEntry();
+        resourcesJarOut.closeArchiveEntry();
     }
 
     private static void addSourceDistEntries(Set<String> distFiles,
@@ -179,11 +176,11 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
     }
 
     private static Set<String> getFileIndex(ZipFile zipFile) {
-        var result = new HashSet<String>(zipFile.size());
+        var result = new HashSet<String>();
 
-        var entries = zipFile.entries();
+        var entries = zipFile.getEntries();
         while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
+            ZipArchiveEntry entry = entries.nextElement();
             if (!entry.isDirectory()) {
                 result.add(entry.getName());
             }
@@ -223,6 +220,8 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
+        // TODO: remove :P
+        ck.add("force rerun", "" + Math.random());
         ck.addStrings("deny patterns", denyListPatterns.stream().map(Pattern::pattern).toList());
         if (generateDistManifestSettings != null) {
             ck.add("generate dist manifest - our dist", generateDistManifestSettings.distId);
