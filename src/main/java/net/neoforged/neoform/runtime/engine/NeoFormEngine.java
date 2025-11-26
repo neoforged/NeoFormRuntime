@@ -28,6 +28,7 @@ import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeExecutionException;
+import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
@@ -39,6 +40,7 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import net.neoforged.problems.ProblemReporter;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -182,8 +184,6 @@ public class NeoFormEngine implements AutoCloseable {
             addNodeForStep(graph, distConfig, step);
         }
 
-        var renameOutput = graph.getRequiredOutput("rename", "output");
-
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
@@ -191,7 +191,11 @@ public class NeoFormEngine implements AutoCloseable {
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
-        graph.setResult("vanillaDeobfuscated", renameOutput);
+        // Vanilla deobfuscated is equivalent to the input to the decompiler
+        var decompile = graph.getNode("decompile");
+        if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
+            graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
+        }
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
         graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
@@ -343,11 +347,15 @@ public class NeoFormEngine implements AutoCloseable {
 
                         action.generateSplitManifest("client", "server");
                         builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, serverJarInput);
-                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        if (graph.hasOutput("mergeMappings", "output")) {
+                            builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        }
                     } else if ("stripServer".equals(step.getId())) {
                         action.generateSplitManifest("server", "client");
                         builder.input(SplitResourcesFromClassesAction.INPUT_OTHER_DIST_JAR, graph.getRequiredOutput("downloadClient", "output").asInput());
-                        builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        if (graph.hasOutput("mergeMappings", "output")) {
+                            builder.input(SplitResourcesFromClassesAction.INPUT_MAPPINGS, graph.getRequiredOutput("mergeMappings", "output").asInput());
+                        }
                     }
                 }
 
@@ -363,11 +371,10 @@ public class NeoFormEngine implements AutoCloseable {
                 ));
             }
             case "patch" -> {
-                builder.clearInputs();
                 PatchActionFactory.makeAction(
                         builder,
                         getRequiredDataSource("patches"),
-                        graph.getRequiredOutput("inject", "output"),
+                        null,
                         "a/",
                         "b/"
                 );
@@ -788,6 +795,12 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public <T> T getRequiredInput(String id, ResultRepresentation<T> representation) throws IOException {
             return node.getRequiredInput(id).getValue(representation);
+        }
+
+        @Nullable
+        @Override
+        public <T> T getInput(String id, ResultRepresentation<T> representation) throws IOException {
+            return node.hasInput(id) ? node.getRequiredInput(id).getValue(representation) : null;
         }
 
         @Override

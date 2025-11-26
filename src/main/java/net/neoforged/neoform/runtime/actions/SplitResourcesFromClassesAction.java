@@ -67,7 +67,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
         Path mappingsPath = null;
         if (generateDistManifestSettings != null) {
             otherDistJarPath = environment.getRequiredInputPath(INPUT_OTHER_DIST_JAR);
-            mappingsPath = environment.getRequiredInputPath(INPUT_MAPPINGS);
+            mappingsPath = environment.getInputPath(INPUT_MAPPINGS);
         }
 
         var classesJar = environment.getOutputPath("output");
@@ -132,6 +132,7 @@ public final class SplitResourcesFromClassesAction extends BuiltInAction {
                                                    ZipFile jar,
                                                    String otherDistId,
                                                    Path otherDistJarPath,
+                                                   @Nullable
                                                    Path mappingsPath,
                                                    JarOutputStream resourcesJarOut) throws IOException {
         var mappings = mappingsPath != null ? IMappingFile.load(mappingsPath.toFile()) : null;

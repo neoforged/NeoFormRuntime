@@ -37,11 +37,15 @@ public abstract class NodeInput {
 
     public abstract <T> T getValue(ResultRepresentation<T> representation) throws IOException;
 
-    static final class NodeInputForOutput extends NodeInput {
+    public static final class NodeInputForOutput extends NodeInput {
         private NodeOutput output;
 
         public NodeInputForOutput(NodeOutput output) {
             this.output = output;
+        }
+
+        public NodeOutput getOutput() {
+            return output;
         }
 
         @Override
