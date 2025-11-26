@@ -8,7 +8,7 @@ import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
-import net.neoforged.neoform.runtime.actions.MergeWithResourcesAction;
+import net.neoforged.neoform.runtime.actions.CreateMinecraftModJarAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
@@ -203,11 +203,17 @@ public class NeoFormEngine implements AutoCloseable {
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
-            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+            var resourceOutput = graph.getRequiredOutput("stripClient", "resourcesOutput");
+            graph.setResult("clientResources", resourceOutput);
 
-            // TODO: normal "resources" are actually not available?
-            createResultWithResources("compiledWithResources", "compiled");
-            createResultWithResources("sourcesAndCompiledWithResources", "sourcesAndCompiled");
+            // In NeoForm versions that use the old process, we manually created nodes that merge the resources back into the jar, and create the neoforge.mods.toml
+            createMinecraftModJar(distConfig.minecraftVersion(), "minecraftModJar", compiledOutput.asInput(), resourceOutput.asInput());
+            createMinecraftModJar(distConfig.minecraftVersion(), "minecraftModJarWithSources", sourcesAndCompiledOutput.asInput(), resourceOutput.asInput());
+        } else {
+            // In newer versions of the process where resources aren't stripped, we're likely to also have a neoforge.mods.toml already
+            // Then we just alias the outputs
+            graph.setResult("minecraftModJar", compiledOutput);
+            graph.setResult("minecraftModJarWithSources", sourcesAndCompiledOutput);
         }
         if (graph.hasOutput("stripServer", "resourcesOutput")) {
             graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
@@ -491,13 +497,14 @@ public class NeoFormEngine implements AutoCloseable {
         builder.action(new DownloadFromVersionManifestAction(artifactManager, manifestEntry));
     }
 
-    private void createResultWithResources(String withResourcesId, String withoutResourcesId) {
+    private void createMinecraftModJar(String minecraftVersion, String withResourcesId, NodeInput classesInput, @Nullable NodeInput resourceInput) {
         var builder = graph.nodeBuilder(withResourcesId);
-        builder.input("classes", graph.getResult(withoutResourcesId).asInput());
-        // TODO: clientResources??? really??
-        builder.input("resources", graph.getResult("clientResources").asInput());
-        builder.action(new MergeWithResourcesAction());
-        var output = builder.output("output", NodeOutputType.JAR, "Result of " + withoutResourcesId + " with Minecraft resources added into the same jar.");
+        builder.input("classes", classesInput);
+        if (resourceInput != null) {
+            builder.input("resources", resourceInput);
+        }
+        builder.action(new CreateMinecraftModJarAction(minecraftVersion));
+        var output = builder.output("output", NodeOutputType.JAR, "Result of " + classesInput.getId() + " with Minecraft resources added into the same jar.");
         builder.build();
 
         graph.setResult(withResourcesId, output);
