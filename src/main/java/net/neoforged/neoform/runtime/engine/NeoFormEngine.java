@@ -160,7 +160,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder, fileHashService));
     }
 
-    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
+    public void loadNeoFormData(Path neoFormDataPath, String dist, boolean binaryPipeline) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -170,10 +170,10 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig);
+        loadNeoFormProcess(distConfig, binaryPipeline);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
+    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean binaryPipeline) {
         processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
 
         for (var step : distConfig.steps()) {
@@ -193,12 +193,22 @@ public class NeoFormEngine implements AutoCloseable {
         // Register the sources and the compiled binary as results
         // Vanilla deobfuscated is equivalent to the input to the decompiler
         var decompile = graph.getNode("decompile");
+        NodeOutput vanillaDeobfuscated = null;
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
-            graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
+            vanillaDeobfuscated = nodeInputForOutput.getOutput();
+            graph.setResult("vanillaDeobfuscated", vanillaDeobfuscated);
         }
-        graph.setResult("sources", sourcesOutput);
-        graph.setResult("compiled", compiledOutput);
-        graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
+        if (binaryPipeline) {
+            if (vanillaDeobfuscated == null) {
+                throw new IllegalStateException("Could not find input of \"decompile\" step, could not obtain binary pipeline output.");
+            }
+            graph.setResult("compiled", vanillaDeobfuscated);
+            // Avoid exposing sources, such that they can't be requested by accident in binary mode.
+        } else {
+            graph.setResult("sources", sourcesOutput);
+            graph.setResult("compiled", compiledOutput);
+            graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
+        }
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -581,9 +591,6 @@ public class NeoFormEngine implements AutoCloseable {
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
-            if (nodeOutput == null) {
-                throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
-            }
             nodes.add(nodeOutput.getNode());
         }
 
