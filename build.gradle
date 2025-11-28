@@ -181,7 +181,7 @@ idea {
                 }
                 "Run Neoforge 1.21 (joined, binpatch)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --binary --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=compiledWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
+                    programParameters = "run --binary-pipeline --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=compiledWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.21 (joined)"(Application) {
