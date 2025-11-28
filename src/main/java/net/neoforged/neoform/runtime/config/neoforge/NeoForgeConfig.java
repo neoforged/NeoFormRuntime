@@ -21,6 +21,8 @@ public record NeoForgeConfig(
         int spec,
         @SerializedName("mcp") String neoformArtifact,
         @SerializedName("ats") String accessTransformersFolder,
+        @SerializedName("binpatches") String binaryPatchesFile,
+        @SerializedName("binpatcher") BinpatcherConfig binaryPatcherConfig,
         @SerializedName("patches") String patchesFolder,
         @SerializedName("sources") String sourcesArtifact,
         @SerializedName("universal") String universalArtifact,
