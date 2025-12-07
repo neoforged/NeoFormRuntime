@@ -13,11 +13,11 @@ import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
-import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
+import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
@@ -290,10 +290,21 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         if (binaryPipeline) {
             if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
-                var output = engine.getGraph().getResult("compiled");
+                NodeOutput untransformedOutput;
+                if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+                    untransformedOutput = engine.getGraph().getResult("compiled");
+                } else {
+                    // We have to transform in srg
+                    var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
+                    if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
+                        throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
+                    }
+                    untransformedOutput = nifo.getOutput();
+                }
+
                 engine.applyTransform(new ReplaceNodeOutput(
-                        output.getNode().id(),
-                        output.id(),
+                        untransformedOutput.getNode().id(),
+                        untransformedOutput.id(),
                         "applyDevTransforms",
                         (builder, previousOutput) -> {
                             builder.input("input", previousOutput.asInput());
