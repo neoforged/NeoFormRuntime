@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
 import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
 import net.neoforged.neoform.runtime.actions.CopyUnpatchedClassesAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
@@ -228,9 +229,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
                 var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
                 var binaryPatchOutput = createBinaryWithUnpatched(graph, renamedOutput, binaryPatchOnlyOutput);
-
-                // TODO: apply additional ATs and interface injections
-
                 graph.setResult("compiled", binaryPatchOutput);
 
                 var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
@@ -277,6 +275,29 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         action.getSourcepath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
                     }
             ));
+        }
+
+        if (binaryPipeline) {
+            if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
+                var output = engine.getGraph().getResult("compiled");
+                engine.applyTransform(new ReplaceNodeOutput(
+                        output.getNode().id(),
+                        output.id(),
+                        "applyDevTransforms",
+                        (builder, previousOutput) -> {
+                            builder.input("input", previousOutput.asInput());
+                            var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
+                            var action = new ApplyDevTransformsAction();
+                            var allAts = new ArrayList<Path>();
+                            allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
+                            allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
+                            action.setAccessTransformers(allAts);
+                            action.setInjectedInterfaces(interfaceInjectionDataFiles);
+                            builder.action(action);
+
+                            return transformedOutput;
+                        }));
+            }
         }
 
         execute(engine);
