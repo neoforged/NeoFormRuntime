@@ -223,16 +223,27 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
 
             if (binaryPipeline) {
-                var renamedOutput = graph.getResult("compiled");
+                var renamedOutput = graph.getRequiredOutput("rename", "output");
 
                 engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
 
                 var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
                 var binaryPatchOutput = createBinaryWithUnpatched(graph, renamedOutput, binaryPatchOnlyOutput);
-                graph.setResult("compiled", binaryPatchOutput);
 
                 var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
-                graph.setResult("compiledWithNeoForge", binaryWithNeoForgeOutput);
+
+                if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+                    graph.setResult("compiled", binaryPatchOutput);
+                    graph.setResult("compiledWithNeoForge", binaryWithNeoForgeOutput);
+                } else {
+                    // Minecraft and NeoForge classes need to be remapped,
+                    // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
+                    var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
+                    remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
+
+                    graph.setResult("compiled", remapOutput); // technically redundant, but set again for clarity
+                    graph.setResult("compiledWithNeoForge", remapOutput);
+                }
             } else {
                 graph.setResult("sourcesWithNeoForge", sourcesWithNeoForgeOutput);
                 graph.setResult("compiledWithNeoForge", compiledWithNeoForgeOutput);

@@ -13,6 +13,7 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoform.runtime.actions.RemapSrgClassesAction;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
@@ -39,6 +40,7 @@ import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
 import net.neoforged.neoform.runtime.utils.StringUtil;
+import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import net.neoforged.problems.ProblemReporter;
 import org.jetbrains.annotations.Nullable;
 
@@ -199,10 +201,8 @@ public class NeoFormEngine implements AutoCloseable {
             graph.setResult("vanillaDeobfuscated", vanillaDeobfuscated);
         }
         if (binaryPipeline) {
-            if (vanillaDeobfuscated == null) {
-                throw new IllegalStateException("Could not find input of \"decompile\" step, could not obtain binary pipeline output.");
-            }
-            graph.setResult("compiled", vanillaDeobfuscated);
+            var renameOutput = graph.getRequiredOutput("rename", "output");
+            graph.setResult("compiled", renameOutput);
             // Avoid exposing sources, such that they can't be requested by accident in binary mode.
         } else {
             graph.setResult("sources", sourcesOutput);
@@ -244,6 +244,18 @@ public class NeoFormEngine implements AutoCloseable {
                             }
                     )
             ));
+
+            if (binaryPipeline) {
+                var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
+                builder.input("input", graph.getRequiredOutput("rename", "output").asInput());
+                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                var officialOutput = builder.output("output", NodeOutputType.JAR, "Classes with SRG method and field names remapped to official.");
+                builder.action(new RemapSrgClassesAction());
+                builder.build();
+
+                graph.setResult("compiled", officialOutput);
+            }
 
             // We also expose a few results for mappings in different formats
             var createMappings = graph.nodeBuilder("createMappings");

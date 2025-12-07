@@ -13,7 +13,8 @@ public enum ToolCoordinate {
     JAVA_SOURCE_TRANSFORMER,
     DIFF_PATCH,
     MCF_SIDE_ANNOTATION_STRIPPER,
-    INSTALLER_TOOLS;
+    INSTALLER_TOOLS,
+    AUTO_RENAMING_TOOL;
 
     private static final Properties VERSIONS;
 

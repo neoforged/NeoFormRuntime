@@ -224,6 +224,11 @@ idea {
                     programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
+                "Run Neoform 1.19.2 (joined, binpatch)"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --binary-pipeline --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar"
+                    moduleRef(project, sourceSets.main)
+                }
                 "Run clean-cache"(Application) {
                     mainClass = mainClassName
                     programParameters = "clean-cache --verbose"
