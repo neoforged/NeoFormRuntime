@@ -195,10 +195,8 @@ public class NeoFormEngine implements AutoCloseable {
         // Register the sources and the compiled binary as results
         // Vanilla deobfuscated is equivalent to the input to the decompiler
         var decompile = graph.getNode("decompile");
-        NodeOutput vanillaDeobfuscated = null;
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
-            vanillaDeobfuscated = nodeInputForOutput.getOutput();
-            graph.setResult("vanillaDeobfuscated", vanillaDeobfuscated);
+            graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
         }
         if (binaryPipeline) {
             var renameOutput = graph.getRequiredOutput("rename", "output");

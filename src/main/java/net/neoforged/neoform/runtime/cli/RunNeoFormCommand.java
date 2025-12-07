@@ -228,7 +228,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
 
                 var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
-                var binaryPatchOutput = createBinaryWithUnpatched(graph, renamedOutput, binaryPatchOnlyOutput);
+                var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
 
                 var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
@@ -405,8 +405,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         return output;
     }
 
-    private static NodeOutput createBinaryWithUnpatched(ExecutionGraph graph, NodeOutput clean, NodeOutput binaryPatched) {
-        var builder = graph.nodeBuilder("binaryWithUnpatched");
+    private static NodeOutput createCopyUnpatchedClasses(ExecutionGraph graph, NodeOutput clean, NodeOutput binaryPatched) {
+        var builder = graph.nodeBuilder("copyUnpatchedClasses");
         builder.input("patched", binaryPatched.asInput());
         builder.input("unpatched", clean.asInput());
         var output = builder.output("output", NodeOutputType.JAR, "JAR containing the patched and clean (if not patched) Minecraft classes");
