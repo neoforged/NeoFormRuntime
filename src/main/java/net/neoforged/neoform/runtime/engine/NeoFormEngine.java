@@ -162,7 +162,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder, fileHashService));
     }
 
-    public void loadNeoFormData(Path neoFormDataPath, String dist, boolean binaryPipeline) throws IOException {
+    public void loadNeoFormData(Path neoFormDataPath, String dist, boolean noSources) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -172,10 +172,10 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig, binaryPipeline);
+        loadNeoFormProcess(distConfig, noSources);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean binaryPipeline) {
+    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean noSources) {
         processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
 
         for (var step : distConfig.steps()) {
@@ -198,7 +198,7 @@ public class NeoFormEngine implements AutoCloseable {
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
             graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
         }
-        if (binaryPipeline) {
+        if (noSources) {
             var renameOutput = graph.getRequiredOutput("rename", "output");
             graph.setResult("compiled", renameOutput);
             // Avoid exposing sources, such that they can't be requested by accident in binary mode.
@@ -243,7 +243,7 @@ public class NeoFormEngine implements AutoCloseable {
                     )
             ));
 
-            if (binaryPipeline) {
+            if (noSources) {
                 var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
                 builder.input("input", graph.getRequiredOutput("rename", "output").asInput());
                 builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());

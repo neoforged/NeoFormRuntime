@@ -179,9 +179,9 @@ idea {
                     programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
-                "Run Neoforge 1.21 (joined, binpatch)"(Application) {
+                "Run Neoforge 1.21 (joined, no sources)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --binary-pipeline --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=compiledWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
+                    programParameters = "run --no-sources --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=compiledWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.21 (joined)"(Application) {
@@ -224,9 +224,9 @@ idea {
                     programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
-                "Run Neoform 1.19.2 (joined, binpatch)"(Application) {
+                "Run Neoform 1.19.2 (joined, no sources)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --binary-pipeline --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar"
+                    programParameters = "run --no-sources --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run clean-cache"(Application) {

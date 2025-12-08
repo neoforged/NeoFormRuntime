@@ -80,8 +80,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--parchment-conflict-prefix", description = "Setting this option enables automatic Parchment parameter conflict resolution and uses this prefix for parameter names that clash.")
     String parchmentConflictPrefix;
 
-    @CommandLine.Option(names = "--binary-pipeline", description = "Use a pipeline based on binary (.class) files and patches only. The standard source results will not be available, but node outputs depending on sources will be.")
-    boolean binaryPipeline;
+    @CommandLine.Option(names = "--no-sources", description = "Use a pipeline that doesn't require sources, by applying transforms on the .class files and using binary patches.")
+    boolean noSources;
 
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
@@ -108,7 +108,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 neoformArtifact = artifactManager.get(neoforgeConfig.neoformArtifact()).path();
             }
 
-            engine.loadNeoFormData(neoformArtifact, dist, binaryPipeline);
+            engine.loadNeoFormData(neoformArtifact, dist, noSources);
 
             // Add NeoForge specific data sources
             engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
@@ -222,7 +222,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var sourcesAndCompiledWithNeoForgeOutput =
                     createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
 
-            if (binaryPipeline) {
+            if (noSources) {
                 var renamedOutput = graph.getRequiredOutput("rename", "output");
 
                 engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
@@ -252,7 +252,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
 
-            engine.loadNeoFormData(neoFormDataPath, dist, binaryPipeline);
+            engine.loadNeoFormData(neoFormDataPath, dist, noSources);
         }
 
         applyAdditionalAccessTransformers(engine);
@@ -288,7 +288,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             ));
         }
 
-        if (binaryPipeline) {
+        if (noSources) {
             if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
                 NodeOutput untransformedOutput;
                 if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
