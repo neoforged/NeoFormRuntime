@@ -275,7 +275,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // In older processes, we already had to inject the sources before recompiling (due to remapping)
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-            graph.setResult("compiledWithNeoForge", recompiledClasses);
+            graph.setResult(ResultIds.COMPILED_WITH_NEO_FORGE, recompiledClasses);
             return recompiledClasses;
         }
 
@@ -288,7 +288,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         )));
         builder.build();
 
-        graph.setResult("compiledWithNeoForge", output);
+        graph.setResult(ResultIds.COMPILED_WITH_NEO_FORGE, output);
         return output;
     }
 
@@ -300,7 +300,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // 1.20.1 and below use SRG in production and for ATs, so we cannot use the JST output as it is in SRG
             // therefore we must output the renamed sources
             var remapSrgSourcesToOfficialOutput = graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
-            graph.setResult("sourcesWithNeoForge", remapSrgSourcesToOfficialOutput);
+            graph.setResult(ResultIds.SOURCES_WITH_NEO_FORGE, remapSrgSourcesToOfficialOutput);
             return remapSrgSourcesToOfficialOutput;
         } else {
             var transformedSourceOutput = graph.getRequiredOutput("transformSources", "output");
@@ -312,7 +312,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     new InjectFromZipFileSource(neoforgeSourcesZip, "/")
             )));
             builder.build();
-            graph.setResult("sourcesWithNeoForge", output);
+            graph.setResult(ResultIds.SOURCES_WITH_NEO_FORGE, output);
             return output;
         }
     }
@@ -325,7 +325,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var output = builder.output("output", NodeOutputType.JAR, "Combined output of sourcesWithNeoForge and compiledWithNeoForge");
         builder.action(new MergeWithSourcesAction());
         builder.build();
-        graph.setResult("sourcesAndCompiledWithNeoForge", output);
+        graph.setResult(ResultIds.SOURCES_AND_COMPILED_WITH_NEO_FORGE, output);
     }
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {
