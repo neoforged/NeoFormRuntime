@@ -232,16 +232,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                graph.setResult("classes", binaryPatchOutput);
-                graph.setResult("classesWithNeoForge", binaryWithNeoForgeOutput);
+                graph.setResult("binary", binaryPatchOutput);
+                graph.setResult("binaryWithNeoForge", binaryWithNeoForgeOutput);
             } else {
                 // Minecraft and NeoForge classes need to be remapped,
                 // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
                 var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
                 remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
 
-                graph.setResult("classes", remapOutput); // technically redundant, but set again for clarity
-                graph.setResult("classesWithNeoForge", remapOutput);
+                graph.setResult("binary", remapOutput); // technically redundant, but set again for clarity
+                graph.setResult("binaryWithNeoForge", remapOutput);
             }
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
@@ -286,7 +286,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
             NodeOutput untransformedOutput;
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                untransformedOutput = engine.getGraph().getResult("classes");
+                untransformedOutput = engine.getGraph().getResult("binary");
             } else {
                 // We have to transform in srg
                 var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");

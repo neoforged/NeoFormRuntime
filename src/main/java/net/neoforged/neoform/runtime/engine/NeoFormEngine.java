@@ -198,12 +198,15 @@ public class NeoFormEngine implements AutoCloseable {
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
             graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
         }
-        var renameOutput = graph.getRequiredOutput("rename", "output");
-        graph.setResult("classes", renameOutput);
 
         graph.setResult("sources", sourcesOutput);
         graph.setResult("compiled", compiledOutput);
         graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
+
+        var renameOutput = graph.getRequiredOutput("rename", "output");
+        // We use the output of rename and not vanillaDeobfuscated because for legacy versions there is a sas step in-between,
+        // and binpatches should be applied without sas stripping.
+        graph.setResult("binary", renameOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -249,7 +252,7 @@ public class NeoFormEngine implements AutoCloseable {
                 builder.action(new RemapSrgClassesAction());
                 builder.build();
 
-                graph.setResult("classes", officialOutput);
+                graph.setResult("binary", officialOutput);
             }
 
             // We also expose a few results for mappings in different formats
