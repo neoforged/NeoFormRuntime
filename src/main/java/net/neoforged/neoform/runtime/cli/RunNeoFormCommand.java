@@ -219,9 +219,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var sourcesAndCompiledWithNeoForgeOutput =
                     createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
 
-            graph.setResult("sourcesWithNeoForge", sourcesWithNeoForgeOutput);
-            graph.setResult("compiledWithNeoForge", compiledWithNeoForgeOutput);
-            graph.setResult("sourcesAndCompiledWithNeoForge", sourcesAndCompiledWithNeoForgeOutput);
+            graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, sourcesWithNeoForgeOutput);
+            graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
+            graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
 
             // Support for binary patches
             var renamedOutput = graph.getRequiredOutput("rename", "output");
@@ -232,16 +232,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                graph.setResult("binary", binaryPatchOutput);
-                graph.setResult("binaryWithNeoForge", binaryWithNeoForgeOutput);
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
             } else {
                 // Minecraft and NeoForge classes need to be remapped,
                 // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
                 var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
                 remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
 
-                graph.setResult("binary", remapOutput); // technically redundant, but set again for clarity
-                graph.setResult("binaryWithNeoForge", remapOutput);
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
             }
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
