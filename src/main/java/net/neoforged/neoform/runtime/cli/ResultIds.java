@@ -33,7 +33,7 @@ public final class ResultIds {
      * jar file.
      * Should be considered deprecated as NeoForge should be added separately to the classpath.
      */
-    public static final String SOURCES_AND_COMPILED_WITH_NEO_FORGE = "gameJarWithNeoForgeAndSources";
+    public static final String SOURCES_AND_COMPILED_WITH_NEO_FORGE = "gameJarWithSourcesAndNeoForge";
 
     /**
      * The Jar file of the Vanilla artifact (client, server or joined) after it has been deobfuscated.
