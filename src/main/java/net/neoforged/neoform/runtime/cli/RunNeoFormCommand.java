@@ -286,7 +286,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
             NodeOutput untransformedOutput;
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                untransformedOutput = engine.getGraph().getResult("binary");
+                untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
             } else {
                 // We have to transform in srg
                 var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
