@@ -219,9 +219,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var sourcesAndCompiledWithNeoForgeOutput =
                     createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
 
-            graph.setResult("sourcesWithNeoForge", sourcesWithNeoForgeOutput);
-            graph.setResult("compiledWithNeoForge", compiledWithNeoForgeOutput);
-            graph.setResult("sourcesAndCompiledWithNeoForge", sourcesAndCompiledWithNeoForgeOutput);
+            graph.setResult(ResultIds.SOURCES_WITH_NEO_FORGE, sourcesWithNeoForgeOutput);
+            graph.setResult(ResultIds.COMPILED_WITH_NEO_FORGE, compiledWithNeoForgeOutput);
+            graph.setResult(ResultIds.SOURCES_AND_COMPILED_WITH_NEO_FORGE, sourcesAndCompiledWithNeoForgeOutput);
 
             // Support for binary patches
             var renamedOutput = graph.getRequiredOutput("rename", "output");
@@ -232,16 +232,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                graph.setResult("binary", binaryPatchOutput);
-                graph.setResult("binaryWithNeoForge", binaryWithNeoForgeOutput);
+                graph.setResult(ResultIds.BINARY, binaryPatchOutput);
+                graph.setResult(ResultIds.BINARY_WITH_NEO_FORGE, binaryWithNeoForgeOutput);
             } else {
                 // Minecraft and NeoForge classes need to be remapped,
                 // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
                 var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
                 remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
 
-                graph.setResult("binary", remapOutput); // technically redundant, but set again for clarity
-                graph.setResult("binaryWithNeoForge", remapOutput);
+                graph.setResult(ResultIds.BINARY, remapOutput); // technically redundant, but set again for clarity
+                graph.setResult(ResultIds.BINARY_WITH_NEO_FORGE, remapOutput);
             }
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
@@ -286,7 +286,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
             NodeOutput untransformedOutput;
             if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                untransformedOutput = engine.getGraph().getResult("binary");
+                untransformedOutput = engine.getGraph().getResult(ResultIds.BINARY);
             } else {
                 // We have to transform in srg
                 var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
