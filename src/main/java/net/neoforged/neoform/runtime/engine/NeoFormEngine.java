@@ -197,9 +197,9 @@ public class NeoFormEngine implements AutoCloseable {
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
             graph.setResult(ResultIds.VANILLA_DEOBFUSCATED, nodeInputForOutput.getOutput());
         }
-        graph.setResult(ResultIds.SOURCES, sourcesOutput);
-        graph.setResult(ResultIds.COMPILED, compiledOutput);
-        graph.setResult(ResultIds.SOURCES_AND_COMPILED, sourcesAndCompiledOutput);
+        graph.setResult(ResultIds.GAME_SOURCES, sourcesOutput);
+        graph.setResult(ResultIds.GAME_JAR, compiledOutput);
+        graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES, sourcesAndCompiledOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -209,7 +209,7 @@ public class NeoFormEngine implements AutoCloseable {
             graph.setResult(ResultIds.SERVER_RESOURCES, graph.getRequiredOutput("stripServer", "resourcesOutput"));
         }
         if (graph.hasOutput("strip", "resourcesOutput")) {
-            graph.setResult(ResultIds.RESOURCES, graph.getRequiredOutput("strip", "resourcesOutput"));
+            graph.setResult(ResultIds.GAME_RESOURCES, graph.getRequiredOutput("strip", "resourcesOutput"));
         }
 
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use

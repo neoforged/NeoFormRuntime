@@ -7,33 +7,33 @@ public final class ResultIds {
     /**
      * The recompilable Minecraft source code as a source zip.
      */
-    public static final String SOURCES = "gameSources";
+    public static final String GAME_SOURCES = "gameSources";
     /**
      * The recompiled Minecraft source code as a jar file.
      */
-    public static final String COMPILED = "gameJar";
+    public static final String GAME_JAR = "gameJar";
     /**
      * The recompiled Minecraft source code as a jar file, with sources merge into it to allow source browsing
      * in IntelliJ (which doesn't support attaching sources to a file dependency in Gradle).
      */
-    public static final String SOURCES_AND_COMPILED = "gameJarWithSources";
+    public static final String GAME_JAR_WITH_SOURCES = "gameJarWithSources";
 
     /**
-     * Same as {@link #SOURCES}, but NeoForge sources are merged into the source zip file.
+     * Same as {@link #GAME_SOURCES}, but NeoForge sources are merged into the source zip file.
      * Should be considered deprecated as NeoForge should be added separately to the classpath.
      */
-    public static final String SOURCES_WITH_NEO_FORGE = "gameSourcesWithNeoForge";
+    public static final String GAME_SOURCES_WITH_NEOFORGE = "gameSourcesWithNeoForge";
     /**
-     * Same as {@link #COMPILED}, but .class files from the NeoForge universal jar are merged into the jar file.
+     * Same as {@link #GAME_JAR}, but .class files from the NeoForge universal jar are merged into the jar file.
      * Should be considered deprecated as NeoForge should be added separately to the classpath.
      */
-    public static final String COMPILED_WITH_NEO_FORGE = "gameJarWithNeoForge";
+    public static final String GAME_JAR_WITH_NEOFORGE = "gameJarWithNeoForge";
     /**
-     * Same as {@link #SOURCES_AND_COMPILED}, but both the NeoForge sources and universal jar are merged into the
+     * Same as {@link #GAME_JAR_WITH_SOURCES}, but both the NeoForge sources and universal jar are merged into the
      * jar file.
      * Should be considered deprecated as NeoForge should be added separately to the classpath.
      */
-    public static final String SOURCES_AND_COMPILED_WITH_NEO_FORGE = "gameJarWithSourcesAndNeoForge";
+    public static final String GAME_JAR_WITH_SOURCES_AND_NEOFORGE = "gameJarWithSourcesAndNeoForge";
 
     /**
      * The Jar file of the Vanilla artifact (client, server or joined) after it has been deobfuscated.
@@ -69,7 +69,7 @@ public final class ResultIds {
      * Only available if the process defines a step to strip the non-class-files out of the merged client/server jar file.
      * This result is the zip file containing all of those stripped resources (any non .class file).
      */
-    public static final String RESOURCES = "gameResources";
+    public static final String GAME_RESOURCES = "gameResources";
 
     private ResultIds() {
     }
