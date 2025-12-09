@@ -20,6 +20,7 @@ import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.FileHashService;
 import net.neoforged.neoform.runtime.cli.LockManager;
+import net.neoforged.neoform.runtime.cli.ResultIds;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormDistConfig;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormFunction;
@@ -194,21 +195,21 @@ public class NeoFormEngine implements AutoCloseable {
         // Vanilla deobfuscated is equivalent to the input to the decompiler
         var decompile = graph.getNode("decompile");
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
-            graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
+            graph.setResult(ResultIds.VANILLA_DEOBFUSCATED, nodeInputForOutput.getOutput());
         }
-        graph.setResult("sources", sourcesOutput);
-        graph.setResult("compiled", compiledOutput);
-        graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
+        graph.setResult(ResultIds.GAME_SOURCES, sourcesOutput);
+        graph.setResult(ResultIds.GAME_JAR, compiledOutput);
+        graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES, sourcesAndCompiledOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
-            graph.setResult("clientResources", graph.getRequiredOutput("stripClient", "resourcesOutput"));
+            graph.setResult(ResultIds.CLIENT_RESOURCES, graph.getRequiredOutput("stripClient", "resourcesOutput"));
         }
         if (graph.hasOutput("stripServer", "resourcesOutput")) {
-            graph.setResult("serverResources", graph.getRequiredOutput("stripServer", "resourcesOutput"));
+            graph.setResult(ResultIds.SERVER_RESOURCES, graph.getRequiredOutput("stripServer", "resourcesOutput"));
         }
         if (graph.hasOutput("strip", "resourcesOutput")) {
-            graph.setResult("resources", graph.getRequiredOutput("strip", "resourcesOutput"));
+            graph.setResult(ResultIds.GAME_RESOURCES, graph.getRequiredOutput("strip", "resourcesOutput"));
         }
 
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
@@ -243,9 +244,9 @@ public class NeoFormEngine implements AutoCloseable {
             createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
             var action = new CreateLegacyMappingsAction();
             createMappings.action(action);
-            graph.setResult("namedToIntermediaryMapping", createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
-            graph.setResult("intermediaryToNamedMapping", createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
-            graph.setResult("csvMapping", createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+            graph.setResult(ResultIds.NAMED_TO_INTERMEDIARY_MAPPING, createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+            graph.setResult(ResultIds.INTERMEDIARY_TO_NAMED_MAPPING, createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
+            graph.setResult(ResultIds.CSV_MAPPING, createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
             createMappings.build();
         }
     }
