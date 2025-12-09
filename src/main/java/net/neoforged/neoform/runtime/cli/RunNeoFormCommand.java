@@ -20,7 +20,6 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
-import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
@@ -205,27 +204,25 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         // injecting the already compiled NeoForge classes later.
         // Since remapping and recompiling will invariably change the digests, we also need to strip any signatures.
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-            engine.applyTransforms(List.of(
-                    new ModifyAction<>(
-                            "inject",
-                            InjectZipContentAction.class,
-                            action -> {
-                                // Annoyingly, Forge only had the Java sources in the sources artifact.
-                                // We have to pull resources from the universal jar.
-                                action.getInjectedSources().add(new InjectFromZipFileSource(
-                                        neoforgeClassesZip,
-                                        "/",
-                                        Pattern.compile("^(?!META-INF/[^/]+\\.(SF|RSA|DSA|EC)$|.*\\.class$).*"),
-                                        StripManifestDigestContentFilter.INSTANCE
-                                ));
-                                action.getInjectedSources().add(new InjectFromZipFileSource(
-                                        neoforgeSourcesZip,
-                                        "/",
-                                        // The MCF sources have a bogus MANIFEST that should be ignored
-                                        Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
-                                ));
-                            }
-                    )
+            engine.applyTransform(new ModifyAction<>(
+                    "inject",
+                    InjectZipContentAction.class,
+                    action -> {
+                        // Annoyingly, Forge only had the Java sources in the sources artifact.
+                        // We have to pull resources from the universal jar.
+                        action.getInjectedSources().add(new InjectFromZipFileSource(
+                                neoforgeClassesZip,
+                                "/",
+                                Pattern.compile("^(?!META-INF/[^/]+\\.(SF|RSA|DSA|EC)$|.*\\.class$).*"),
+                                StripManifestDigestContentFilter.INSTANCE
+                        ));
+                        action.getInjectedSources().add(new InjectFromZipFileSource(
+                                neoforgeSourcesZip,
+                                "/",
+                                // The MCF sources have a bogus MANIFEST that should be ignored
+                                Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
+                        ));
+                    }
             ));
         }
 
