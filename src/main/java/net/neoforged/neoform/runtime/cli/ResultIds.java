@@ -36,6 +36,18 @@ public final class ResultIds {
     public static final String GAME_JAR_WITH_SOURCES_AND_NEOFORGE = "gameJarWithSourcesAndNeoForge";
 
     /**
+     * Similar to {@link #GAME_JAR} as it contains the compiled game classes, but they were not created
+     * using the NeoForm decompile+recompile workflow. Rather they use original artifacts with binary patches
+     * applied (for NeoForge) or just remapped (for NeoForm only mode).
+     */
+    public static final String GAME_JAR_NO_RECOMP = "gameJarNoRecomp";
+    /**
+     * Same as {@link #GAME_JAR_NO_RECOMP}, but with NeoForge merged into the artifact. It is the same relationship
+     * as between {@link #GAME_JAR} and {@link #GAME_JAR_WITH_NEOFORGE}.
+     */
+    public static final String GAME_JAR_NO_RECOMP_WITH_NEOFORGE = "gameJarNoRecompWithNeoForge";
+
+    /**
      * The Jar file of the Vanilla artifact (client, server or joined) after it has been deobfuscated.
      * In legacy Forge processes, the mapping from intermediary to named should have been applied as well.
      */

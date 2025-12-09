@@ -62,6 +62,9 @@ public class CacheKeyBuilder {
     }
 
     public void add(String component, String text, @Nullable String annotation) {
+        if (component == null) {
+            throw new IllegalArgumentException("Cache key component cannot be null");
+        }
         if (components.containsKey(component)) {
             throw new IllegalArgumentException("Duplicate cache key component: " + component);
         }
@@ -82,6 +85,9 @@ public class CacheKeyBuilder {
     }
 
     private void add(String component, List<CacheKey.AnnotatedValue> values) {
+        if (component == null) {
+            throw new IllegalArgumentException("Cache key component cannot be null");
+        }
         if (components.containsKey(component)) {
             throw new IllegalArgumentException("Duplicate cache key component: " + component);
         }

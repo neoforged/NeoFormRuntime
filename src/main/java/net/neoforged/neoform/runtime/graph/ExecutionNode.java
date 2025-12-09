@@ -5,6 +5,7 @@ import net.neoforged.neoform.runtime.utils.Logger;
 
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -26,7 +27,7 @@ public final class ExecutionNode {
     public ExecutionNode(String id, Map<String, NodeInput> inputs, Map<String, NodeOutput> outputs, ExecutionNodeAction action) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(action, "action");
-        inputs = Map.copyOf(inputs);
+        inputs = new HashMap<>(inputs);
         for (var entry : inputs.entrySet()) {
             entry.getValue().setNode(this);
             entry.getValue().setId(entry.getKey());
@@ -118,6 +119,8 @@ public final class ExecutionNode {
 
     public void setInput(String id, NodeInput input) {
         inputs.put(id, Objects.requireNonNull(input, "input"));
+        input.setId(id);
+        input.setNode(this);
         updatePredecessors();
     }
 

@@ -1,6 +1,8 @@
 package net.neoforged.neoform.runtime.cli;
 
+import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
 import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
+import net.neoforged.neoform.runtime.actions.CopyUnpatchedClassesAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
@@ -9,11 +11,13 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
+import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
 import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
+import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
@@ -22,6 +26,7 @@ import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
+import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import picocli.CommandLine;
 
@@ -207,10 +212,37 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             engine.applyTransforms(transforms);
 
+            var graph = engine.getGraph();
             var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip);
             var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip);
 
-            createSourcesAndCompiledWithNeoForge(engine.getGraph(), compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
+            var sourcesAndCompiledWithNeoForgeOutput =
+                    createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
+
+            graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, sourcesWithNeoForgeOutput);
+            graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
+            graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
+
+            // Support for binary patches
+            var renamedOutput = graph.getRequiredOutput("rename", "output");
+            engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
+            var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
+            var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
+
+            var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
+
+            if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
+            } else {
+                // Minecraft and NeoForge classes need to be remapped,
+                // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
+                var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
+                remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
+
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
+            }
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
 
@@ -250,6 +282,39 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             ));
         }
 
+        // Transformations for the binpatch pipeline
+        if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
+            NodeOutput untransformedOutput;
+            if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+                untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
+            } else {
+                // We have to transform in srg
+                var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
+                if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
+                    throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
+                }
+                untransformedOutput = nifo.getOutput();
+            }
+
+            engine.applyTransform(new ReplaceNodeOutput(
+                    untransformedOutput.getNode().id(),
+                    untransformedOutput.id(),
+                    "applyDevTransforms",
+                    (builder, previousOutput) -> {
+                        builder.input("input", previousOutput.asInput());
+                        var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
+                        var action = new ApplyDevTransformsAction();
+                        var allAts = new ArrayList<Path>();
+                        allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
+                        allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
+                        action.setAccessTransformers(allAts);
+                        action.setInjectedInterfaces(interfaceInjectionDataFiles);
+                        builder.action(action);
+
+                        return transformedOutput;
+                    }));
+        }
+
         execute(engine);
     }
 
@@ -274,7 +339,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // In older processes, we already had to inject the sources before recompiling (due to remapping)
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-            graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, recompiledClasses);
             return recompiledClasses;
         }
 
@@ -287,7 +351,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         )));
         builder.build();
 
-        graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, output);
         return output;
     }
 
@@ -298,9 +361,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
             // 1.20.1 and below use SRG in production and for ATs, so we cannot use the JST output as it is in SRG
             // therefore we must output the renamed sources
-            var remapSrgSourcesToOfficialOutput = graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
-            graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, remapSrgSourcesToOfficialOutput);
-            return remapSrgSourcesToOfficialOutput;
+            return graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
         } else {
             var transformedSourceOutput = graph.getRequiredOutput("transformSources", "output");
 
@@ -311,12 +372,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     new InjectFromZipFileSource(neoforgeSourcesZip, "/")
             )));
             builder.build();
-            graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, output);
             return output;
         }
     }
 
-    private static void createSourcesAndCompiledWithNeoForge(ExecutionGraph graph, NodeOutput compiledWithNeoForgeOutput, NodeOutput sourcesWithNeoForgeOutput) {
+    private static NodeOutput createSourcesAndCompiledWithNeoForge(ExecutionGraph graph, NodeOutput compiledWithNeoForgeOutput, NodeOutput sourcesWithNeoForgeOutput) {
         // Add a step that merges sources and compiled classes to satisfy IntelliJ
         var builder = graph.nodeBuilder("sourcesAndCompiledWithNeoForge");
         builder.input("classes", compiledWithNeoForgeOutput.asInput());
@@ -324,7 +384,41 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var output = builder.output("output", NodeOutputType.JAR, "Combined output of sourcesWithNeoForge and compiledWithNeoForge");
         builder.action(new MergeWithSourcesAction());
         builder.build();
-        graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, output);
+        return output;
+    }
+
+    private static NodeOutput createBinaryPatch(ExecutionGraph graph, NodeOutput clean, BinpatcherConfig config) {
+        var builder = graph.nodeBuilder("binaryPatch");
+        builder.input("clean", clean.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "JAR containing the patched Minecraft classes");
+        var action = new ExternalJavaToolAction(MavenCoordinate.parse(config.version()));
+        action.setArgs(config.args());
+        builder.action(action);
+        builder.build();
+        return output;
+    }
+
+    private static NodeOutput createCopyUnpatchedClasses(ExecutionGraph graph, NodeOutput clean, NodeOutput binaryPatched) {
+        var builder = graph.nodeBuilder("copyUnpatchedClasses");
+        builder.input("patched", binaryPatched.asInput());
+        builder.input("unpatched", clean.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "JAR containing the patched and clean (if not patched) Minecraft classes");
+        builder.action(new CopyUnpatchedClassesAction());
+        builder.build();
+        return output;
+    }
+
+    private static NodeOutput createBinaryWithNeoForge(ExecutionGraph graph, NodeOutput binary, ZipFile neoforgeClassesZip) {
+        // Add a step that produces a classes-zip containing both Minecraft and NeoForge classes
+        var builder = graph.nodeBuilder("binaryWithNeoForge");
+        builder.input("input", binary.asInput());
+        var output = builder.output("output", NodeOutputType.JAR, "JAR containing NeoForge classes, resources and Minecraft classes");
+        builder.action(new InjectZipContentAction(List.of(
+                new InjectFromZipFileSource(neoforgeClassesZip, "/")
+        )));
+        builder.build();
+
+        return output;
     }
 
     private void execute(NeoFormEngine engine) throws InterruptedException, IOException {

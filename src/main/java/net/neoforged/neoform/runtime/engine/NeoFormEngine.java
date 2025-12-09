@@ -13,6 +13,7 @@ import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
+import net.neoforged.neoform.runtime.actions.RemapSrgClassesAction;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
@@ -197,9 +198,15 @@ public class NeoFormEngine implements AutoCloseable {
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
             graph.setResult(ResultIds.VANILLA_DEOBFUSCATED, nodeInputForOutput.getOutput());
         }
+
         graph.setResult(ResultIds.GAME_SOURCES, sourcesOutput);
         graph.setResult(ResultIds.GAME_JAR, compiledOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES, sourcesAndCompiledOutput);
+
+        var renameOutput = graph.getRequiredOutput("rename", "output");
+        // We use the output of rename and not vanillaDeobfuscated because for legacy versions there is a sas step in-between,
+        // and binpatches should be applied without sas stripping.
+        graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, renameOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -235,6 +242,18 @@ public class NeoFormEngine implements AutoCloseable {
                             }
                     )
             ));
+
+            {
+                var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
+                builder.input("input", graph.getRequiredOutput("rename", "output").asInput());
+                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                var officialOutput = builder.output("output", NodeOutputType.JAR, "Classes with SRG method and field names remapped to official.");
+                builder.action(new RemapSrgClassesAction());
+                builder.build();
+
+                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, officialOutput);
+            }
 
             // We also expose a few results for mappings in different formats
             var createMappings = graph.nodeBuilder("createMappings");
@@ -582,8 +601,8 @@ public class NeoFormEngine implements AutoCloseable {
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
-            if (nodeOutput == null) {
-                throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
+            if (verbose) {
+                LOG.println(AnsiColor.MUTED + "Requested output " + id + " was mapped to " + nodeOutput + AnsiColor.RESET);
             }
             nodes.add(nodeOutput.getNode());
         }
