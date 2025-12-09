@@ -20,7 +20,6 @@ import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
-import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
@@ -107,142 +106,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
             engine.loadNeoFormData(neoformArtifact, dist);
 
-            // Add NeoForge specific data sources
-            engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
-
-            // Build the graph transformations needed to apply NeoForge to the NeoForm execution
-            List<GraphTransform> transforms = new ArrayList<>();
-
-            // Also inject NeoForge sources, which we can get from the sources file
-            var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
-            var neoforgeClasses = artifactManager.get(neoforgeConfig.universalArtifact()).path();
-            var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
-            var neoforgeClassesZip = new ZipFile(neoforgeClasses.toFile());
-            engine.addManagedResource(neoforgeSourcesZip);
-            engine.addManagedResource(neoforgeClassesZip);
-
-            var transformSources = getOrAddTransformSourcesAction(engine);
-
-            transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
-
-            // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
-            // To circumvent this, we inject the sources before recompile and disable the optimization of
-            // injecting the already compiled NeoForge classes later.
-            // Since remapping and recompiling will invariably change the digests, we also need to strip any signatures.
-            if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                engine.applyTransforms(List.of(
-                        new ModifyAction<>(
-                                "inject",
-                                InjectZipContentAction.class,
-                                action -> {
-                                    // Annoyingly, Forge only had the Java sources in the sources artifact.
-                                    // We have to pull resources from the universal jar.
-                                    action.getInjectedSources().add(new InjectFromZipFileSource(
-                                            neoforgeClassesZip,
-                                            "/",
-                                            Pattern.compile("^(?!META-INF/[^/]+\\.(SF|RSA|DSA|EC)$|.*\\.class$).*"),
-                                            StripManifestDigestContentFilter.INSTANCE
-                                    ));
-                                    action.getInjectedSources().add(new InjectFromZipFileSource(
-                                            neoforgeSourcesZip,
-                                            "/",
-                                            // The MCF sources have a bogus MANIFEST that should be ignored
-                                            Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
-                                    ));
-                                }
-                        )
-                ));
-            }
-
-            // Add NeoForge libraries to the list of libraries
-            transforms.add(new ModifyAction<>(
-                    "recompile",
-                    RecompileSourcesAction.class,
-                    action -> {
-                        action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
-                        action.getClasspath().addPaths(List.of(neoforgeClasses));
-                    }
-            ));
-
-            // If the Forge (or NeoForge) version uses side annotation strippers, apply them after merging
-            // This is a legacy concept, see https://github.com/MinecraftForge/ForgeGradle/blob/477b8685abcfe76755c2d49f60b07fabbfdb8b5f/src/mcp/java/net/minecraftforge/gradle/mcp/function/SideAnnotationStripperFunction.java#L24
-            if (engine.getProcessGeneration().supportsSideAnnotationStripping()) {
-                List<String> sasFiles = neoforgeConfig.sideAnnotationStrippers();
-                if (!sasFiles.isEmpty()) {
-                    for (int i = 0; i < sasFiles.size(); i++) {
-                        engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
-                    }
-
-                    transforms.add(new ReplaceNodeOutput("rename", "output", "stripSideAnnotations",
-                            (builder, previousOutput) -> {
-                                builder.input("input", previousOutput.asInput());
-
-                                ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.MCF_SIDE_ANNOTATION_STRIPPER);
-                                List<String> args = new ArrayList<>();
-                                Collections.addAll(args,
-                                        "--strip",
-                                        "--input",
-                                        "{input}",
-                                        "--output",
-                                        "{output}"
-                                );
-                                for (int i = 0; i < sasFiles.size(); i++) {
-                                    args.add("--data");
-                                    args.add("{sasFile" + i + "}");
-                                }
-                                action.setArgs(args);
-                                builder.action(action);
-
-                                return builder.output("output", NodeOutputType.JAR, "The jar file with the desired side annotations removed");
-                            }
-                    ));
-                }
-            }
-
-            // Append a patch step to the NeoForge patches
-            transforms.add(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
-                    (builder, previousOutput) -> {
-                        return PatchActionFactory.makeAction(builder,
-                                new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
-                                previousOutput,
-                                Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
-                                Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));
-                    }
-            ));
-
-            engine.applyTransforms(transforms);
-
-            var graph = engine.getGraph();
-            var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip);
-            var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip);
-
-            var sourcesAndCompiledWithNeoForgeOutput =
-                    createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
-
-            graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, sourcesWithNeoForgeOutput);
-            graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
-            graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
-
-            // Support for binary patches
-            var renamedOutput = graph.getRequiredOutput("rename", "output");
-            engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
-            var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
-            var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
-
-            var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
-
-            if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
-                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
-            } else {
-                // Minecraft and NeoForge classes need to be remapped,
-                // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
-                var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
-                remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
-
-                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
-                graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
-            }
+            applyNeoForgeProcessTransforms(engine, neoforgeZipFile, neoforgeConfig);
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
 
@@ -316,6 +180,139 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         execute(engine);
+    }
+
+    private static void applyNeoForgeProcessTransforms(NeoFormEngine engine, JarFile neoforgeZipFile, NeoForgeConfig neoforgeConfig) throws IOException {
+        // Add NeoForge specific data sources
+        engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
+
+        // Also inject NeoForge sources, which we can get from the sources file
+        var artifactManager = engine.getArtifactManager();
+        var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
+        var neoforgeClasses = artifactManager.get(neoforgeConfig.universalArtifact()).path();
+        var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
+        var neoforgeClassesZip = new ZipFile(neoforgeClasses.toFile());
+        engine.addManagedResource(neoforgeSourcesZip);
+        engine.addManagedResource(neoforgeClassesZip);
+
+        var transformSources = getOrAddTransformSourcesAction(engine);
+
+        transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
+
+        // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
+        // To circumvent this, we inject the sources before recompile and disable the optimization of
+        // injecting the already compiled NeoForge classes later.
+        // Since remapping and recompiling will invariably change the digests, we also need to strip any signatures.
+        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            engine.applyTransform(new ModifyAction<>(
+                    "inject",
+                    InjectZipContentAction.class,
+                    action -> {
+                        // Annoyingly, Forge only had the Java sources in the sources artifact.
+                        // We have to pull resources from the universal jar.
+                        action.getInjectedSources().add(new InjectFromZipFileSource(
+                                neoforgeClassesZip,
+                                "/",
+                                Pattern.compile("^(?!META-INF/[^/]+\\.(SF|RSA|DSA|EC)$|.*\\.class$).*"),
+                                StripManifestDigestContentFilter.INSTANCE
+                        ));
+                        action.getInjectedSources().add(new InjectFromZipFileSource(
+                                neoforgeSourcesZip,
+                                "/",
+                                // The MCF sources have a bogus MANIFEST that should be ignored
+                                Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
+                        ));
+                    }
+            ));
+        }
+
+        // Add NeoForge libraries to the list of libraries
+        engine.applyTransform(new ModifyAction<>(
+                "recompile",
+                RecompileSourcesAction.class,
+                action -> {
+                    action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
+                    action.getClasspath().addPaths(List.of(neoforgeClasses));
+                }
+        ));
+
+        // If the Forge (or NeoForge) version uses side annotation strippers, apply them after merging
+        // This is a legacy concept, see https://github.com/MinecraftForge/ForgeGradle/blob/477b8685abcfe76755c2d49f60b07fabbfdb8b5f/src/mcp/java/net/minecraftforge/gradle/mcp/function/SideAnnotationStripperFunction.java#L24
+        if (engine.getProcessGeneration().supportsSideAnnotationStripping()) {
+            List<String> sasFiles = neoforgeConfig.sideAnnotationStrippers();
+            if (!sasFiles.isEmpty()) {
+                for (int i = 0; i < sasFiles.size(); i++) {
+                    engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
+                }
+
+                engine.applyTransform(new ReplaceNodeOutput("rename", "output", "stripSideAnnotations",
+                        (builder, previousOutput) -> {
+                            builder.input("input", previousOutput.asInput());
+
+                            ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.MCF_SIDE_ANNOTATION_STRIPPER);
+                            List<String> args = new ArrayList<>();
+                            Collections.addAll(args,
+                                    "--strip",
+                                    "--input",
+                                    "{input}",
+                                    "--output",
+                                    "{output}"
+                            );
+                            for (int i = 0; i < sasFiles.size(); i++) {
+                                args.add("--data");
+                                args.add("{sasFile" + i + "}");
+                            }
+                            action.setArgs(args);
+                            builder.action(action);
+
+                            return builder.output("output", NodeOutputType.JAR, "The jar file with the desired side annotations removed");
+                        }
+                ));
+            }
+        }
+
+        // Append a patch step to the NeoForge patches
+        engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+                (builder, previousOutput) -> {
+                    return PatchActionFactory.makeAction(builder,
+                            new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
+                            previousOutput,
+                            Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
+                            Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));
+                }
+        ));
+
+        var graph = engine.getGraph();
+        var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip);
+        var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip);
+
+        var sourcesAndCompiledWithNeoForgeOutput =
+                createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
+
+        graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, sourcesWithNeoForgeOutput);
+        graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
+        graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
+
+        // Support for binary patches
+        var renamedOutput = graph.getRequiredOutput("rename", "output");
+        engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
+        var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
+        var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
+
+        var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
+
+        if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
+        } else {
+            // Minecraft and NeoForge classes need to be remapped,
+            // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
+            var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
+            remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
+
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
+        }
     }
 
     /**
