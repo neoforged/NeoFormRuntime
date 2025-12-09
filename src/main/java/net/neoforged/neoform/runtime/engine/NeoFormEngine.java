@@ -162,7 +162,7 @@ public class NeoFormEngine implements AutoCloseable {
         dataSources.put(id, new DataSource(zipFile, sourceFolder, fileHashService));
     }
 
-    public void loadNeoFormData(Path neoFormDataPath, String dist, boolean noSources) throws IOException {
+    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -172,10 +172,10 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig, noSources);
+        loadNeoFormProcess(distConfig);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig, boolean noSources) {
+    public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
         processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
 
         for (var step : distConfig.steps()) {
@@ -198,15 +198,12 @@ public class NeoFormEngine implements AutoCloseable {
         if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
             graph.setResult("vanillaDeobfuscated", nodeInputForOutput.getOutput());
         }
-        if (noSources) {
-            var renameOutput = graph.getRequiredOutput("rename", "output");
-            graph.setResult("compiled", renameOutput);
-            // Avoid exposing sources, such that they can't be requested by accident in binary mode.
-        } else {
-            graph.setResult("sources", sourcesOutput);
-            graph.setResult("compiled", compiledOutput);
-            graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
-        }
+        var renameOutput = graph.getRequiredOutput("rename", "output");
+        graph.setResult("classes", renameOutput);
+
+        graph.setResult("sources", sourcesOutput);
+        graph.setResult("compiled", compiledOutput);
+        graph.setResult("sourcesAndCompiled", sourcesAndCompiledOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -243,7 +240,7 @@ public class NeoFormEngine implements AutoCloseable {
                     )
             ));
 
-            if (noSources) {
+            {
                 var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
                 builder.input("input", graph.getRequiredOutput("rename", "output").asInput());
                 builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
@@ -252,7 +249,7 @@ public class NeoFormEngine implements AutoCloseable {
                 builder.action(new RemapSrgClassesAction());
                 builder.build();
 
-                graph.setResult("compiled", officialOutput);
+                graph.setResult("classes", officialOutput);
             }
 
             // We also expose a few results for mappings in different formats
