@@ -26,21 +26,21 @@ Examples
 # Produce NeoForge jars for 1.20.6
 
 > nfrt run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev
-No results requested. Available results: [compiled, clientResources, sources, serverResources]
+No results requested using --write-result=<result>:<path>. Available results: [clientResources, gameJar, gameJarNoRecomp, gameJarNoRecompWithNeoForge, gameJarWithNeoForge, gameJarWithSources, gameJarWithSourcesAndNeoForge, gameSources, gameSourcesWithNeoForge, serverResources, vanillaDeobfuscated]
 
 > nfrt run --neoforge net.neoforged:neoforge:20.6.72-beta:userdev \
     --dist joined \
-    --write-result=compiled:minecraft.jar \
+    --write-result=gameJar:minecraft.jar \
     --write-result=clientResources:client-extra.jar \
-    --write-result=sources:minecraft-sources.jar 
+    --write-result=gameSources:minecraft-sources.jar
 
 This produces the NeoForge userdev artifacts in build/
 
 > nfrt run --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip \
     --dist joined \
-    --write-result=compiled:minecraft.jar \
+    --write-result=gameJar:minecraft.jar \
     --write-result=clientResources:client-extra.jar \
-    --write-result=sources:minecraft-sources.jar 
+    --write-result=gameSources:minecraft-sources.jar
 
 This produces the Vanilla artifacts in build/
 

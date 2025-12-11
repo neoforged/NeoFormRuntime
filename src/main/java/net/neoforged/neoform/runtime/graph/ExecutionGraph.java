@@ -9,6 +9,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 public class ExecutionGraph {
@@ -55,7 +57,12 @@ public class ExecutionGraph {
             var outputId = matcher.group(2);
             return getRequiredOutput(step, outputId);
         }
-        throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + results.keySet());
+        throw new IllegalArgumentException("Unknown result: " + id + ". Available results: " + getAvailableResults());
+    }
+
+    public Set<String> getAvailableResults() {
+        // Sort alphabetically for nicer printing
+        return new TreeSet<>(results.keySet());
     }
 
     public Map<String, NodeOutput> getResults() {
