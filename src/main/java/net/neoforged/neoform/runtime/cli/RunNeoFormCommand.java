@@ -148,35 +148,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // Transformations for the binpatch pipeline
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
-            NodeOutput untransformedOutput;
-            if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
-            } else {
-                // We have to transform in srg
-                var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
-                if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
-                    throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
-                }
-                untransformedOutput = nifo.getOutput();
-            }
-
-            engine.applyTransform(new ReplaceNodeOutput(
-                    untransformedOutput.getNode().id(),
-                    untransformedOutput.id(),
-                    "applyDevTransforms",
-                    (builder, previousOutput) -> {
-                        builder.input("input", previousOutput.asInput());
-                        var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
-                        var action = new ApplyDevTransformsAction();
-                        var allAts = new ArrayList<Path>();
-                        allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
-                        allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
-                        action.setAccessTransformers(allAts);
-                        action.setInjectedInterfaces(interfaceInjectionDataFiles);
-                        builder.action(action);
-
-                        return transformedOutput;
-                    }));
+            var applyDevTransforms = getOrAddDevTransformsAction(engine);
+            var allAts = new ArrayList<Path>();
+            allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
+            allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
+            applyDevTransforms.setAdditionalAccessTransformers(allAts);
+            applyDevTransforms.setInjectedInterfaces(interfaceInjectionDataFiles);
         }
 
         execute(engine);
@@ -313,6 +290,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
         }
+
+        getOrAddDevTransformsAction(engine).setAccessTransformersData(List.of("neoForgeAccessTransformers"));
     }
 
     /**
@@ -503,5 +482,48 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
             return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment, Interface Injections) applied");
         };
+    }
+
+    private static ApplyDevTransformsAction getOrAddDevTransformsAction(NeoFormEngine engine) {
+        return (ApplyDevTransformsAction) getOrAddDevTransformsNode(engine).action();
+    }
+
+    private static ExecutionNode getOrAddDevTransformsNode(NeoFormEngine engine) {
+        var graph = engine.getGraph();
+        var transformNode = graph.getNode("applyDevTransforms");
+        if (transformNode != null) {
+            if (transformNode.action() instanceof ApplyDevTransformsAction) {
+                return transformNode;
+            } else {
+                throw new IllegalStateException("Node applyDevTransforms has a different action type than expected. Expected: "
+                        + ApplyDevTransformsAction.class + " but got " + transformNode.action().getClass());
+            }
+        }
+
+        NodeOutput untransformedOutput;
+        if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
+        } else {
+            // We have to transform in srg
+            var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
+            if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
+                throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
+            }
+            untransformedOutput = nifo.getOutput();
+        }
+
+        new ReplaceNodeOutput(
+                untransformedOutput.getNode().id(),
+                untransformedOutput.id(),
+                "applyDevTransforms",
+                (builder, previousOutput) -> {
+                    builder.input("input", previousOutput.asInput());
+                    var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
+                    builder.action(new ApplyDevTransformsAction());
+
+                    return transformedOutput;
+                }).apply(engine, graph);
+
+        return getOrAddDevTransformsNode(engine);
     }
 }
