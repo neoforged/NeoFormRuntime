@@ -70,15 +70,11 @@ public class ExecutionGraph {
     }
 
     public NodeOutput getRequiredOutput(String nodeId, String outputId) {
-        var node = getNode(nodeId);
-        if (node == null) {
-            throw new IllegalArgumentException("Node not found: " + nodeId);
-        }
-        var output = node.outputs().get(outputId);
-        if (output == null) {
-            throw new IllegalArgumentException("Output " + outputId + " not found on node " + nodeId);
-        }
-        return output;
+        return getRequiredNode(nodeId).getRequiredOutput(outputId);
+    }
+
+    public NodeInput getRequiredInput(String nodeId, String inputId) {
+        return getRequiredNode(nodeId).getRequiredInput(inputId);
     }
 
     @Nullable
@@ -88,6 +84,14 @@ public class ExecutionGraph {
 
     private static String getGlobalNodeOutputId(ExecutionNode node, String outputId) {
         return node.id() + StringUtil.capitalize(outputId);
+    }
+
+    public ExecutionNode getRequiredNode(String nodeId) {
+        var node = getNode(nodeId);
+        if (node == null) {
+            throw new IllegalArgumentException("Node not found: " + nodeId);
+        }
+        return node;
     }
 
     @Nullable

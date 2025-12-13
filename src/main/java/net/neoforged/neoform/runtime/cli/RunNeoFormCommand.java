@@ -21,6 +21,7 @@ import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
+import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeInput;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
@@ -222,19 +223,13 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
                 }
 
-                engine.applyTransform(new ReplaceNodeOutput("rename", "output", "stripSideAnnotations",
-                        (builder, previousOutput) -> {
-                            builder.input("input", previousOutput.asInput());
+                engine.applyTransform(new ReplaceNodeInput("decompile", "input", "stripSideAnnotations",
+                        (builder, previousInput) -> {
+                            builder.input("input", previousInput);
 
                             ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.MCF_SIDE_ANNOTATION_STRIPPER);
                             List<String> args = new ArrayList<>();
-                            Collections.addAll(args,
-                                    "--strip",
-                                    "--input",
-                                    "{input}",
-                                    "--output",
-                                    "{output}"
-                            );
+                            Collections.addAll(args, "--strip", "--input", "{input}", "--output", "{output}");
                             for (int i = 0; i < sasFiles.size(); i++) {
                                 args.add("--data");
                                 args.add("{sasFile" + i + "}");
