@@ -70,15 +70,22 @@ public class ExecutionGraph {
     }
 
     public NodeOutput getRequiredOutput(String nodeId, String outputId) {
-        var node = getNode(nodeId);
-        if (node == null) {
-            throw new IllegalArgumentException("Node not found: " + nodeId);
+        return getRequiredNode(nodeId).getRequiredOutput(outputId);
+    }
+
+    public NodeInput getRequiredInput(String nodeId, String inputId) {
+        return getRequiredNode(nodeId).getRequiredInput(inputId);
+    }
+
+    /**
+     * {@return the output that is used as the input of another task}
+     */
+    public NodeOutput getRequiredInputFromNodeOutput(String nodeId, String inputId) {
+        var input = getRequiredNode(nodeId).getRequiredInput(inputId);
+        if (!(input instanceof NodeInput.NodeInputForOutput inputForOutput)) {
+            throw new IllegalStateException("Expected the input " + input + " of " + nodeId + " to be the output of another node, but it was: " + input);
         }
-        var output = node.outputs().get(outputId);
-        if (output == null) {
-            throw new IllegalArgumentException("Output " + outputId + " not found on node " + nodeId);
-        }
-        return output;
+        return inputForOutput.getOutput();
     }
 
     @Nullable
@@ -88,6 +95,14 @@ public class ExecutionGraph {
 
     private static String getGlobalNodeOutputId(ExecutionNode node, String outputId) {
         return node.id() + StringUtil.capitalize(outputId);
+    }
+
+    public ExecutionNode getRequiredNode(String nodeId) {
+        var node = getNode(nodeId);
+        if (node == null) {
+            throw new IllegalArgumentException("Node not found: " + nodeId);
+        }
+        return node;
     }
 
     @Nullable
