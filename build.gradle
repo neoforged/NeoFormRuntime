@@ -244,6 +244,11 @@ idea {
                     programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-properties build/assets.properties --write-json build/assets.json"
                     moduleRef(project, sourceSets.main)
                 }
+                "Download artifacts 1.21.11"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "download-artifacts --minecraft-version=1.21.11 --write-artifact=client:build/vanilla-client-1.21.11.jar --write-artifact=server:build/vanilla-server-1.21.11.jar --write-version-manifest=build/vanilla-manifest-1.21.11.json"
+                    moduleRef(project, sourceSets.main)
+                }
             }
         }
     }
