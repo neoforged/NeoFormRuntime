@@ -96,6 +96,21 @@ of potential Gradle plugins never having to actually read and parse the NeoForm 
 | `--write-properties`           | Writes a property file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets_root`) suitable for passing to Minecraft.                  |
 | `--write-json`                 | Writes a JSON file to the given path that contains the asset index id (`asset_index`) and asset root path (`assets`) suitable for passing to Minecraft via a Neoform entrypoint.  |
 
+### download-artifacts: Download Minecraft Artifacts
+
+This command will allow plugins to download artifacts from the Minecraft Version manifest without having to implement the logic themselves.
+The available artifacts are listed in the `downloads` section of the Vanilla manifest.
+
+```
+# Download the client and server jars from a specific Minecraft version
+nfrt download-artifacts --minecraft-version 1.21.11 --write-artifact=client:client.jar --write-artifact=server:server.jar
+
+# Download the manifest itself
+nfrt download-artifacts --minecraft-version 1.21.11 --write-version-manifest=manifest.json
+```
+
+This command allows the Minecraft version to be specified in the same way that `download-assets` does.
+
 ## Common Options
 
 These options affect all NFRT subcommands.
