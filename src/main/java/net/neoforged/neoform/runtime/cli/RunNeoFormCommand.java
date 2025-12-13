@@ -17,7 +17,6 @@ import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
-import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
@@ -266,10 +265,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
 
         // Support for binary patches
-        var renamedOutput = graph.getRequiredOutput("rename", "output");
+        var binaryPatchBase = graph.getResult(ResultIds.VANILLA_DEOBFUSCATED);
         engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
-        var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
-        var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
+        var binaryPatchOnlyOutput = createBinaryPatch(graph, binaryPatchBase, neoforgeConfig.binaryPatcherConfig());
+        var binaryPatchOutput = createCopyUnpatchedClasses(graph, binaryPatchBase, binaryPatchOnlyOutput);
 
         var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
@@ -469,9 +468,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.input("input", previousNodeOutput.asInput());
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
             var action = new ApplySourceTransformAction();
-            // Copy listLibraries classpath from rename action
-            var renameAction = (ExternalJavaToolAction) engine.getGraph().getNode("rename").action();
-            action.getListLibraries().setClasspath(renameAction.getListLibraries().getClasspath().copy());
+            // The source transforms should inherit the classpath from the decompiler
+            var decompileAction = (ExternalJavaToolAction) engine.getGraph().getRequiredNode("decompile").action();
+            if (decompileAction.getListLibraries() != null) {
+                action.setListLibraries(decompileAction.getListLibraries());
+            }
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
@@ -500,11 +501,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
         } else {
             // We have to transform in srg
-            var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
-            if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
-                throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
-            }
-            untransformedOutput = nifo.getOutput();
+            untransformedOutput = engine.getGraph().getRequiredInputFromNodeOutput("remapSrgClassesToOfficial", "input");
         }
 
         new ReplaceNodeOutput(

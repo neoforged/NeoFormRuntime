@@ -77,6 +77,17 @@ public class ExecutionGraph {
         return getRequiredNode(nodeId).getRequiredInput(inputId);
     }
 
+    /**
+     * {@return the output that is used as the input of another task}
+     */
+    public NodeOutput getRequiredInputFromNodeOutput(String nodeId, String inputId) {
+        var input = getRequiredNode(nodeId).getRequiredInput(inputId);
+        if (!(input instanceof NodeInput.NodeInputForOutput inputForOutput)) {
+            throw new IllegalStateException("Expected the input " + input + " of " + nodeId + " to be the output of another node, but it was: " + input);
+        }
+        return inputForOutput.getOutput();
+    }
+
     @Nullable
     public NodeOutput getOutput(String globalOutputId) {
         return nodeOutputs.get(globalOutputId);
