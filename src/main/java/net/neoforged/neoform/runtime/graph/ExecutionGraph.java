@@ -131,11 +131,18 @@ public class ExecutionGraph {
                         }
                     }
                 }
+
+                // Decompile/Recompile are such important nodes that we highlight them
+                if (node.id().equals("decompile") || node.id().equals("recompile")) {
+                    writer.println("  style " + node.id() + " font-size:1.2em,font-weight: bold;");
+                }
             }
 
             for (var entry : results.entrySet()) {
-                writer.println("  result-" + entry.getKey() + "(\"`**Result**\n" + entry.getKey() + "`\")");
-                writer.println("  " + entry.getValue().getNode().id() + " --o " + "result-" + entry.getKey());
+                String nodeId = "result-" + entry.getKey();
+                writer.println("  " + nodeId + "(\"`**Result**\n" + entry.getKey() + "`\")");
+                writer.println("  " + entry.getValue().getNode().id() + " --o " + nodeId);
+                writer.println("  style " + nodeId + " stroke-width:4px");
             }
 
         } finally {
