@@ -428,6 +428,10 @@ public class NeoFormEngine implements AutoCloseable {
         // Start by resolving the function->step indirection where functions can reference variables that
         // are defined in the step. Usually (but not always) these will just refer to further global variables.
         for (var entry : step.values().entrySet()) {
+            // Skip if already declared as an input by the step variable-map
+            if (builder.hasInput(entry.getKey())) {
+                continue;
+            }
             UnaryOperator<String> resolver = s -> s.replace("{" + entry.getKey() + "}", entry.getValue());
             resolvedJvmArgs.replaceAll(resolver);
             resolvedArgs.replaceAll(resolver);
@@ -465,6 +469,8 @@ public class NeoFormEngine implements AutoCloseable {
                     builder.inputFromNodeOutput(variable, otherStep, "output");
                 } else if (variable.equals("log")) {
                     // This variable is used in legacy MCP config JSONs to signify the path to a logfile and is ignored here
+                } else if (builder.hasInput(variable)) {
+                    // The variable was already set by the step and added as an input to the node, so we can safely use it
                 } else {
                     throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + step.getId());
                 }
