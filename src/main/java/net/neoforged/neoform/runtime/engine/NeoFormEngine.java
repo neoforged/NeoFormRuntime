@@ -221,7 +221,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
         // SRG method and field names, and need to be remapped.
-        if (processGeneration.sourcesUseIntermediaryNames()) {
+        if (false && processGeneration.sourcesUseIntermediaryNames()) {
             if (!graph.hasOutput("mergeMappings", "output")
                     || !graph.hasOutput("downloadClientMappings", "output")) {
                 throw new IllegalStateException("NFRT currently does not support MCP versions that did not make use of official Mojang mappings (pre 1.17).");
@@ -283,7 +283,11 @@ public class NeoFormEngine implements AutoCloseable {
             compileAction = new RecompileSourcesActionWithJDK();
         }
 
-        compileAction.setTargetJavaVersion(distConfig.javaVersion());
+        int javaVersion = distConfig.javaVersion();
+        if (javaVersion == 0) {
+            javaVersion = 8;
+        }
+        compileAction.setTargetJavaVersion(javaVersion);
 
         // Add NeoForm libraries or apply overridden classpath fully
         compileAction.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());

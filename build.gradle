@@ -166,17 +166,17 @@ idea {
                 }
                 "Run Neoforge 1.21.6 (joined) + Parchment"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.6.1-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21.5:2025.06.15@zip --parchment-conflict-prefix=p_ --write-result=compiled:build/minecraft-1.21.6.jar --write-result=clientResources:build/client-extra-1.21.6.jar --write-result=sources:build/minecraft-sources-1.21.6.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.6.1-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21.5:2025.06.15@zip --parchment-conflict-prefix=p_ --write-result=gameJar:build/minecraft-1.21.6.jar --write-result=clientResources:build/client-extra-1.21.6.jar --write-result=gameSources:build/minecraft-sources-1.21.6.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.21 (joined) + Parchment"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21:2024.06.23@zip --parchment-conflict-prefix=p_ --write-result=compiled:build/minecraft-1.21.jar --write-result=clientResources:build/client-extra-1.21.jar --write-result=sources:build/minecraft-sources-1.21.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.21:2024.06.23@zip --parchment-conflict-prefix=p_ --write-result=gameJar:build/minecraft-1.21.jar --write-result=clientResources:build/client-extra-1.21.jar --write-result=gameSources:build/minecraft-sources-1.21.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.21 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.21 (joined, no sources)"(Application) {
@@ -186,22 +186,22 @@ idea {
                 }
                 "Run Neoform 1.21 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoform net.neoforged:neoform:1.21-20240613.152323@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoform net.neoforged:neoform:1.21-20240613.152323@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.20.6 (joined) + Parchment"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.20.6:2024.05.01:checked@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.20.6:2024.05.01:checked@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoforge 1.20.6 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.20.6 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoform net.neoforged:neoform:1.20.6-20240429.153634@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run NeoForge 1.20.1 (joined)"(Application) {
@@ -219,9 +219,14 @@ idea {
                     programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.17.1-37.1.1:userdev --write-result=compiledWithNeoForge:build/1.17.1-minecraft.jar --write-result=clientResources:build/1.17.1-client-extra.jar --write-result=sourcesWithNeoForge:build/1.17.1-minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
+                "Run Neoform 1.12.2 (joined)"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.12.2@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar --java-executable=/usr/lib/jvm/java-8-openjdk/bin/java"
+                    moduleRef(project, sourceSets.main)
+                }
                 "Run Neoform 1.19.2 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=compiled:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=sources:build/minecraft-sources.jar"
+                    programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.19.2 (joined, no sources)"(Application) {

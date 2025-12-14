@@ -41,6 +41,7 @@ public class ProcessGeneration {
         }
     }
 
+    private static final MinecraftReleaseVersion MC_1_16_5 = new MinecraftReleaseVersion(1, 16, 5);
     private static final MinecraftReleaseVersion MC_1_17_1 = new MinecraftReleaseVersion(1, 17, 1);
     private static final MinecraftReleaseVersion MC_1_20_1 = new MinecraftReleaseVersion(1, 20, 1);
     private static final MinecraftReleaseVersion MC_1_21_6 = new MinecraftReleaseVersion(1, 21, 6);
@@ -58,6 +59,14 @@ public class ProcessGeneration {
      * remapping step later. (Either to Mojang mappings, or to MCP).
      */
     private boolean sourcesUseIntermediaryNames;
+
+    /**
+     * Indicates that the classes produced by MCP/NeoForm in this version use MCP names instead
+     * of Mojang-mapped names. In these versions, we apply an additional remapping step on the
+     * sources (before the SRG remap) that translates all the classnames from MCP->Mojmap, so that
+     * the names line up with what is expected on newer versions.
+     */
+    private boolean classesUseMCPNames;
 
     /**
      * SAS was used in Forge 1.20.1 and earlier to remove the "OnlyIn" annotation from client-only classes
@@ -101,6 +110,9 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
+        // In 1.17 and later, Forge switched to Mojmap classnames at runtime instead of MCP classnames
+        result.classesUseMCPNames = isLessThanOrEqualTo(releaseVersion, MC_1_16_5);
+
         // In 1.21.6 and later, manifest entries should be generated as they may be used instead of RuntimeDistCleaner
         result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
 
@@ -128,6 +140,13 @@ public class ProcessGeneration {
      */
     public boolean sourcesUseIntermediaryNames() {
         return sourcesUseIntermediaryNames;
+    }
+
+    /**
+     * Does the Minecraft source code that MCP/NeoForm creates use MCP names instead of Mojmap names?
+     */
+    public boolean classesUseMCPNames() {
+        return classesUseMCPNames;
     }
 
     /**
