@@ -100,21 +100,35 @@ public class ExecutionGraph {
         return node != null && node.hasOutput(outputId);
     }
 
+    /**
+     * Dumps the graph in Mermaid format.
+     * <p>
+     * <a href="https://mermaid.live">mermaid.live</a>
+     */
     public void dump(PrintWriter writer) {
 
         try {
 
             var sortedNodes = TopologicalSort.topologicalSort(this);
 
-            writer.println("%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%");
+            writer.println("%%{init: {\"flowchart\": {\"htmlLabels\": false, \"defaultRenderer\": \"elk\"}} }%%");
             writer.println("flowchart LR");
 
             for (var node : sortedNodes) {
                 writer.println("  " + node.id() + "[[" + node.id() + "]]");
 
                 for (var input : node.inputs().values()) {
-                    for (var inputNode : input.getNodeDependencies()) {
-                        writer.println("  " + inputNode.id() + "-->|" + input.getId() + "|" + node.id());
+                    if (input instanceof NodeInput.NodeInputForOutput inputFromOutput) {
+                        // If the output is "output" that's just the default, so we'll omit it from edge label
+                        // Otherwise include which output it is coming from.
+                        var outputId = inputFromOutput.getOutput().id();
+                        var label = outputId.equals("output") ? input.getId() : (outputId + "→" + input.getId());
+                        var fromNodeId = inputFromOutput.getOutput().getNode().id();
+                        writer.println("  " + fromNodeId + "-->|" + label + "|" + node.id());
+                    } else {
+                        for (var inputNode : input.getNodeDependencies()) {
+                            writer.println("  " + inputNode.id() + "-->|" + input.getId() + "|" + node.id());
+                        }
                     }
                 }
             }
