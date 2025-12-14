@@ -25,7 +25,7 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
     @CommandLine.ParentCommand
     Main commonOptions;
 
-    @CommandLine.Option(names = "--print-graph")
+    @CommandLine.Option(names = "--print-graph", description = "Dump the execution graph for inspection and debugging purposes.")
     boolean printGraph;
 
     @CommandLine.Option(names = "--use-eclipse-compiler")

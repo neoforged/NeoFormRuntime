@@ -100,28 +100,49 @@ public class ExecutionGraph {
         return node != null && node.hasOutput(outputId);
     }
 
+    /**
+     * Dumps the graph in Mermaid format.
+     * <p>
+     * <a href="https://mermaid.live">mermaid.live</a>
+     */
     public void dump(PrintWriter writer) {
 
         try {
 
             var sortedNodes = TopologicalSort.topologicalSort(this);
 
-            writer.println("%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%");
+            writer.println("%%{init: {\"flowchart\": {\"htmlLabels\": false, \"defaultRenderer\": \"elk\"}} }%%");
             writer.println("flowchart LR");
 
             for (var node : sortedNodes) {
                 writer.println("  " + node.id() + "[[" + node.id() + "]]");
 
                 for (var input : node.inputs().values()) {
-                    for (var inputNode : input.getNodeDependencies()) {
-                        writer.println("  " + inputNode.id() + "-->|" + input.getId() + "|" + node.id());
+                    if (input instanceof NodeInput.NodeInputForOutput inputFromOutput) {
+                        // If the output is "output" that's just the default, so we'll omit it from edge label
+                        // Otherwise include which output it is coming from.
+                        var outputId = inputFromOutput.getOutput().id();
+                        var label = outputId.equals("output") ? input.getId() : (outputId + "→" + input.getId());
+                        var fromNodeId = inputFromOutput.getOutput().getNode().id();
+                        writer.println("  " + fromNodeId + "-->|" + label + "|" + node.id());
+                    } else {
+                        for (var inputNode : input.getNodeDependencies()) {
+                            writer.println("  " + inputNode.id() + "-->|" + input.getId() + "|" + node.id());
+                        }
                     }
+                }
+
+                // Decompile/Recompile are such important nodes that we highlight them
+                if (node.id().equals("decompile") || node.id().equals("recompile")) {
+                    writer.println("  style " + node.id() + " font-size:1.2em,font-weight: bold;");
                 }
             }
 
             for (var entry : results.entrySet()) {
-                writer.println("  result-" + entry.getKey() + "(\"`**Result**\n" + entry.getKey() + "`\")");
-                writer.println("  " + entry.getValue().getNode().id() + " --o " + "result-" + entry.getKey());
+                String nodeId = "result-" + entry.getKey();
+                writer.println("  " + nodeId + "(\"`**Result**\n" + entry.getKey() + "`\")");
+                writer.println("  " + entry.getValue().getNode().id() + " --o " + nodeId);
+                writer.println("  style " + nodeId + " stroke-width:4px");
             }
 
         } finally {

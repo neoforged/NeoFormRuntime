@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
+import com.google.gson.JsonObject;
 import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
 import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
 import net.neoforged.neoform.runtime.actions.CopyUnpatchedClassesAction;
@@ -29,15 +30,18 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import picocli.CommandLine;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "run", description = "Run the NeoForm engine and produce Minecraft artifacts")
@@ -401,7 +406,15 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (printGraph) {
             var stringWriter = new StringWriter();
             engine.dumpGraph(new PrintWriter(stringWriter));
-            LOG.println(stringWriter.toString());
+
+            // Build a direct link to Mermaid.live
+            var bos = new ByteArrayOutputStream();
+            try (var dos = new DeflaterOutputStream(bos)) {
+                var obj = new JsonObject();
+                obj.addProperty("code", stringWriter.toString());
+                dos.write(obj.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            LOG.println("Open in Browser: https://mermaid.live/view#pako:" + Base64.getEncoder().encodeToString(bos.toByteArray()));
         }
 
         var neededResults = writeResults.stream().<String[]>map(encodedResult -> {
@@ -416,7 +429,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         parts -> Paths.get(parts[1])
                 ));
 
-        if (neededResults.isEmpty()) {
+        if (neededResults.isEmpty() && !printGraph) {
             System.err.println("No results requested using --write-result=<result>:<path>. Available results: " + engine.getGraph().getAvailableResults());
             System.exit(1);
         }
