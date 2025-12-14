@@ -60,7 +60,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.ArgGroup(exclusive = false, multiplicity = "1")
     SourceArtifacts sourceArtifacts;
 
-    @CommandLine.Option(names = "--dist", required = true)
+    @CommandLine.Option(names = "--dist", defaultValue = "joined")
     String dist;
 
     @CommandLine.Option(names = "--write-result", arity = "*")
@@ -270,28 +270,42 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
 
-        // Support for binary patches
-        var renamedOutput = graph.getRequiredOutput("rename", "output");
-        engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
-        var binaryPatchOnlyOutput = createBinaryPatch(graph, renamedOutput, neoforgeConfig.binaryPatcherConfig());
-        var binaryPatchOutput = createCopyUnpatchedClasses(graph, renamedOutput, binaryPatchOnlyOutput);
+        applyNeoForgeBinaryPatchProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, neoforgeClassesZip);
 
+    }
+
+    private static void applyNeoForgeBinaryPatchProcessTransforms(NeoFormEngine engine,
+                                                                  JarFile neoforgeZipFile,
+                                                                  NeoForgeConfig neoforgeConfig,
+                                                                  ZipFile neoforgeClassesZip) {
+        var graph = engine.getGraph();
+        var patchBaseJar = graph.getResult(ResultIds.VANILLA_DEOBFUSCATED);
+
+        engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
+        var binaryPatchOnlyOutput = createBinaryPatch(graph, patchBaseJar, neoforgeConfig.binaryPatcherConfig());
+        var binaryPatchOutput = createCopyUnpatchedClasses(graph, patchBaseJar, binaryPatchOnlyOutput);
+
+        // For binpatches we also need to consider Access Transforms / Interface Injection
+        // However, we have to force-create the node here, since it's placement with NeoForge enabled
+        // is very different from when it is placed by the NeoForm process.
+        binaryPatchOutput = createBinaryDevTransformNode(graph, binaryPatchOutput.asInput());
+
+        // This is a new result here
         var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
-        if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
-        } else {
+        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
             // Minecraft and NeoForge classes need to be remapped,
             // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
-            var remapOutput = graph.getRequiredOutput("remapSrgClassesToOfficial", "output");
-            remapOutput.getNode().setInput("input", binaryWithNeoForgeOutput.asInput());
+            var remapper = graph.getRequiredNode("remapSrgClassesToOfficial");
+            remapper.setInput("input", binaryWithNeoForgeOutput.asInput());
+            var remappedOutput = remapper.getRequiredOutput("output");
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remappedOutput);
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remappedOutput);
 
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
+        } else {
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
         }
-
-        getOrAddDevTransformsAction(engine).setAccessTransformersData(List.of("neoForgeAccessTransformers"));
     }
 
     /**
@@ -508,30 +522,27 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
-        NodeOutput untransformedOutput;
-        if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-            untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
+        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            // We have to transform in srg, and the remapped classes have to remain the result
+            var remapNode = graph.getRequiredNode("remapSrgClassesToOfficial");
+            var remapInput = graph.getRequiredInputFromNodeOutput("remapSrgClassesToOfficial", "input");
+            remapNode.setInput("input", createBinaryDevTransformNode(graph, remapInput.asInput()).asInput());
         } else {
-            // We have to transform in srg
-            var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
-            if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
-                throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
-            }
-            untransformedOutput = nifo.getOutput();
+            var transformInput = graph.getResult(ResultIds.GAME_JAR_NO_RECOMP);
+            var transformedOutput = createBinaryDevTransformNode(graph, transformInput.asInput());
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, transformedOutput);
         }
 
-        new ReplaceNodeOutput(
-                untransformedOutput.getNode().id(),
-                untransformedOutput.id(),
-                "applyDevTransforms",
-                (builder, previousOutput) -> {
-                    builder.input("input", previousOutput.asInput());
-                    var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
-                    builder.action(new ApplyDevTransformsAction());
-
-                    return transformedOutput;
-                }).apply(engine, graph);
-
         return getOrAddDevTransformsNode(engine);
+    }
+
+    private static NodeOutput createBinaryDevTransformNode(ExecutionGraph graph, NodeInput input) {
+        var builder = graph.nodeBuilder("applyDevTransforms");
+        builder.input("input", input);
+        var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
+        builder.action(new ApplyDevTransformsAction());
+        builder.build();
+
+        return transformedOutput;
     }
 }
