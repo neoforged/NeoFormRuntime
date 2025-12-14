@@ -1,20 +1,28 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.zip.ZipFile;
 
 public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     /**
+     * Names of {@linkplain NeoFormEngine#addDataSource(String, ZipFile, String) data sources} containing
+     * access transformers to apply.
+     */
+    private List<String> accessTransformersData = new ArrayList<>();
+    /**
      * Paths to access transformers that will be applied.
      */
-    private List<Path> accessTransformers = new ArrayList<>();
+    private List<Path> additionalAccessTransformers = new ArrayList<>();
 
     /**
      * Paths to interface injection data files.
@@ -35,7 +43,18 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
                 "--output", "{output}",
                 "--no-mod-manifest");
 
-        for (var path : accessTransformers) {
+        for (var dataId : accessTransformersData) {
+            var accessTransformers = environment.extractData(dataId);
+
+            try (var stream = Files.walk(accessTransformers)) {
+                stream.filter(Files::isRegularFile).forEach(path -> {
+                    args.add("--access-transformer");
+                    args.add(environment.getPathArgument(path));
+                });
+            }
+        }
+
+        for (var path : additionalAccessTransformers) {
             args.add("--access-transformer");
             args.add(environment.getPathArgument(path.toAbsolutePath()));
         }
@@ -52,12 +71,17 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
-        ck.addPaths("access transformers", accessTransformers);
+        ck.addStrings("access transformers data ids", accessTransformersData);
+        ck.addPaths("additional access transformers", additionalAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
     }
 
-    public void setAccessTransformers(List<Path> accessTransformers) {
-        this.accessTransformers = accessTransformers;
+    public void setAccessTransformersData(List<String> accessTransformersData) {
+        this.accessTransformersData = accessTransformersData;
+    }
+
+    public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {
+        this.additionalAccessTransformers = additionalAccessTransformers;
     }
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {

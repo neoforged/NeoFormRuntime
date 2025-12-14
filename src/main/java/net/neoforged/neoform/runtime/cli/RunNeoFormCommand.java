@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cli;
 
+import com.google.gson.JsonObject;
 import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
 import net.neoforged.neoform.runtime.actions.ApplySourceTransformAction;
 import net.neoforged.neoform.runtime.actions.CopyUnpatchedClassesAction;
@@ -21,6 +22,7 @@ import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
+import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeInput;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.FileUtil;
 import net.neoforged.neoform.runtime.utils.HashingUtil;
@@ -29,15 +31,18 @@ import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import picocli.CommandLine;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +50,7 @@ import java.util.function.Consumer;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.DeflaterOutputStream;
 import java.util.zip.ZipFile;
 
 @CommandLine.Command(name = "run", description = "Run the NeoForm engine and produce Minecraft artifacts")
@@ -148,35 +154,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // Transformations for the binpatch pipeline
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
-            NodeOutput untransformedOutput;
-            if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
-                untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
-            } else {
-                // We have to transform in srg
-                var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
-                if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
-                    throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
-                }
-                untransformedOutput = nifo.getOutput();
-            }
-
-            engine.applyTransform(new ReplaceNodeOutput(
-                    untransformedOutput.getNode().id(),
-                    untransformedOutput.id(),
-                    "applyDevTransforms",
-                    (builder, previousOutput) -> {
-                        builder.input("input", previousOutput.asInput());
-                        var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
-                        var action = new ApplyDevTransformsAction();
-                        var allAts = new ArrayList<Path>();
-                        allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
-                        allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
-                        action.setAccessTransformers(allAts);
-                        action.setInjectedInterfaces(interfaceInjectionDataFiles);
-                        builder.action(action);
-
-                        return transformedOutput;
-                    }));
+            var applyDevTransforms = getOrAddDevTransformsAction(engine);
+            var allAts = new ArrayList<Path>();
+            allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
+            allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
+            applyDevTransforms.setAdditionalAccessTransformers(allAts);
+            applyDevTransforms.setInjectedInterfaces(interfaceInjectionDataFiles);
         }
 
         execute(engine);
@@ -245,19 +228,13 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                     engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
                 }
 
-                engine.applyTransform(new ReplaceNodeOutput("rename", "output", "stripSideAnnotations",
-                        (builder, previousOutput) -> {
-                            builder.input("input", previousOutput.asInput());
+                engine.applyTransform(new ReplaceNodeInput("decompile", "input", "stripSideAnnotations",
+                        (builder, previousInput) -> {
+                            builder.input("input", previousInput);
 
                             ExternalJavaToolAction action = new ExternalJavaToolAction(ToolCoordinate.MCF_SIDE_ANNOTATION_STRIPPER);
                             List<String> args = new ArrayList<>();
-                            Collections.addAll(args,
-                                    "--strip",
-                                    "--input",
-                                    "{input}",
-                                    "--output",
-                                    "{output}"
-                            );
+                            Collections.addAll(args, "--strip", "--input", "{input}", "--output", "{output}");
                             for (int i = 0; i < sasFiles.size(); i++) {
                                 args.add("--data");
                                 args.add("{sasFile" + i + "}");
@@ -313,6 +290,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remapOutput); // technically redundant, but set again for clarity
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remapOutput);
         }
+
+        getOrAddDevTransformsAction(engine).setAccessTransformersData(List.of("neoForgeAccessTransformers"));
     }
 
     /**
@@ -422,7 +401,15 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (printGraph) {
             var stringWriter = new StringWriter();
             engine.dumpGraph(new PrintWriter(stringWriter));
-            LOG.println(stringWriter.toString());
+
+            // Build a direct link to Mermaid.live
+            var bos = new ByteArrayOutputStream();
+            try (var dos = new DeflaterOutputStream(bos)) {
+                var obj = new JsonObject();
+                obj.addProperty("code", stringWriter.toString());
+                dos.write(obj.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            LOG.println("Open in Browser: https://mermaid.live/view#pako:" + Base64.getEncoder().encodeToString(bos.toByteArray()));
         }
 
         var neededResults = writeResults.stream().<String[]>map(encodedResult -> {
@@ -437,8 +424,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         parts -> Paths.get(parts[1])
                 ));
 
-        if (neededResults.isEmpty()) {
-            System.err.println("No results requested using --write-result=<result>:<path>. Available results: " + engine.getAvailableResults());
+        if (neededResults.isEmpty() && !printGraph) {
+            System.err.println("No results requested using --write-result=<result>:<path>. Available results: " + engine.getGraph().getAvailableResults());
             System.exit(1);
         }
 
@@ -503,5 +490,48 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
             return builder.output("output", NodeOutputType.ZIP, "Sources with additional transforms (ATs, Parchment, Interface Injections) applied");
         };
+    }
+
+    private static ApplyDevTransformsAction getOrAddDevTransformsAction(NeoFormEngine engine) {
+        return (ApplyDevTransformsAction) getOrAddDevTransformsNode(engine).action();
+    }
+
+    private static ExecutionNode getOrAddDevTransformsNode(NeoFormEngine engine) {
+        var graph = engine.getGraph();
+        var transformNode = graph.getNode("applyDevTransforms");
+        if (transformNode != null) {
+            if (transformNode.action() instanceof ApplyDevTransformsAction) {
+                return transformNode;
+            } else {
+                throw new IllegalStateException("Node applyDevTransforms has a different action type than expected. Expected: "
+                        + ApplyDevTransformsAction.class + " but got " + transformNode.action().getClass());
+            }
+        }
+
+        NodeOutput untransformedOutput;
+        if (!engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            untransformedOutput = engine.getGraph().getResult(ResultIds.GAME_JAR_NO_RECOMP);
+        } else {
+            // We have to transform in srg
+            var remapSrgClasses = engine.getGraph().getNode("remapSrgClassesToOfficial");
+            if (remapSrgClasses == null || !(remapSrgClasses.getRequiredInput("input") instanceof NodeInput.NodeInputForOutput nifo)) {
+                throw new IllegalStateException("Could not find SRG input to apply dev transform to.");
+            }
+            untransformedOutput = nifo.getOutput();
+        }
+
+        new ReplaceNodeOutput(
+                untransformedOutput.getNode().id(),
+                untransformedOutput.id(),
+                "applyDevTransforms",
+                (builder, previousOutput) -> {
+                    builder.input("input", previousOutput.asInput());
+                    var transformedOutput = builder.output("output", NodeOutputType.JAR, "The jar file with the desired dev transforms applied.");
+                    builder.action(new ApplyDevTransformsAction());
+
+                    return transformedOutput;
+                }).apply(engine, graph);
+
+        return getOrAddDevTransformsNode(engine);
     }
 }

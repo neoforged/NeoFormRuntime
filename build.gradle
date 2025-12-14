@@ -179,9 +179,9 @@ idea {
                     programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
-                "Run Neoforge 1.21 (joined, no sources)"(Application) {
+                "Run Neoforge 1.21 (joined, no recomp)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=binary:build/minecraft.jar --write-result=binaryWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:21.0.0-beta:userdev --write-result=gameJarNoRecomp:build/minecraft.jar --write-result=gameJarNoRecompWithNeoForge:build/minecraft-and-neoforge.jar --write-result=clientResources:build/client-extra.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.21 (joined)"(Application) {
@@ -206,17 +206,17 @@ idea {
                 }
                 "Run NeoForge 1.20.1 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoforge net.neoforged:forge:1.20.1-47.1.54:userdev --parchment-data=org.parchmentmc.data:parchment-1.20.1:2023.09.03@zip --parchment-conflict-prefix=p_ --write-result=namedToIntermediaryMapping:build/1.20.1.tsrg --write-result=compiledWithNeoForge:build/1.20.1-minecraft.jar --write-result=clientResources:build/1.20.1-client-extra.jar --write-result=sourcesWithNeoForge:build/1.20.1-minecraft-sources.jar --problems-report=build/1.20.1-problems.json"
+                    programParameters = "run --dist joined --neoforge net.neoforged:forge:1.20.1-47.1.54:userdev --parchment-data=org.parchmentmc.data:parchment-1.20.1:2023.09.03@zip --parchment-conflict-prefix=p_ --write-result=namedToIntermediaryMapping:build/1.20.1.tsrg --write-result=gameJarWithNeoForge:build/1.20.1-minecraft.jar --write-result=clientResources:build/1.20.1-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.20.1-minecraft-sources.jar --problems-report=build/1.20.1-problems.json"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Forge 1.12.2 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.12.2-14.23.5.2860:userdev3 --write-result=compiledWithNeoForge:build/1.12.2-minecraft.jar --write-result=clientResources:build/1.12.2-client-extra.jar --write-result=sourcesWithNeoForge:build/1.12.2-minecraft-sources.jar"
+                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.12.2-14.23.5.2860:userdev3 --write-result=gameJarWithNeoForge:build/1.12.2-minecraft.jar --write-result=clientResources:build/1.12.2-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.12.2-minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Forge 1.17.1 (joined)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.17.1-37.1.1:userdev --write-result=compiledWithNeoForge:build/1.17.1-minecraft.jar --write-result=clientResources:build/1.17.1-client-extra.jar --write-result=sourcesWithNeoForge:build/1.17.1-minecraft-sources.jar"
+                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.17.1-37.1.1:userdev --write-result=gameJarWithNeoForge:build/1.17.1-minecraft.jar --write-result=clientResources:build/1.17.1-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.17.1-minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run Neoform 1.12.2 (joined)"(Application) {
@@ -229,9 +229,9 @@ idea {
                     programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
-                "Run Neoform 1.19.2 (joined, no sources)"(Application) {
+                "Run Neoform 1.19.2 (joined, no recomp)"(Application) {
                     mainClass = mainClassName
-                    programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=binary:build/minecraft.jar --write-result=clientResources:build/client-extra.jar"
+                    programParameters = "run --dist joined --neoform de.oceanlabs.mcp:mcp_config:1.19.2@zip --write-result=gameJarNoRecomp:build/minecraft.jar --write-result=clientResources:build/client-extra.jar"
                     moduleRef(project, sourceSets.main)
                 }
                 "Run clean-cache"(Application) {
@@ -247,6 +247,11 @@ idea {
                 "Download assets 1.20.6"(Application) {
                     mainClass = mainClassName
                     programParameters = "download-assets --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --write-properties build/assets.properties --write-json build/assets.json"
+                    moduleRef(project, sourceSets.main)
+                }
+                "Download artifacts 1.21.11"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "download-artifacts --minecraft-version=1.21.11 --write-artifact=client:build/vanilla-client-1.21.11.jar --write-artifact=server:build/vanilla-server-1.21.11.jar --write-version-manifest=build/vanilla-manifest-1.21.11.json"
                     moduleRef(project, sourceSets.main)
                 }
             }
