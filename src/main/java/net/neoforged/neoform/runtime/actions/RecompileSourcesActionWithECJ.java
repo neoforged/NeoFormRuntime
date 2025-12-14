@@ -146,7 +146,7 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
                 if (!entry.isDirectory()) {
-                    if (entry.getName().endsWith(".java")) {
+                    if (entry.getName().endsWith(".java") && !entry.getName().equals("package-info-template.java")) {
                         futures.add(executor.submit(() -> {
                             // TODO This is copy heavy and should be optimized
                             try (var in = sourcesZip.getInputStream(entry)) {
