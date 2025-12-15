@@ -37,6 +37,8 @@ public abstract class NodeInput {
 
     public abstract <T> T getValue(ResultRepresentation<T> representation) throws IOException;
 
+    public abstract NodeInput copy();
+
     public static final class NodeInputForOutput extends NodeInput {
         private NodeOutput output;
 
@@ -69,6 +71,11 @@ public abstract class NodeInput {
         @Override
         public <T> T getValue(ResultRepresentation<T> representation) throws IOException {
             return output.getResultRepresentation(representation);
+        }
+
+        @Override
+        public NodeInput copy() {
+            return new NodeInputForOutput(output);
         }
     }
 }

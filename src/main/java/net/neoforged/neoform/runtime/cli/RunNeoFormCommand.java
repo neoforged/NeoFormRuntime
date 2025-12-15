@@ -517,22 +517,20 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     }
 
     private static ExecutionNode createBinaryDevTransformNodeForNeoForm(NeoFormEngine engine) {
-        ExecutionNode transformNode;
         NodeOutput transformedOutput;
         var graph = engine.getGraph();
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
             // We have to transform in srg, and the remapped classes have to remain the result
             var remapNode = graph.getRequiredNode("remapSrgClassesToOfficial");
-            var remapInput = graph.getRequiredInputFromNodeOutput("remapSrgClassesToOfficial", "input");
-            transformedOutput = createBinaryDevTransformNode(graph, remapInput.asInput());
+            var remapInput = remapNode.getRequiredInput("input");
+            transformedOutput = createBinaryDevTransformNode(graph, remapInput.copy());
             remapNode.setInput("input", transformedOutput.asInput());
         } else {
             var transformInput = graph.getResult(ResultIds.GAME_JAR_NO_RECOMP);
             transformedOutput = createBinaryDevTransformNode(graph, transformInput.asInput());
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, transformedOutput);
         }
-        transformNode = transformedOutput.getNode();
-        return transformNode;
+        return transformedOutput.getNode();
     }
 
     private static NodeOutput createBinaryDevTransformNode(ExecutionGraph graph, NodeInput input) {
