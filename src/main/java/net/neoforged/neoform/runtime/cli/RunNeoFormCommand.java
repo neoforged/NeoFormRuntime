@@ -154,12 +154,22 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         // Transformations for the binpatch pipeline
         if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
-            var applyDevTransforms = getOrAddDevTransformsAction(engine);
+            var graph = engine.getGraph();
+            // The node can be created by the NeoForge process (see applyNeoForgeProcessTransforms)
+            var transformNode = graph.getNode("applyDevTransforms");
+            if (transformNode == null) {
+                transformNode = createBinaryDevTransformNodeForNeoForm(engine);
+            }
+            if (!(transformNode.action() instanceof ApplyDevTransformsAction applyDevTransformsAction)) {
+                throw new IllegalStateException("Node applyDevTransforms has a different action type than expected. Expected: "
+                        + ApplyDevTransformsAction.class + " but got " + transformNode.action().getClass());
+            }
+
             var allAts = new ArrayList<Path>();
             allAts.addAll(additionalAccessTransformers.stream().map(Paths::get).toList());
             allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
-            applyDevTransforms.setAdditionalAccessTransformers(allAts);
-            applyDevTransforms.setInjectedInterfaces(interfaceInjectionDataFiles);
+            applyDevTransformsAction.setAdditionalAccessTransformers(allAts);
+            applyDevTransformsAction.setInjectedInterfaces(interfaceInjectionDataFiles);
         }
 
         execute(engine);
@@ -282,8 +292,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var patchBaseJar = graph.getResult(ResultIds.VANILLA_DEOBFUSCATED);
 
         engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
-        var binaryPatchOnlyOutput = createBinaryPatch(graph, patchBaseJar, neoforgeConfig.binaryPatcherConfig());
-        var binaryPatchOutput = createCopyUnpatchedClasses(graph, patchBaseJar, binaryPatchOnlyOutput);
+        var binaryPatchOutput = createBinaryPatch(graph, patchBaseJar, neoforgeConfig.binaryPatcherConfig());
+        binaryPatchOutput = createCopyUnpatchedClasses(graph, patchBaseJar, binaryPatchOutput);
 
         // For binpatches we also need to consider Access Transforms / Interface Injection
         // However, we have to force-create the node here, since it's placement with NeoForge enabled
@@ -299,7 +309,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             var remapper = graph.getRequiredNode("remapSrgClassesToOfficial");
             remapper.setInput("input", binaryWithNeoForgeOutput.asInput());
             var remappedOutput = remapper.getRequiredOutput("output");
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remappedOutput);
+            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, remappedOutput); // technically redundant, but set again for clarity
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, remappedOutput);
 
         } else {
@@ -506,34 +516,23 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         };
     }
 
-    private static ApplyDevTransformsAction getOrAddDevTransformsAction(NeoFormEngine engine) {
-        return (ApplyDevTransformsAction) getOrAddDevTransformsNode(engine).action();
-    }
-
-    private static ExecutionNode getOrAddDevTransformsNode(NeoFormEngine engine) {
+    private static ExecutionNode createBinaryDevTransformNodeForNeoForm(NeoFormEngine engine) {
+        ExecutionNode transformNode;
+        NodeOutput transformedOutput;
         var graph = engine.getGraph();
-        var transformNode = graph.getNode("applyDevTransforms");
-        if (transformNode != null) {
-            if (transformNode.action() instanceof ApplyDevTransformsAction) {
-                return transformNode;
-            } else {
-                throw new IllegalStateException("Node applyDevTransforms has a different action type than expected. Expected: "
-                        + ApplyDevTransformsAction.class + " but got " + transformNode.action().getClass());
-            }
-        }
-
         if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
             // We have to transform in srg, and the remapped classes have to remain the result
             var remapNode = graph.getRequiredNode("remapSrgClassesToOfficial");
             var remapInput = graph.getRequiredInputFromNodeOutput("remapSrgClassesToOfficial", "input");
-            remapNode.setInput("input", createBinaryDevTransformNode(graph, remapInput.asInput()).asInput());
+            transformedOutput = createBinaryDevTransformNode(graph, remapInput.asInput());
+            remapNode.setInput("input", transformedOutput.asInput());
         } else {
             var transformInput = graph.getResult(ResultIds.GAME_JAR_NO_RECOMP);
-            var transformedOutput = createBinaryDevTransformNode(graph, transformInput.asInput());
+            transformedOutput = createBinaryDevTransformNode(graph, transformInput.asInput());
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, transformedOutput);
         }
-
-        return getOrAddDevTransformsNode(engine);
+        transformNode = transformedOutput.getNode();
+        return transformNode;
     }
 
     private static NodeOutput createBinaryDevTransformNode(ExecutionGraph graph, NodeInput input) {
