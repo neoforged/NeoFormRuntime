@@ -1,9 +1,11 @@
 package net.neoforged.neoform.runtime.graph;
 
+import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
 import net.neoforged.neoform.runtime.cli.Main;
 import net.neoforged.neoform.runtime.cli.ResultIds;
 import net.neoforged.neoform.runtime.cli.RunNeoFormCommand;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 
@@ -46,15 +48,24 @@ public class NeoFormGraphTest {
         assertResultFromNode(graph, "rename", "output", ResultIds.VANILLA_DEOBFUSCATED);
     }
 
-    @Test
-    void testNeoForge_1_21() throws Exception {
-        var graph = buildGraph("--neoforge", "net.neoforged:neoforge:21.0.0-beta:userdev");
+    @Nested
+    class NeoForge_1_21 {
+        static ExecutionGraph graph = buildGraph("--neoforge", "net.neoforged:neoforge:21.0.0-beta:userdev");
 
-        // No Recompile Pipeline
-        assertNodeChain(graph, "rename", "binaryPatch", "copyUnpatchedClasses", "applyDevTransforms", "binaryWithNeoForge");
-        assertResultFromNode(graph, "applyDevTransforms", "output", ResultIds.GAME_JAR_NO_RECOMP);
-        assertResultFromNode(graph, "binaryWithNeoForge", "output", ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE);
-        assertResultFromNode(graph, "rename", "output", ResultIds.VANILLA_DEOBFUSCATED);
+        @Test
+        void testBinaryPatchProcess() {
+            // No Recompile Pipeline
+            assertNodeChain(graph, "rename", "binaryPatch", "copyUnpatchedClasses", "applyDevTransforms", "binaryWithNeoForge");
+            assertResultFromNode(graph, "applyDevTransforms", "output", ResultIds.GAME_JAR_NO_RECOMP);
+            assertResultFromNode(graph, "binaryWithNeoForge", "output", ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE);
+            assertResultFromNode(graph, "rename", "output", ResultIds.VANILLA_DEOBFUSCATED);
+        }
+
+        @Test
+        void testNeoForgeAccessTransformersAreAppliedToNoRecompArtifacts() {
+            var action = (ApplyDevTransformsAction) graph.getRequiredNode("applyDevTransforms").action();
+            assertThat(action.getAccessTransformersData()).containsOnly("neoForgeAccessTransformers");
+        }
     }
 
     @Test
@@ -156,7 +167,7 @@ public class NeoFormGraphTest {
         visitedNodes.remove(node2.id());
     }
 
-    private static ExecutionGraph buildGraph(String... args) throws Exception {
+    private static ExecutionGraph buildGraph(String... args) {
         var fullArgs = new ArrayList<String>();
         Collections.addAll(fullArgs, "run", "--print-graph");
         Collections.addAll(fullArgs, args);

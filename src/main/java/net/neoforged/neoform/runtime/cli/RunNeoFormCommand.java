@@ -299,6 +299,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         // However, we have to force-create the node here, since it's placement with NeoForge enabled
         // is very different from when it is placed by the NeoForm process.
         binaryPatchOutput = createBinaryDevTransformNode(graph, binaryPatchOutput.asInput());
+        ((ApplyDevTransformsAction) binaryPatchOutput.getNode().action()).setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
         // This is a new result here
         var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
