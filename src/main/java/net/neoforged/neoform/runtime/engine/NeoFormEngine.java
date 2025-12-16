@@ -194,8 +194,8 @@ public class NeoFormEngine implements AutoCloseable {
         // Register the sources and the compiled binary as results
         // Vanilla deobfuscated is equivalent to the input to the decompiler at this point of setting up the process.
         // While the input to the decompiler might be adjusted later, that will not change this result retroactively.
-        var decompileInput = graph.getRequiredInputFromNodeOutput("decompile", "input");
-        graph.setResult(ResultIds.VANILLA_DEOBFUSCATED, decompileInput);
+        var decompileInput = graph.getRequiredInput("decompile", "input");
+        graph.setResultFromCurrentInput(ResultIds.VANILLA_DEOBFUSCATED, decompileInput);
 
         graph.setResult(ResultIds.GAME_SOURCES, sourcesOutput);
         graph.setResult(ResultIds.GAME_JAR, compiledOutput);
@@ -236,10 +236,10 @@ public class NeoFormEngine implements AutoCloseable {
                     )
             ));
 
-            // If intermediary is in use, the game jar
+            // If intermediary is in use, the game jar has to be remapped to developer-facing names to be usable
             {
                 var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
-                builder.input("input", decompileInput.asInput());
+                builder.input("input", decompileInput.copy());
                 builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
                 builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
                 var officialOutput = builder.output("output", NodeOutputType.JAR, "Classes with SRG method and field names remapped to official.");
@@ -261,7 +261,7 @@ public class NeoFormEngine implements AutoCloseable {
             createMappings.build();
         } else {
             // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
-            graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
+            graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
         }
     }
 
