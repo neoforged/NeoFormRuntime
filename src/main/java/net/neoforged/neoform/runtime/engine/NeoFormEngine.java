@@ -479,14 +479,7 @@ public class NeoFormEngine implements AutoCloseable {
         resolvedJvmArgs.forEach(placeholderProcessor);
         resolvedArgs.forEach(placeholderProcessor);
 
-        MavenCoordinate toolArtifactCoordinate;
-        try {
-            toolArtifactCoordinate = MavenCoordinate.parse(function.toolArtifact());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + function.toolArtifact());
-        }
-
-        var action = new ExternalJavaToolAction(toolArtifactCoordinate);
+        var action = new ExternalJavaToolAction(getFunctionClasspath(step, function), function.mainClass());
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
@@ -504,6 +497,30 @@ public class NeoFormEngine implements AutoCloseable {
             listLibraries.getClasspath().addMavenLibraries(config.libraries());
             action.setListLibraries(listLibraries);
         }
+    }
+
+    private static List<MavenCoordinate> getFunctionClasspath(NeoFormStep step, NeoFormFunction function) {
+        List<String> toolClasspath = new ArrayList<>();
+        if (function.toolArtifact() != null) {
+            if (function.classpath() != null || function.mainClass() != null) {
+                throw new IllegalArgumentException("Function for step " + step + " combines legacy 'version' attribute with 'classpath' or 'main_class'");
+            }
+            toolClasspath.add(function.toolArtifact());
+        } else if (function.classpath() != null) {
+            toolClasspath.addAll(function.classpath());
+        }
+        List<MavenCoordinate> toolClasspathCoordinates = new ArrayList<>(toolClasspath.size());
+        for (String artifactId : toolClasspath) {
+            try {
+                toolClasspathCoordinates.add(MavenCoordinate.parse(artifactId));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + artifactId);
+            }
+            if (function.mainClass() == null && toolClasspathCoordinates.size() != 1) {
+                throw new IllegalArgumentException("Function for step " + step + " must define the main_class because it declares a classpath with not exactly one item.");
+            }
+        }
+        return toolClasspathCoordinates;
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {
