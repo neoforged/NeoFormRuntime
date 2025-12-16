@@ -507,9 +507,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.input("input", previousNodeOutput.asInput());
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
             var action = new ApplySourceTransformAction();
-            // Copy listLibraries classpath from rename action
-            var renameAction = (ExternalJavaToolAction) engine.getGraph().getNode("rename").action();
-            action.getListLibraries().setClasspath(renameAction.getListLibraries().getClasspath().copy());
+            // The source transforms should inherit the classpath from the decompiler
+            var decompileAction = (ExternalJavaToolAction) engine.getGraph().getRequiredNode("decompile").action();
+            if (decompileAction.getListLibraries() != null) {
+                action.getListLibraries().setClasspath(decompileAction.getListLibraries().getClasspath().copy());
+            }
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
