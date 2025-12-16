@@ -287,6 +287,14 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
     }
 
+    public List<MavenCoordinate> getClasspath() {
+        return classpath;
+    }
+
+    public @Nullable String getMainClass() {
+        return mainClass;
+    }
+
     @Nullable
     public URI getRepositoryUrl() {
         return repositoryUrl;

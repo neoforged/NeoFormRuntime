@@ -508,6 +508,9 @@ public class NeoFormEngine implements AutoCloseable {
             toolClasspath.add(function.toolArtifact());
         } else if (function.classpath() != null) {
             toolClasspath.addAll(function.classpath());
+            if (function.mainClass() == null && function.classpath().size() != 1) {
+                throw new IllegalArgumentException("Function for step " + step + " must define the main_class because it declares a classpath with not exactly one item.");
+            }
         }
         List<MavenCoordinate> toolClasspathCoordinates = new ArrayList<>(toolClasspath.size());
         for (String artifactId : toolClasspath) {
@@ -515,9 +518,6 @@ public class NeoFormEngine implements AutoCloseable {
                 toolClasspathCoordinates.add(MavenCoordinate.parse(artifactId));
             } catch (Exception e) {
                 throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + artifactId);
-            }
-            if (function.mainClass() == null && toolClasspathCoordinates.size() != 1) {
-                throw new IllegalArgumentException("Function for step " + step + " must define the main_class because it declares a classpath with not exactly one item.");
             }
         }
         return toolClasspathCoordinates;

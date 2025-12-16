@@ -1,10 +1,12 @@
 package net.neoforged.neoform.runtime.graph;
 
 import net.neoforged.neoform.runtime.actions.ApplyDevTransformsAction;
+import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.cli.Main;
 import net.neoforged.neoform.runtime.cli.ResultIds;
 import net.neoforged.neoform.runtime.cli.RunNeoFormCommand;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -21,20 +23,35 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Regression tests for the structure of the graph when building NeoForm.
  */
 public class NeoFormGraphTest {
-    @Test
-    void testNeoForm_1_21() throws Exception {
-        var graph = buildGraph("--neoform", "net.neoforged:neoform:1.21-20240613.152323@zip");
-        assertThat(graph.getNodes()).extracting("id").doesNotContain("applyDevTransforms");
 
-        // No Recompile Pipeline
-        assertResultFromNode(graph, "rename", "output", ResultIds.GAME_JAR_NO_RECOMP);
-        assertResultFromNode(graph, "rename", "output", ResultIds.VANILLA_DEOBFUSCATED);
+    @Nested
+    class NeoForm_1_21 {
+        static ExecutionGraph graph = buildGraph("--neoform", "net.neoforged:neoform:1.21-20240613.152323@zip");
+
+        @Test
+        void testBinaryPatchProcess() {
+            assertThat(graph.getNodes()).extracting("id").doesNotContain("applyDevTransforms");
+
+            // No Recompile Pipeline
+            assertResultFromNode(graph, "rename", "output", ResultIds.GAME_JAR_NO_RECOMP);
+            assertResultFromNode(graph, "rename", "output", ResultIds.VANILLA_DEOBFUSCATED);
+        }
+
+        @Test
+        void testDecompilerClasspath() {
+            var action = (ExternalJavaToolAction) graph.getRequiredNode("decompile").action();
+            assertThat(action.getClasspath())
+                    .extracting(MavenCoordinate::toString)
+                    .containsExactly("org.vineflower:vineflower:1.10.1");
+            assertNull(action.getMainClass());
+        }
     }
 
     @Test
