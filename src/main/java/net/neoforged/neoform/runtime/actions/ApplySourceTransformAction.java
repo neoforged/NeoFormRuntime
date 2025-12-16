@@ -6,7 +6,6 @@ import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 import net.neoforged.problems.FileProblemReporter;
 import net.neoforged.problems.Problem;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -219,7 +218,6 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
-    @NotNull
     public CreateLibrariesOptionsFile getListLibraries() {
         return listLibraries;
     }

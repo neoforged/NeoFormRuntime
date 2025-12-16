@@ -510,7 +510,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // The source transforms should inherit the classpath from the decompiler
             var decompileAction = (ExternalJavaToolAction) engine.getGraph().getRequiredNode("decompile").action();
             if (decompileAction.getListLibraries() != null) {
-                action.setListLibraries(decompileAction.getListLibraries());
+                action.getListLibraries().setClasspath(decompileAction.getListLibraries().getClasspath().copy());
             }
             builder.action(action);
             actionConsumer.accept(action);
