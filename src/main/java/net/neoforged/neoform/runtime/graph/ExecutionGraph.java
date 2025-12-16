@@ -44,6 +44,19 @@ public class ExecutionGraph {
         results.put(id, output);
     }
 
+    /**
+     * Sets a result to the <strong>current</strong> source of a node input.
+     * <p>
+     * If the input is later changed, the result will not.
+     */
+    public void setResultFromCurrentInput(String id, NodeInput input) {
+        if (input instanceof NodeInput.NodeInputForOutput fromOutput) {
+            setResult(id, fromOutput.getOutput());
+        } else {
+            throw new IllegalArgumentException("Can only set a result from a node input that is sourced from an output.");
+        }
+    }
+
     private static final Pattern DEBUG_OUTPUT_PATTERN = Pattern.compile("^node\\.([a-zA-Z0-9]+)\\.output\\.([a-zA-Z0-9]+)$");
 
     public NodeOutput getResult(String id) {
