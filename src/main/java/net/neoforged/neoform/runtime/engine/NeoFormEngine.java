@@ -511,6 +511,8 @@ public class NeoFormEngine implements AutoCloseable {
             if (function.mainClass() == null && function.classpath().size() != 1) {
                 throw new IllegalArgumentException("Function for step " + step + " must define the main_class because it declares a classpath with not exactly one item.");
             }
+        } else {
+            throw new IllegalArgumentException("Function for step " + step + " is missing both version and classpath.");
         }
         List<MavenCoordinate> toolClasspathCoordinates = new ArrayList<>(toolClasspath.size());
         for (String artifactId : toolClasspath) {
