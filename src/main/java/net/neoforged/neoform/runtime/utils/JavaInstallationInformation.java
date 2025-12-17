@@ -40,16 +40,14 @@ public record JavaInstallationInformation(int majorVersion) {
         command.add("-version");
 
         try {
-            var output = Files.createTempFile("nfrt-java-version", ".log");
-
             var process = new ProcessBuilder()
                     .command(command)
-                    .redirectErrorStream(true)
-                    .redirectOutput(output.toFile())
                     .start();
 
+            var stdout = new String(process.getInputStream().readAllBytes());
+
             if (process.waitFor() == 0) {
-                var firstLine = JAVA_MAJOR.matcher(Files.readAllLines(output).getFirst());
+                var firstLine = JAVA_MAJOR.matcher(stdout.split("\n")[0]);
                 if (firstLine.find()) {
                     return new JavaInstallationInformation(Integer.parseInt(firstLine.group(1)));
                 }
