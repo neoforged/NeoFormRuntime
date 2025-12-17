@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
@@ -117,19 +118,27 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
 
         String javaExecutablePath;
+        JavaInstallationInformation installationInformation;
         if (useHostJavaExecutable) {
             javaExecutablePath = ProcessHandle.current()
                     .info()
                     .command()
                     .orElseThrow();
+            installationInformation = JavaInstallationInformation.fromRunningJVM();
         } else {
             javaExecutablePath = environment.getJavaExecutable();
+            installationInformation = environment.getJavaExecutableInformation();
         }
 
         var workingDir = environment.getWorkspace();
 
         var command = new ArrayList<String>();
         command.add(javaExecutablePath);
+
+        // Allow unsafe access to suppress warnings when running on Java 25
+        if (installationInformation != null && installationInformation.majorVersion() >= 23 && installationInformation.majorVersion() < 26) {
+            command.add("--sun-misc-unsafe-memory-access=allow");
+        }
 
         // JVM
         for (var jvmArg : jvmArgs) {
