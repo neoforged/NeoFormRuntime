@@ -36,6 +36,7 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
@@ -101,6 +102,9 @@ public class NeoFormEngine implements AutoCloseable {
      */
     private String javaExecutable;
 
+    @Nullable
+    private JavaInstallationInformation javaExecutableInformation;
+
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
@@ -114,6 +118,7 @@ public class NeoFormEngine implements AutoCloseable {
                 .info()
                 .command()
                 .orElseThrow();
+        this.javaExecutableInformation = JavaInstallationInformation.fromRunningJVM();
     }
 
     public void close() throws IOException {
@@ -682,7 +687,7 @@ public class NeoFormEngine implements AutoCloseable {
             throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
         }
 
-        this.javaExecutable = javaExecutable.toString();
+        setJavaExecutable(javaExecutable.toString());
     }
 
     public String getJavaExecutable() {
@@ -691,6 +696,7 @@ public class NeoFormEngine implements AutoCloseable {
 
     public void setJavaExecutable(String javaExecutable) {
         this.javaExecutable = javaExecutable;
+        this.javaExecutableInformation = JavaInstallationInformation.fromExecutable(javaExecutable);
     }
 
     public ProblemReporter getProblemReporter() {
@@ -729,6 +735,11 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public String getJavaExecutable() {
             return javaExecutable;
+        }
+
+        @Override
+        public @Nullable JavaInstallationInformation getJavaExecutableInformation() {
+            return javaExecutableInformation;
         }
 
         @Override

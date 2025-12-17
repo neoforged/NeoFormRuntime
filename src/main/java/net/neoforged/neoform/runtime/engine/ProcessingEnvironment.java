@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
+import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.problems.ProblemReporter;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,6 +19,12 @@ public interface ProcessingEnvironment {
      * @return The Java executable for running external Java tools.
      */
     String getJavaExecutable();
+
+    /**
+     * {@return information about the installation containing the Java executable used to run external tools}
+     */
+    @Nullable
+    JavaInstallationInformation getJavaExecutableInformation();
 
     /**
      * Interpolates a string containing placeholders of the form {@code {variable}} that may refer to:
