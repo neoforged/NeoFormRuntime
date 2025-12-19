@@ -32,7 +32,6 @@ import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeExecutionException;
-import net.neoforged.neoform.runtime.graph.NodeInput;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
 import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.ResultRepresentation;
@@ -196,20 +195,14 @@ public class NeoFormEngine implements AutoCloseable {
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
         // Register the sources and the compiled binary as results
-        // Vanilla deobfuscated is equivalent to the input to the decompiler
-        var decompile = graph.getNode("decompile");
-        if (decompile != null && decompile.inputs().get("input") instanceof NodeInput.NodeInputForOutput nodeInputForOutput) {
-            graph.setResult(ResultIds.VANILLA_DEOBFUSCATED, nodeInputForOutput.getOutput());
-        }
+        // Vanilla deobfuscated is equivalent to the input to the decompiler at this point of setting up the process.
+        // While the input to the decompiler might be adjusted later, that will not change this result retroactively.
+        var decompileInput = graph.getRequiredInput("decompile", "input");
+        graph.setResultFromCurrentInput(ResultIds.VANILLA_DEOBFUSCATED, decompileInput);
 
         graph.setResult(ResultIds.GAME_SOURCES, sourcesOutput);
         graph.setResult(ResultIds.GAME_JAR, compiledOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES, sourcesAndCompiledOutput);
-
-        var renameOutput = graph.getRequiredOutput("rename", "output");
-        // We use the output of rename and not vanillaDeobfuscated because for legacy versions there is a sas step in-between,
-        // and binpatches should be applied without sas stripping.
-        graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, renameOutput);
 
         // The split-off resources must also be made available. The steps are not consistently named across dists
         if (graph.hasOutput("stripClient", "resourcesOutput")) {
@@ -251,10 +244,10 @@ public class NeoFormEngine implements AutoCloseable {
                     )
             ));
 
-            // TODO: Implement binpatching rename for MCP
+            // If intermediary is in use, the game jar has to be remapped to developer-facing names to be usable
             {
                 var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
-                builder.input("input", graph.getRequiredOutput("rename", "output").asInput());
+                builder.input("input", decompileInput.copy());
                 var officialOutput = builder.output("output", NodeOutputType.JAR, "Classes with SRG method and field names remapped to official.");
                 if (hasMojmapSteps) {
                     builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
@@ -271,9 +264,7 @@ public class NeoFormEngine implements AutoCloseable {
             if (!processGeneration.classesUseMCPNames()) {
                 // We also expose a few results for mappings in different formats
                 var createMappings = graph.nodeBuilder("createMappings");
-                // official -> obf
                 createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
-                // obf -> srg
                 createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
                 var action = new CreateLegacyMappingsAction();
                 createMappings.action(action);
@@ -282,6 +273,9 @@ public class NeoFormEngine implements AutoCloseable {
                 graph.setResult(ResultIds.CSV_MAPPING, createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
                 createMappings.build();
             }
+        } else {
+            // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
+            graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
         }
     }
 
