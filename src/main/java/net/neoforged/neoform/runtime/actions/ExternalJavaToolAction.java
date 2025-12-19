@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
@@ -18,6 +19,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -35,9 +37,15 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     private static final Logger LOG = Logger.create();
 
     /**
-     * The Maven coordinate of the tool
+     * The Maven coordinates of items on the tool classpath.
      */
-    private MavenCoordinate toolArtifactId;
+    private final List<MavenCoordinate> classpath;
+    /**
+     * The main class to invoke. This can be null if {@link #classpath} contains only a single item, in which case
+     * that item will be invoked as an executable jar.
+     */
+    @Nullable
+    private final String mainClass;
     /**
      * Specific maven repository URL to load the tool from.
      */
@@ -65,15 +73,24 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
      */
     private final boolean useHostJavaExecutable;
 
-    public ExternalJavaToolAction(MavenCoordinate toolArtifactId) {
-        this.toolArtifactId = toolArtifactId;
+    public ExternalJavaToolAction(List<MavenCoordinate> classpath, @Nullable String mainClass) {
+        if (mainClass == null && classpath.size() != 1) {
+            throw new IllegalArgumentException("The classpath must consist of a single item if no main class is defined. But it was: " + classpath);
+        }
+        this.classpath = List.copyOf(classpath);
+        this.mainClass = mainClass;
         // Tools referenced by maven coordinate come from the MCP/NeoForm config file and will usually only
         // be tested against the Java version used by that Minecraft version.
         this.useHostJavaExecutable = false;
     }
 
+    public ExternalJavaToolAction(MavenCoordinate executableJar) {
+        this(List.of(executableJar), null);
+    }
+
     public ExternalJavaToolAction(ToolCoordinate toolCoordinate) {
-        this.toolArtifactId = toolCoordinate.version();
+        this.classpath = List.of(toolCoordinate.version());
+        this.mainClass = null;
         // Tools referenced by tool coordinate are internal tools that are verified to run with the Java
         // version that NFRT itself can run with.
         this.useHostJavaExecutable = true;
@@ -83,21 +100,34 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var listLibrariesFile = listLibraries != null ? listLibraries.writeFile(environment) : null;
 
-        Artifact toolArtifact;
-        if (repositoryUrl != null) {
-            toolArtifact = environment.getArtifactManager().get(toolArtifactId, repositoryUrl);
-        } else {
-            toolArtifact = environment.getArtifactManager().get(toolArtifactId);
+        List<Artifact> toolArtifacts;
+        try {
+            toolArtifacts = classpath.parallelStream().map(toolArtifactId -> {
+                try {
+                    if (repositoryUrl != null) {
+                        return environment.getArtifactManager().get(toolArtifactId, repositoryUrl);
+                    } else {
+                        return environment.getArtifactManager().get(toolArtifactId);
+                    }
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }).toList();
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
 
         String javaExecutablePath;
+        JavaInstallationInformation installationInformation;
         if (useHostJavaExecutable) {
             javaExecutablePath = ProcessHandle.current()
                     .info()
                     .command()
                     .orElseThrow();
+            installationInformation = JavaInstallationInformation.fromRunningJVM();
         } else {
             javaExecutablePath = environment.getJavaExecutable();
+            installationInformation = environment.getJavaExecutableInformation();
         }
 
         var workingDir = environment.getWorkspace();
@@ -105,13 +135,31 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         var command = new ArrayList<String>();
         command.add(javaExecutablePath);
 
+        // Allow unsafe access to suppress warnings when running on Java 25
+        if (installationInformation != null && installationInformation.majorVersion() >= 23 && installationInformation.majorVersion() < 26) {
+            command.add("--sun-misc-unsafe-memory-access=allow");
+        }
+
         // JVM
         for (var jvmArg : jvmArgs) {
             command.add(environment.interpolateString(jvmArg));
         }
 
-        command.add("-jar");
-        command.add(environment.getPathArgument(toolArtifact.path()));
+        if (toolArtifacts.size() == 1 && mainClass == null) {
+            command.add("-jar");
+            command.add(environment.getPathArgument(toolArtifacts.getFirst().path()));
+        } else {
+            if (!toolArtifacts.isEmpty()) {
+                command.add("-cp");
+                command.add(
+                        toolArtifacts.stream()
+                                .map(Artifact::path)
+                                .map(environment::getPathArgument)
+                                .collect(Collectors.joining(File.pathSeparator))
+                );
+            }
+            command.add(Objects.requireNonNull(mainClass, "mainClass"));
+        }
 
         // Program Arguments
         boolean isVineflower = isVineflower();
@@ -127,7 +175,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
             command.add(environment.interpolateString(arg));
         }
 
-        LOG.println(" ↳ Running external tool " + toolArtifactId);
+        LOG.println(" ↳ Running external tool " + getToolDescriptor());
         if (environment.isVerbose()) {
             LOG.println(" " + AnsiColor.MUTED + printableCommand(command) + AnsiColor.RESET);
         }
@@ -169,8 +217,15 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
     }
 
+    private String getToolDescriptor() {
+        if (classpath.size() == 1) {
+            return classpath.getFirst().toString();
+        }
+        return mainClass;
+    }
+
     private boolean isVineflower() {
-        return toolArtifactId.groupId().equals("org.vineflower") && toolArtifactId.artifactId().equals("vineflower");
+        return classpath.stream().anyMatch(i -> i.groupId().equals("org.vineflower") && i.artifactId().equals("vineflower"));
     }
 
     private static String printableCommand(List<String> command) {
@@ -224,7 +279,10 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
-        ck.add("external tool", toolArtifactId.toString());
+        ck.addStrings("external tool classpath", classpath.stream().map(MavenCoordinate::toString).toList());
+        if (mainClass != null) {
+            ck.add("external tool main class", mainClass);
+        }
         if (repositoryUrl != null) {
             ck.add("external tool repository", repositoryUrl.toString());
         }
@@ -236,18 +294,14 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         if (listLibraries != null) {
             listLibraries.computeCacheKey(ck);
         }
-        if (isVineflower()) {
-            // Force re-run in case a broken decomp was cached before the OOM check was added
-            ck.add("oom check", "true");
-        }
     }
 
-    public MavenCoordinate getToolArtifactId() {
-        return toolArtifactId;
+    public List<MavenCoordinate> getClasspath() {
+        return classpath;
     }
 
-    public void setToolArtifactId(MavenCoordinate toolArtifactId) {
-        this.toolArtifactId = Objects.requireNonNull(toolArtifactId);
+    public @Nullable String getMainClass() {
+        return mainClass;
     }
 
     @Nullable

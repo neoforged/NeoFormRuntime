@@ -6,8 +6,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": [
-        "tools\\.properties$"
+      "managerFilePatterns": [
+        "/tools\\.properties$/"
       ],
       "matchStrings": [
         "[A-Z_]+=(?<depName>[\\w:\\.-]+):(?<currentValue>[\\d\\.]+)(:(?<depClassifier>[a-z]+))?"

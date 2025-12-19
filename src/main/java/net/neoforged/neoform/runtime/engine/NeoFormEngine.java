@@ -38,6 +38,7 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.OsUtil;
@@ -104,6 +105,9 @@ public class NeoFormEngine implements AutoCloseable {
      */
     private String javaExecutable;
 
+    @Nullable
+    private JavaInstallationInformation javaExecutableInformation;
+
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
@@ -117,6 +121,7 @@ public class NeoFormEngine implements AutoCloseable {
                 .info()
                 .command()
                 .orElseThrow();
+        this.javaExecutableInformation = JavaInstallationInformation.fromRunningJVM();
     }
 
     public void close() throws IOException {
@@ -501,14 +506,8 @@ public class NeoFormEngine implements AutoCloseable {
         resolvedJvmArgs.forEach(placeholderProcessor);
         resolvedArgs.forEach(placeholderProcessor);
 
-        MavenCoordinate toolArtifactCoordinate;
-        try {
-            toolArtifactCoordinate = MavenCoordinate.parse(function.toolArtifact());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Function for step " + builder.id() + " has invalid tool: " + function.toolArtifact());
-        }
+        var action = new ExternalJavaToolAction(getFunctionClasspath(builder.id(), function), function.mainClass());
 
-        var action = new ExternalJavaToolAction(toolArtifactCoordinate);
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
@@ -528,6 +527,32 @@ public class NeoFormEngine implements AutoCloseable {
         }
 
         return mainOutput[0];
+    }
+
+    private static List<MavenCoordinate> getFunctionClasspath(String step, NeoFormFunction function) {
+        List<String> toolClasspath = new ArrayList<>();
+        if (function.toolArtifact() != null) {
+            if (function.classpath() != null || function.mainClass() != null) {
+                throw new IllegalArgumentException("Function for step " + step + " combines legacy 'version' attribute with 'classpath' or 'main_class'");
+            }
+            toolClasspath.add(function.toolArtifact());
+        } else if (function.classpath() != null) {
+            toolClasspath.addAll(function.classpath());
+            if (function.mainClass() == null && function.classpath().size() != 1) {
+                throw new IllegalArgumentException("Function for step " + step + " must define the main_class because it declares a classpath with not exactly one item.");
+            }
+        } else {
+            throw new IllegalArgumentException("Function for step " + step + " is missing both version and classpath.");
+        }
+        List<MavenCoordinate> toolClasspathCoordinates = new ArrayList<>(toolClasspath.size());
+        for (String artifactId : toolClasspath) {
+            try {
+                toolClasspathCoordinates.add(MavenCoordinate.parse(artifactId));
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Function for step " + step + " has invalid tool: " + artifactId);
+            }
+        }
+        return toolClasspathCoordinates;
     }
 
     private void createDownloadFromVersionManifest(ExecutionNodeBuilder builder, String manifestEntry, NodeOutputType jar, String description) {
@@ -692,7 +717,7 @@ public class NeoFormEngine implements AutoCloseable {
             throw new RuntimeException("Could not find a Java executable in the given Java home: " + javaExecutable);
         }
 
-        this.javaExecutable = javaExecutable.toString();
+        setJavaExecutable(javaExecutable.toString());
     }
 
     public String getJavaExecutable() {
@@ -701,6 +726,7 @@ public class NeoFormEngine implements AutoCloseable {
 
     public void setJavaExecutable(String javaExecutable) {
         this.javaExecutable = javaExecutable;
+        this.javaExecutableInformation = JavaInstallationInformation.fromExecutable(javaExecutable);
     }
 
     public ProblemReporter getProblemReporter() {
@@ -739,6 +765,11 @@ public class NeoFormEngine implements AutoCloseable {
         @Override
         public String getJavaExecutable() {
             return javaExecutable;
+        }
+
+        @Override
+        public @Nullable JavaInstallationInformation getJavaExecutableInformation() {
+            return javaExecutableInformation;
         }
 
         @Override
