@@ -1,5 +1,7 @@
 package net.neoforged.neoform.runtime.graph;
 
+import net.neoforged.neoform.runtime.utils.Logger;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,6 +14,8 @@ import java.util.Queue;
 import java.util.Set;
 
 final class TopologicalSort {
+    private static final Logger LOG = Logger.create();
+
     private TopologicalSort() {
     }
 
@@ -56,7 +60,8 @@ final class TopologicalSort {
         }
 
         if (!degrees.isEmpty()) {
-            throw new IllegalStateException("The graph has cycles");
+            LOG.warn("The graph has cycles involving: " + degrees.keySet());
+            results.addAll(degrees.keySet());
         }
 
         return results;

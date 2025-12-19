@@ -18,16 +18,16 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
      * Names of {@linkplain NeoFormEngine#addDataSource(String, ZipFile, String) data sources} containing
      * access transformers to apply.
      */
-    private List<String> accessTransformersData = new ArrayList<>();
+    private List<String> accessTransformersData = List.of();
     /**
      * Paths to access transformers that will be applied.
      */
-    private List<Path> additionalAccessTransformers = new ArrayList<>();
+    private List<Path> additionalAccessTransformers = List.of();
 
     /**
      * Paths to interface injection data files.
      */
-    private List<Path> injectedInterfaces = new ArrayList<>();
+    private List<Path> injectedInterfaces = List.of();
 
     public ApplyDevTransformsAction() {
         super(ToolCoordinate.INSTALLER_TOOLS);
@@ -77,14 +77,26 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     }
 
     public void setAccessTransformersData(List<String> accessTransformersData) {
-        this.accessTransformersData = accessTransformersData;
+        this.accessTransformersData = List.copyOf(accessTransformersData);
+    }
+
+    public List<String> getAccessTransformersData() {
+        return accessTransformersData;
     }
 
     public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {
-        this.additionalAccessTransformers = additionalAccessTransformers;
+        this.additionalAccessTransformers = List.copyOf(additionalAccessTransformers);
+    }
+
+    public List<Path> getAdditionalAccessTransformers() {
+        return additionalAccessTransformers;
     }
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {
         this.injectedInterfaces = List.copyOf(injectedInterfaces);
+    }
+
+    public List<Path> getInjectedInterfaces() {
+        return injectedInterfaces;
     }
 }
