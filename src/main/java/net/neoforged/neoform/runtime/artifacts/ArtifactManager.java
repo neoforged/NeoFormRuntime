@@ -128,7 +128,8 @@ public class ArtifactManager {
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         // Special case: NeoForge reference libraries that are only available via the Mojang download server
-        if (mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging")) {
+        if ((mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging"))
+            || (mavenCoordinate.groupId().equals("net.minecraft") && mavenCoordinate.artifactId().equals("launchwrapper"))) {
             return get(mavenCoordinate, MINECRAFT_LIBRARIES_URI);
         }
 

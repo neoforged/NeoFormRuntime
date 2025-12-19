@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
@@ -85,6 +86,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--parchment-conflict-prefix", description = "Setting this option enables automatic Parchment parameter conflict resolution and uses this prefix for parameter names that clash.")
     String parchmentConflictPrefix;
 
+    @CommandLine.Option(names = "--mcp-mapping-data", description = "Path or Maven coordinates of MCP mapping data to use for pre-1.17 Minecraft")
+    String mcpMappingData;
+
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
         String neoform;
@@ -95,6 +99,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @Override
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
+
+        if (mcpMappingData != null) {
+            engine.setMcpMappingsData(artifactManager.get(mcpMappingData).path());
+        }
 
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
@@ -248,8 +256,28 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
+        // Source post-processors were used to post-process the decompiler output before applying the NF patches.
+        // Example version: 1.12.2.
+        var nfPatchesInputNode = "patch";
+        var sourcePreProcessor = neoforgeConfig.sourcePreProcessor();
+        if (sourcePreProcessor != null) {
+            engine.applyTransform(new ReplaceNodeOutput(
+                            "patch", "output", "applyUserdevSourcePreprocessor",
+                            (builder, previousOutput) -> {
+                                var newOutput = engine.applyFunctionToNode(neoforgeConfig.libraries(), Map.of(
+                                        // Provide the output of patch as the input
+                                        "input", "{patchOutput}"
+                                ), NodeOutputType.ZIP, sourcePreProcessor, builder);
+                                return Objects.requireNonNull(newOutput);
+                            }
+                    )
+            );
+            // Patches now need to use this node as input
+            nfPatchesInputNode = "applyUserdevSourcePreprocessor";
+        }
+
         // Append a patch step to the NeoForge patches
-        engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+        engine.applyTransform(new ReplaceNodeOutput(nfPatchesInputNode, "output", "applyNeoforgePatches",
                 (builder, previousOutput) -> {
                     return PatchActionFactory.makeAction(builder,
                             new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
@@ -482,9 +510,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             builder.input("input", previousNodeOutput.asInput());
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
             var action = new ApplySourceTransformAction();
-            // Copy listLibraries classpath from rename action
-            var renameAction = (ExternalJavaToolAction) engine.getGraph().getNode("rename").action();
-            action.getListLibraries().setClasspath(renameAction.getListLibraries().getClasspath().copy());
+            // Copy listLibraries classpath from decompile action
+            // We used to use rename for this, but older MCPConfigs do not provide libraries there
+            var decompileAction = (ExternalJavaToolAction) engine.getGraph().getNode("decompile").action();
+            action.getListLibraries().setClasspath(decompileAction.getListLibraries().getClasspath().copy());
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
