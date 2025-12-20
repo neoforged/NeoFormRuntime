@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
@@ -23,7 +24,7 @@ import java.util.zip.ZipOutputStream;
 public class RemapSrgSourcesAction implements ExecutionNodeAction {
     private static final Pattern SRG_FINDER = Pattern.compile("[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_");
 
-    static IMappingFile buildSrgToOfficialMappings(ProcessingEnvironment environment) throws IOException {
+    static IMappingFile buildSrgToOfficialMappingFile(ProcessingEnvironment environment) throws IOException {
         var officialMappingsPath = environment.getRequiredInputPath("officialMappings");
         var mergeMappingsPath = environment.getRequiredInputPath("mergedMappings");
 
@@ -34,9 +35,8 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
         return srgMappings.chain(officialMappings);
     }
 
-    @Override
-    public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
-        var srgToOfficial = buildSrgToOfficialMappings(environment);
+    protected Map<String, String> buildSrgToOfficialMap(ProcessingEnvironment environment) throws IOException {
+        var srgToOfficial = buildSrgToOfficialMappingFile(environment);
         var srgNamesToOfficial = new HashMap<String, String>();
         for (var mappedClass : srgToOfficial.getClasses()) {
             for (var mappedField : mappedClass.getFields()) {
@@ -46,6 +46,12 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
                 srgNamesToOfficial.put(mappedMethod.getOriginal(), mappedMethod.getMapped());
             }
         }
+        return srgNamesToOfficial;
+    }
+
+    @Override
+    public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
+        var srgNamesToOfficial = this.buildSrgToOfficialMap(environment);
 
         var sourcesPath = environment.getRequiredInputPath("sources");
         var outputPath = environment.getOutputPath("output");
@@ -67,7 +73,7 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
         }
     }
 
-    private static String mapSourceCode(String sourceCode, HashMap<String, String> srgNamesToOfficial) {
+    private static String mapSourceCode(String sourceCode, Map<String, String> srgNamesToOfficial) {
         var m = SRG_FINDER.matcher(sourceCode);
         return m.replaceAll(matchResult -> {
             var matched = matchResult.group();
@@ -75,5 +81,10 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
             var mapped = srgNamesToOfficial.getOrDefault(matched, matched);
             return Matcher.quoteReplacement(mapped);
         });
+    }
+
+    @FunctionalInterface
+    public interface MappingProvider {
+        Map<String, String> getMappings(ProcessingEnvironment environment) throws IOException;
     }
 }

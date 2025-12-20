@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
+import net.neoforged.neoform.runtime.config.neoform.NeoFormFunction;
 import net.neoforged.neoform.runtime.utils.FilenameUtil;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +32,9 @@ public record NeoForgeConfig(
         Map<String, JsonObject> runs,
         List<MavenCoordinate> libraries,
         List<String> modules,
-        @SerializedName("sass") List<String> sideAnnotationStrippers
+        @SerializedName("sass") List<String> sideAnnotationStrippers,
+        // This was used in older MC versions (i.e. 1.12.2)
+        @SerializedName("processor") @Nullable NeoFormFunction sourcePreProcessor
 ) {
     public static NeoForgeConfig from(ZipFile zipFile) throws IOException {
         byte[] configContent;

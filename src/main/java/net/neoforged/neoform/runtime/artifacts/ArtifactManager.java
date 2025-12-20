@@ -125,10 +125,28 @@ public class ArtifactManager {
             return externalArtifact;
         }
 
+        // Yet another special case: dynamic versions!
+        // Used in 1.12.1, for example. And yes, this will be very slow.
+        if (mavenCoordinate.isDynamicVersion()) {
+            var availableVersions = MavenMetadata.gatherVersions(
+                    downloadManager,
+                    repositoryBaseUrls,
+                    mavenCoordinate.groupId(),
+                    mavenCoordinate.artifactId()
+            );
+            for (var availableVersion : availableVersions) {
+                if (mavenCoordinate.matchesVersion(availableVersion.version())) {
+                    var concreteMavenCoordinate = mavenCoordinate.withVersion(availableVersion.version());
+                    return get(concreteMavenCoordinate, availableVersion.repositoryUrl());
+                }
+            }
+        }
+
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());
 
         // Special case: NeoForge reference libraries that are only available via the Mojang download server
-        if (mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging")) {
+        if ((mavenCoordinate.groupId().equals("com.mojang") && mavenCoordinate.artifactId().equals("logging"))
+            || (mavenCoordinate.groupId().equals("net.minecraft") && mavenCoordinate.artifactId().equals("launchwrapper"))) {
             return get(mavenCoordinate, MINECRAFT_LIBRARIES_URI);
         }
 
@@ -258,9 +276,20 @@ public class ArtifactManager {
     }
 
     private Artifact getFromExternalManifest(MavenCoordinate artifactCoordinate) {
+        // Try direct match first
         var artifact = externallyProvided.get(artifactCoordinate);
         if (artifact != null) {
             return artifact;
+        }
+
+        // Find any manifest entry for the same group/artifact/classifier and evaluate if it matches a dynamic version constraint
+        if (artifactCoordinate.isDynamicVersion()) {
+            for (var entry : externallyProvided.entrySet()) {
+                if (artifactCoordinate.equalsWithoutVersion(entry.getKey())
+                        && artifactCoordinate.matchesVersion(entry.getKey().version())) {
+                    return entry.getValue();
+                }
+            }
         }
 
         // Fall back to looking up a wildcard version for dependency replacement in includeBuild scenarios
