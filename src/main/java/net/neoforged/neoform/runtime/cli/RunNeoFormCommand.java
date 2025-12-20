@@ -128,6 +128,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 if (parchmentConflictPrefix != null) {
                     transformSources.addArg("--parchment-conflict-prefix=" + parchmentConflictPrefix);
                 }
+                // Don't rename parameters in versions that aren't obfuscated. This can cause changes in semantics
+                // when suddenly a reference to a parameter refers to a captured local variable instead.
+                if (engine.getGraph().getNode("rename") == null) {
+                    transformSources.addArg("--no-parchment-parameters");
+                }
             };
             // Before 1.20.2, sources were still in SRG, while parchment was defined using Mojang names.
             // Hence, we need to apply Parchment after we remap SRG to Mojang names
