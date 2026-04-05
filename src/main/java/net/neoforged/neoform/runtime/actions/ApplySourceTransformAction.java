@@ -65,6 +65,11 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
     private List<Path> injectedInterfaces = new ArrayList<>();
 
     /**
+     * Additional paths to enum extensions.
+     */
+    private List<Path> enumExtensions = new ArrayList<>();
+
+    /**
      * Path to a Parchment data archive.
      */
     @Nullable
@@ -126,6 +131,24 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
             }
             args.add("--interface-injection-stubs");
             args.add("{stubs}");
+        }
+
+        if (!enumExtensions.isEmpty()) {
+            args.add("--enable-enum-extensions");
+            for (var path : enumExtensions) {
+                args.add("--enum-extensions-data");
+                args.add(environment.getPathArgument(path.toAbsolutePath()));
+            }
+            args.add("--enum-extensions-stubs");
+            args.add("{stubs}");
+            args.add("--enum-extensions-required-interface");
+            args.add(EnumExtensionDefaults.REQUIRED_INTERFACE);
+            args.add("--enum-extensions-indexed-enum-annotation");
+            args.add(EnumExtensionDefaults.INDEXED_ENUM);
+            args.add("--enum-extensions-marker");
+            args.add(EnumExtensionDefaults.MARKER_ANNOTATION);
+            args.add("--enum-extensions-reserved-constructor-annotation");
+            args.add(EnumExtensionDefaults.RESERVED_CONSTRUCTOR);
         }
 
         if (parchmentData != null) {
@@ -210,6 +233,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         ck.addPaths("additional access transformers", additionalAccessTransformers);
         ck.addPaths("validated access transformers", validatedAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
+        ck.addPaths("enum extensions", enumExtensions);
         if (parchmentData != null) {
             ck.addPath("parchment data", parchmentData);
         }
@@ -248,6 +272,14 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public void setInjectedInterfaces(List<Path> injectedInterfaces) {
         this.injectedInterfaces = List.copyOf(injectedInterfaces);
+    }
+
+    public List<Path> getInjectedInterfaces() {
+        return injectedInterfaces;
+    }
+
+    public void setEnumExtensions(List<Path> enumExtensions) {
+        this.enumExtensions = List.copyOf(enumExtensions);
     }
 
     public @Nullable Path getParchmentData() {

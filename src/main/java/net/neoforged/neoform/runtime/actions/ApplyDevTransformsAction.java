@@ -29,6 +29,11 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
      */
     private List<Path> injectedInterfaces = List.of();
 
+    /**
+     * Paths to enum extensions to apply.
+     */
+    private List<Path> enumExtensions = List.of();
+
     public ApplyDevTransformsAction() {
         super(ToolCoordinate.INSTALLER_TOOLS);
     }
@@ -64,6 +69,20 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
             args.add(environment.getPathArgument(path.toAbsolutePath()));
         }
 
+        for (var path : enumExtensions) {
+            args.add("--enum-extensions-data");
+            args.add(environment.getPathArgument(path.toAbsolutePath()));
+        }
+
+        args.add("--enum-extensions-required-interface");
+        args.add(EnumExtensionDefaults.REQUIRED_INTERFACE);
+        args.add("--enum-extensions-indexed-enum-annotation");
+        args.add(EnumExtensionDefaults.INDEXED_ENUM);
+        args.add("--enum-extensions-marker");
+        args.add(EnumExtensionDefaults.MARKER_ANNOTATION);
+        args.add("--enum-extensions-reserved-constructor-annotation");
+        args.add(EnumExtensionDefaults.RESERVED_CONSTRUCTOR);
+
         setArgs(args);
         super.run(environment);
     }
@@ -74,6 +93,7 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
         ck.addStrings("access transformers data ids", accessTransformersData);
         ck.addPaths("additional access transformers", additionalAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
+        ck.addPaths("enum extensions", enumExtensions);
     }
 
     public void setAccessTransformersData(List<String> accessTransformersData) {
@@ -98,5 +118,13 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
 
     public List<Path> getInjectedInterfaces() {
         return injectedInterfaces;
+    }
+
+    public void setEnumExtensions(List<Path> enumExtensions) {
+        this.enumExtensions = List.copyOf(enumExtensions);
+    }
+
+    public List<Path> getEnumExtensions() {
+        return enumExtensions;
     }
 }
