@@ -146,24 +146,16 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
-        if (!interfaceInjectionDataFiles.isEmpty()) {
+        if (!interfaceInjectionDataFiles.isEmpty() || !enumExtensionDataFiles.isEmpty()) {
             var transformNode = getOrAddTransformSourcesNode(engine);
-            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
+            if (!interfaceInjectionDataFiles.isEmpty()) {
+                ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
+            }
+            if (!enumExtensionDataFiles.isEmpty()) {
+                ((ApplySourceTransformAction) transformNode.action()).setEnumExtensions(enumExtensionDataFiles);
+            }
 
             // Add the stub source jar to the recomp classpath
-            engine.applyTransform(new ModifyAction<>(
-                    "recompile",
-                    RecompileSourcesAction.class,
-                    action -> {
-                        action.getSourcepath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
-                    }
-            ));
-        }
-
-        if (!enumExtensionDataFiles.isEmpty()) {
-            var transformNode = getOrAddTransformSourcesNode(engine);
-            ((ApplySourceTransformAction) transformNode.action()).setEnumExtensions(enumExtensionDataFiles);
-
             engine.applyTransform(new ModifyAction<>(
                     "recompile",
                     RecompileSourcesAction.class,

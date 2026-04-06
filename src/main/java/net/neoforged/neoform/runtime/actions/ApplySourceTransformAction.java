@@ -211,7 +211,7 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
         // When no interface data is given, we still have to create an empty stubs zip to satisfy
         // the output
-        if (injectedInterfaces.isEmpty()) {
+        if (injectedInterfaces.isEmpty() && enumExtensions.isEmpty()) {
             var stubsPath = environment.getOutputPath("stubs");
             try {
                 new ZipOutputStream(Files.newOutputStream(stubsPath)).close();
