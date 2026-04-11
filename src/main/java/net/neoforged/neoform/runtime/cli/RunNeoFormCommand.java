@@ -75,6 +75,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--interface-injection-data", arity = "*", description = "path to an interface injection data file, which extends classes with implements/extends clauses.")
     List<Path> interfaceInjectionDataFiles = new ArrayList<>();
 
+    @CommandLine.Option(names = "--enum-extensions-data", arity = "*", description = "path to an enum extension data file, which adds new enum constants to existing enums.")
+    List<Path> enumExtensionDataFiles = new ArrayList<>();
+
     @Deprecated
     @CommandLine.Option(names = "--validate-access-transformers", description = "[DEPRECATED] Use --validated-access-transformer instead")
     boolean validateAccessTransformers;
@@ -143,9 +146,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
-        if (!interfaceInjectionDataFiles.isEmpty()) {
+        if (!interfaceInjectionDataFiles.isEmpty() || !enumExtensionDataFiles.isEmpty()) {
             var transformNode = getOrAddTransformSourcesNode(engine);
-            ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
+            if (!interfaceInjectionDataFiles.isEmpty()) {
+                ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
+            }
+            if (!enumExtensionDataFiles.isEmpty()) {
+                ((ApplySourceTransformAction) transformNode.action()).setEnumExtensions(enumExtensionDataFiles);
+            }
 
             // Add the stub source jar to the recomp classpath
             engine.applyTransform(new ModifyAction<>(
@@ -158,7 +166,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         // Transformations for the binpatch pipeline
-        if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty()) {
+        if (!additionalAccessTransformers.isEmpty() || !validatedAccessTransformers.isEmpty() || !interfaceInjectionDataFiles.isEmpty() || !enumExtensionDataFiles.isEmpty()) {
             var graph = engine.getGraph();
             // The node can be created by the NeoForge process (see applyNeoForgeProcessTransforms)
             var transformNode = graph.getNode("applyDevTransforms");
@@ -175,6 +183,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             allAts.addAll(validatedAccessTransformers.stream().map(Paths::get).toList());
             applyDevTransformsAction.setAdditionalAccessTransformers(allAts);
             applyDevTransformsAction.setInjectedInterfaces(interfaceInjectionDataFiles);
+            applyDevTransformsAction.setEnumExtensions(enumExtensionDataFiles);
         }
 
         execute(engine);
