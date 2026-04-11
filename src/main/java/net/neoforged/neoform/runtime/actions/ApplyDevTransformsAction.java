@@ -74,14 +74,8 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
             args.add(environment.getPathArgument(path.toAbsolutePath()));
         }
 
-        args.add("--enum-extensions-required-interface");
-        args.add(EnumExtensionDefaults.REQUIRED_INTERFACE);
-        args.add("--enum-extensions-indexed-enum-annotation");
-        args.add(EnumExtensionDefaults.INDEXED_ENUM);
         args.add("--enum-extensions-marker");
         args.add(EnumExtensionDefaults.MARKER_ANNOTATION);
-        args.add("--enum-extensions-reserved-constructor-annotation");
-        args.add(EnumExtensionDefaults.RESERVED_CONSTRUCTOR);
 
         setArgs(args);
         super.run(environment);
