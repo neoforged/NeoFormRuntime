@@ -16,6 +16,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoform.runtime.actions.RemapSrgClassesAction;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
+import net.neoforged.neoform.runtime.actions.SpiltDistAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.cache.CacheManager;
@@ -28,6 +29,7 @@ import net.neoforged.neoform.runtime.config.neoform.NeoFormFunction;
 import net.neoforged.neoform.runtime.config.neoform.NeoFormStep;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
+import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeBuilder;
 import net.neoforged.neoform.runtime.graph.NodeExecutionException;
 import net.neoforged.neoform.runtime.graph.NodeOutput;
@@ -192,9 +194,30 @@ public class NeoFormEngine implements AutoCloseable {
 
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
+        addSplitStep("splitSources", NodeOutputType.ZIP,
+                sourcesOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_SOURCES, ResultIds.GAME_CLIENT_SOURCES,
+                "Split common dist sources",
+                "Spilt client dist only sources"
+        );
+
         var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
 
+        addSplitStep("splitCompiled", NodeOutputType.JAR,
+                compiledOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR, ResultIds.GAME_CLIENT_JAR,
+                "Split common dist compiled classes",
+                "Spilt client dist only compiled classes"
+        );
+
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
+
+        addSplitStep("splitSourcesAndCompiled", NodeOutputType.JAR,
+                sourcesAndCompiledOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR_WITH_SOURCES, ResultIds.GAME_CLIENT_JAR_WITH_SOURCES,
+                "Split common dist sources and compiled",
+                "Spilt client dist only sources and compiled"
+        );
 
         // Register the sources and the compiled binary as results
         // Vanilla deobfuscated is equivalent to the input to the decompiler at this point of setting up the process.
@@ -268,6 +291,14 @@ public class NeoFormEngine implements AutoCloseable {
             // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
             graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
         }
+
+        var noRecompOutput = graph.getResult(ResultIds.GAME_JAR_NO_RECOMP);
+        addSplitStep("splitNoRecomp", NodeOutputType.JAR,
+                noRecompOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR_NO_RECOMP, ResultIds.GAME_CLIENT_JAR_NO_RECOMP,
+                "Split common dist no-recomp jar",
+                "Split client only no-recomp jar"
+        );
     }
 
     private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
@@ -292,6 +323,22 @@ public class NeoFormEngine implements AutoCloseable {
         builder.action(compileAction);
         builder.build();
         return compiledOutput;
+    }
+
+    public void addSplitStep(
+            String nodeName,NodeOutputType outputType,
+            NodeOutput nodeInput, ExecutionNodeAction action,
+            String commonResultId, String clientResultId,
+            String commonDesc, String clientDesc
+    ) {
+        var builder = graph.nodeBuilder(nodeName);
+        builder.input("input", nodeInput.asInput());
+        var common = builder.output("common", outputType, commonDesc);
+        var client = builder.output("client", outputType, clientDesc);
+        builder.action(action);
+        graph.setResult(commonResultId, common);
+        graph.setResult(clientResultId, client);
+        builder.build();
     }
 
     private NodeOutput addMergeWithSourcesStep(NodeOutput compiledOutput, NodeOutput sourcesOutput) {

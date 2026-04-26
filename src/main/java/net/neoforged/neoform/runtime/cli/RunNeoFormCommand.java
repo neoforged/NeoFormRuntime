@@ -10,6 +10,7 @@ import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
+import net.neoforged.neoform.runtime.actions.SpiltDistAction;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
@@ -281,6 +282,24 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var sourcesAndCompiledWithNeoForgeOutput =
                 createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
 
+        engine.addSplitStep("splitSourcesWithNeoForge", NodeOutputType.ZIP,
+                sourcesWithNeoForgeOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_SOURCES_WITH_NEOFORGE, ResultIds.GAME_CLIENT_SOURCES_WITH_NEOFORGE,
+                "Source ZIP containing NeoForge and Minecraft common sources", "Source ZIP containing NeoForge and Minecraft client only sources"
+        );
+
+        engine.addSplitStep("splitCompiledWithNeoForge", NodeOutputType.JAR,
+                compiledWithNeoForgeOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR_WITH_NEOFORGE, ResultIds.GAME_CLIENT_JAR_WITH_NEOFORGE,
+                "JAR containing NeoForge classes, resources and Minecraft common classes", "JAR containing NeoForge classes, resources and Minecraft client only classes"
+        );
+
+        engine.addSplitStep("splitSourcesAndCompiledWithNeoForge", NodeOutputType.JAR,
+                sourcesAndCompiledWithNeoForgeOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR_WITH_SOURCES_AND_NEOFORGE, ResultIds.GAME_CLIENT_JAR_WITH_SOURCES_AND_NEOFORGE,
+                "Common sources and compiled classes of Neoforge and Minecraft", "Client only sources and compiled classes of Neoforge and Minecraft"
+        );
+
         graph.setResult(ResultIds.GAME_SOURCES_WITH_NEOFORGE, sourcesWithNeoForgeOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
@@ -322,6 +341,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, binaryPatchOutput);
             graph.setResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE, binaryWithNeoForgeOutput);
         }
+
+        var noRecompWithNeoForgeOutput = graph.getResult(ResultIds.GAME_JAR_NO_RECOMP_WITH_NEOFORGE);
+        engine.addSplitStep("splitNoRecompWithNeoForge", NodeOutputType.JAR,
+                noRecompWithNeoForgeOutput, new SpiltDistAction(),
+                ResultIds.GAME_COMMON_JAR_NO_RECOMP_WITH_NEOFORGE, ResultIds.GAME_CLIENT_JAR_NO_RECOMP_WITH_NEOFORGE,
+                "JAR containing NeoForge and non-recompiled Minecraft common classes",
+                "JAR containing NeoForge and non-recompiled Minecraft client only classes"
+        );
     }
 
     /**
