@@ -294,7 +294,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                 "JAR containing NeoForge classes, resources and Minecraft common classes", "JAR containing NeoForge classes, resources and Minecraft client only classes"
         );
 
-        engine.addSplitStep("splitSourcesAndCompiledWithNeoForge", NodeOutputType.JAR,
+        engine.addSplitStep("splitSourcesAndCompiledWithNeo", NodeOutputType.JAR,
                 sourcesAndCompiledWithNeoForgeOutput, new SpiltDistAction(),
                 ResultIds.GAME_COMMON_JAR_WITH_SOURCES_AND_NEOFORGE, ResultIds.GAME_CLIENT_JAR_WITH_SOURCES_AND_NEOFORGE,
                 "Common sources and compiled classes of Neoforge and Minecraft", "Client only sources and compiled classes of Neoforge and Minecraft"
