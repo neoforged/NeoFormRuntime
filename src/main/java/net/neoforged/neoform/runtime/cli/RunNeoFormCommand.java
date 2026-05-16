@@ -228,7 +228,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                         if (neoforgeConfig.injectFolder() != null) {
                             action.getInjectedSources().add(new InjectFromZipFileSource(
                                     neoforgeZipFile,
-                                    neoforgeConfig.injectFolder()
+                                    neoforgeConfig.injectFolder(),
+                                    Pattern.compile("^(?!.*\\.class$).*")
                             ));
                         }
                     }
