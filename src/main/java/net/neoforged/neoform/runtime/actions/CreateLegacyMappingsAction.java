@@ -37,10 +37,13 @@ public class CreateLegacyMappingsAction implements ExecutionNodeAction {
         srgToOfficial.write(environment.getOutputPath("srgToOfficial"), IMappingFile.Format.SRG, false);
 
         try (var zipCsv = new ZipOutputStream(Files.newOutputStream(environment.getOutputPath("csvMappings")))) {
+            // Match both modern intermediary names (m_/f_, 1.17+) and legacy SRG names (func_/field_, pre-1.17)
             writeCsv(zipCsv, "methods.csv", srgToOfficial.getClasses().stream()
-                    .flatMap(c -> c.getMethods().stream()).filter(c -> c.getOriginal().startsWith("m_")));
+                    .flatMap(c -> c.getMethods().stream())
+                    .filter(c -> c.getOriginal().startsWith("m_") || c.getOriginal().startsWith("func_")));
             writeCsv(zipCsv, "fields.csv", srgToOfficial.getClasses().stream()
-                    .flatMap(c -> c.getFields().stream()).filter(c -> c.getOriginal().startsWith("f_")));
+                    .flatMap(c -> c.getFields().stream())
+                    .filter(c -> c.getOriginal().startsWith("f_") || c.getOriginal().startsWith("field_")));
         }
     }
 

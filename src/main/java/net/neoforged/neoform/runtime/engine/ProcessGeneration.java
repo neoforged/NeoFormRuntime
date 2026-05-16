@@ -41,7 +41,7 @@ public class ProcessGeneration {
         }
     }
 
-    private static final MinecraftReleaseVersion MC_1_16_5 = new MinecraftReleaseVersion(1, 16, 5);
+    private static final MinecraftReleaseVersion MC_1_14_4 = new MinecraftReleaseVersion(1, 14, 4);
     private static final MinecraftReleaseVersion MC_1_17_1 = new MinecraftReleaseVersion(1, 17, 1);
     private static final MinecraftReleaseVersion MC_1_20_1 = new MinecraftReleaseVersion(1, 20, 1);
     private static final MinecraftReleaseVersion MC_1_21_6 = new MinecraftReleaseVersion(1, 21, 6);
@@ -61,12 +61,11 @@ public class ProcessGeneration {
     private boolean sourcesUseIntermediaryNames;
 
     /**
-     * Indicates that the classes produced by MCP/NeoForm in this version use MCP names instead
-     * of Mojang-mapped names. In these versions, we apply an additional remapping step on the
-     * sources (before the SRG remap) that translates all the classnames from MCP->Mojmap, so that
-     * the names line up with what is expected on newer versions.
+     * Indicates that Mojang publishes ProGuard mappings for this version, allowing SRG names
+     * to be remapped to official names without user-supplied MCP CSV data.
+     * ProGuard mappings have been published since Minecraft 1.14.4.
      */
-    private boolean classesUseMCPNames;
+    private boolean hasProguardMappings;
 
     /**
      * SAS was used in Forge 1.20.1 and earlier to remove the "OnlyIn" annotation from client-only classes
@@ -110,8 +109,8 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
-        // In 1.17 and later, Forge switched to Mojmap classnames at runtime instead of MCP classnames
-        result.classesUseMCPNames = isLessThanOrEqualTo(releaseVersion, MC_1_16_5);
+        // Mojang started publishing ProGuard mappings with 1.14.4
+        result.hasProguardMappings = isGreaterThanOrEqualTo(releaseVersion, MC_1_14_4);
 
         // In 1.21.6 and later, manifest entries should be generated as they may be used instead of RuntimeDistCleaner
         result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
@@ -143,10 +142,11 @@ public class ProcessGeneration {
     }
 
     /**
-     * Does the Minecraft source code that MCP/NeoForm creates use MCP names instead of Mojmap names?
+     * Does Mojang publish ProGuard mappings for this Minecraft version?
+     * When false, SRG-to-official remapping requires user-supplied MCP CSV data.
      */
-    public boolean classesUseMCPNames() {
-        return classesUseMCPNames;
+    public boolean hasProguardMappings() {
+        return hasProguardMappings;
     }
 
     /**
