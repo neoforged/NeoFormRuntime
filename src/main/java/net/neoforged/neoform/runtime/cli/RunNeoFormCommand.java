@@ -223,6 +223,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 // The MCF sources have a bogus MANIFEST that should be ignored
                                 Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
                         ));
+                        // Older Forge versions ship pre-compiled dev-only classes and service registrations
+                        // (e.g. ILaunchHandlerService) under inject/ in the userdev jar.
+                        if (neoforgeConfig.injectFolder() != null) {
+                            action.getInjectedSources().add(new InjectFromZipFileSource(
+                                    neoforgeZipFile,
+                                    neoforgeConfig.injectFolder()
+                            ));
+                        }
                     }
             ));
         }
