@@ -82,9 +82,4 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
             return Matcher.quoteReplacement(mapped);
         });
     }
-
-    @FunctionalInterface
-    public interface MappingProvider {
-        Map<String, String> getMappings(ProcessingEnvironment environment) throws IOException;
-    }
 }

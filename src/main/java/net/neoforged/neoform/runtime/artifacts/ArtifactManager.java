@@ -140,6 +140,8 @@ public class ArtifactManager {
                     return get(concreteMavenCoordinate, availableVersion.repositoryUrl());
                 }
             }
+
+            throw new FileNotFoundException("Could not find " + mavenCoordinate + " in any repository.");
         }
 
         var finalLocation = artifactsCache.resolve(mavenCoordinate.toRelativeRepositoryPath());

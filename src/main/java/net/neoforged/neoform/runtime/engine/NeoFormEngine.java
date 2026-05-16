@@ -485,7 +485,7 @@ public class NeoFormEngine implements AutoCloseable {
                 // variables are truly intended to be outputs.
                 if ("output".equals(variable)) {
                     if (!builder.hasOutput(variable)) {
-                        mainOutput[0] = builder.output(variable, outputType, "Output of step " + outputType);
+                        mainOutput[0] = builder.output(variable, outputType, "Output of step " + builder.id());
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later

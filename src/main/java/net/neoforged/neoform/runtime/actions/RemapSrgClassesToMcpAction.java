@@ -4,14 +4,11 @@ import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Objects;
 
 public class RemapSrgClassesToMcpAction extends ExternalJavaToolAction {
-    public RemapSrgClassesToMcpAction(Path mcpMappingsData) {
+    public RemapSrgClassesToMcpAction() {
         super(ToolCoordinate.AUTO_RENAMING_TOOL);
-        Objects.requireNonNull(mcpMappingsData, "MCP mapping data not provided");
     }
 
     @Override
