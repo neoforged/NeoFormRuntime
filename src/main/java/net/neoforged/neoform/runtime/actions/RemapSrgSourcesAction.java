@@ -35,7 +35,8 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
         return srgMappings.chain(officialMappings);
     }
 
-    protected Map<String, String> buildSrgToOfficialMap(ProcessingEnvironment environment) throws IOException {
+    @Override
+    public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var srgToOfficial = buildSrgToOfficialMappingFile(environment);
         var srgNamesToOfficial = new HashMap<String, String>();
         for (var mappedClass : srgToOfficial.getClasses()) {
@@ -46,12 +47,6 @@ public class RemapSrgSourcesAction implements ExecutionNodeAction {
                 srgNamesToOfficial.put(mappedMethod.getOriginal(), mappedMethod.getMapped());
             }
         }
-        return srgNamesToOfficial;
-    }
-
-    @Override
-    public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
-        var srgNamesToOfficial = this.buildSrgToOfficialMap(environment);
 
         var sourcesPath = environment.getRequiredInputPath("sources");
         var outputPath = environment.getOutputPath("output");

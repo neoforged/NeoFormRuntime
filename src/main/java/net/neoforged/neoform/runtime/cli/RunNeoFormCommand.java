@@ -86,9 +86,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @CommandLine.Option(names = "--parchment-conflict-prefix", description = "Setting this option enables automatic Parchment parameter conflict resolution and uses this prefix for parameter names that clash.")
     String parchmentConflictPrefix;
 
-    @CommandLine.Option(names = "--mcp-mapping-data", description = "Path or Maven coordinates of MCP mapping data to use for pre-1.17 Minecraft")
-    String mcpMappingData;
-
     static class SourceArtifacts {
         @CommandLine.Option(names = "--neoform")
         String neoform;
@@ -99,10 +96,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     @Override
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
-
-        if (mcpMappingData != null) {
-            engine.setMcpMappingsData(artifactManager.get(mcpMappingData).path());
-        }
 
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);

@@ -7,7 +7,6 @@ import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
 import net.neoforged.neoform.runtime.actions.ExtractNeoFormDataAction;
-import net.neoforged.neoform.runtime.actions.GenerateMCPSrgFilesAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
@@ -16,9 +15,7 @@ import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithECJ;
 import net.neoforged.neoform.runtime.actions.RecompileSourcesActionWithJDK;
 import net.neoforged.neoform.runtime.actions.RemapSrgClassesAction;
-import net.neoforged.neoform.runtime.actions.RemapSrgClassesToMcpAction;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
-import net.neoforged.neoform.runtime.actions.RemapSrgSourcesToMcpAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
@@ -84,7 +81,6 @@ public class NeoFormEngine implements AutoCloseable {
     private final BuildOptions buildOptions = new BuildOptions();
     private boolean verbose;
     private ProcessGeneration processGeneration;
-    private Path mcpMappingsData;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -226,17 +222,13 @@ public class NeoFormEngine implements AutoCloseable {
         // SRG method and field names, and need to be remapped.
         if (processGeneration.sourcesUseIntermediaryNames()) {
             if (!graph.hasOutput("mergeMappings", "output")) {
-                if (processGeneration.hasProguardMappings()) {
-                    // 1.14.4–1.16.5: ProGuard mappings exist in the version manifest but the MCP
-                    // pipeline predates the mergeMappings/downloadClientMappings steps. Synthesize
-                    // equivalent nodes so the unified path below works for all versions.
-                    synthesizeMojmapNodes();
-                } else if (mcpMappingsData != null) {
-                    // pre-1.14.4 (e.g. 1.12.2): no ProGuard mappings; use user-supplied MCP CSV data
-                    setupMcpRemapping();
-                } else {
-                    throw new IllegalStateException("This MCP config requires --mcp-mapping-data (Mojang ProGuard mappings are not available for this Minecraft version).");
+                if (!processGeneration.hasProguardMappings()) {
+                    throw new IllegalStateException("MCP versions predating Mojang's ProGuard mappings (before 1.14.4) are not supported.");
                 }
+                // 1.14.4–1.16.5: ProGuard mappings exist in the version manifest but the MCP
+                // pipeline predates the mergeMappings/downloadClientMappings steps. Synthesize
+                // equivalent nodes so the unified path below works for all versions.
+                synthesizeMojmapNodes();
             }
 
             // Unified path: mergeMappings and downloadClientMappings are always present here,
@@ -302,43 +294,6 @@ public class NeoFormEngine implements AutoCloseable {
         mergeBuilder.output("output", NodeOutputType.TSRG, "Obfuscated-to-SRG mappings from MCP config.");
         mergeBuilder.action(new ExtractNeoFormDataAction("mappings"));
         mergeBuilder.build();
-    }
-
-    /**
-     * Sets up the remapping pipeline for pre-1.14.4 MCP versions (e.g. 1.12.2) where Mojang
-     * ProGuard mappings are not available and user-supplied MCP CSV data is used instead.
-     */
-    private void setupMcpRemapping() {
-        var decompile = graph.getRequiredInput("decompile", "input");
-
-        applyTransforms(List.of(
-                new ReplaceNodeOutput(
-                        "patch",
-                        "output",
-                        "remapSrgSourcesToOfficial",
-                        (builder, previousNodeOutput) -> {
-                            builder.input("sources", previousNodeOutput.asInput());
-                            builder.action(new RemapSrgSourcesToMcpAction(mcpMappingsData));
-                            return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
-                        }
-                )
-        ));
-
-        var createMappings = graph.nodeBuilder("createMappings");
-        createMappings.action(new GenerateMCPSrgFilesAction(mcpMappingsData));
-        graph.setResult(ResultIds.NAMED_TO_INTERMEDIARY_MAPPING, createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (MCP) names to intermediary (SRG)"));
-        graph.setResult(ResultIds.INTERMEDIARY_TO_NAMED_MAPPING, createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (MCP) names"));
-        graph.setResult(ResultIds.CSV_MAPPING, createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to MCP mappings"));
-        createMappings.build();
-
-        var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
-        builder.input("input", decompile.copy());
-        builder.input("srgToMcpMappings", graph.getResult(ResultIds.INTERMEDIARY_TO_NAMED_MAPPING).asInput());
-        var officialOutput = builder.output("output", NodeOutputType.JAR, "Classes with SRG method and field names remapped to official.");
-        builder.action(new RemapSrgClassesToMcpAction());
-        builder.build();
-
-        graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, officialOutput);
     }
 
     private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
@@ -965,7 +920,4 @@ public class NeoFormEngine implements AutoCloseable {
         }
     }
 
-    public void setMcpMappingsData(Path mcpMappingsData) {
-        this.mcpMappingsData = mcpMappingsData;
-    }
 }
