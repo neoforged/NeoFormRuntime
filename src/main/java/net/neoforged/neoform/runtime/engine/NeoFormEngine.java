@@ -231,34 +231,24 @@ public class NeoFormEngine implements AutoCloseable {
                 synthesizeMojmapNodes();
             }
 
-            // Unified path: mergeMappings and downloadClientMappings are always present here,
-            // either natively (1.18+) or synthesized above (1.14.4–1.16.5).
-            // Not reached when the pre-1.14.4 MCP path was taken above.
-            if (graph.hasOutput("mergeMappings", "output")) {
-                applyTransforms(List.of(
-                        new ReplaceNodeOutput(
-                                "patch",
-                                "output",
-                                "remapSrgSourcesToOfficial",
-                                (builder, previousNodeOutput) -> {
-                                    builder.input("sources", previousNodeOutput.asInput());
-                                    builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
-                                    builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
-                                    builder.action(new RemapSrgSourcesAction());
-                                    return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
-                                }
-                        )
-                ));
+            applyTransforms(List.of(
+                    new ReplaceNodeOutput(
+                            "patch",
+                            "output",
+                            "remapSrgSourcesToOfficial",
+                            (builder, previousNodeOutput) -> {
+                                builder.input("sources", previousNodeOutput.asInput());
+                                builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
+                                builder.input("officialMappings", graph.getRequiredOutput("downloadClientMappings", "output").asInput());
+                                var action = new RemapSrgSourcesAction();
+                                builder.action(action);
+                                return builder.output("output", NodeOutputType.ZIP, "Sources with SRG method and field names remapped to official.");
+                            }
+                    )
+            ));
 
-                var createMappings = graph.nodeBuilder("createMappings");
-                createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
-                createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
-                createMappings.action(new CreateLegacyMappingsAction());
-                graph.setResult(ResultIds.NAMED_TO_INTERMEDIARY_MAPPING, createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
-                graph.setResult(ResultIds.INTERMEDIARY_TO_NAMED_MAPPING, createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
-                graph.setResult(ResultIds.CSV_MAPPING, createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
-                createMappings.build();
-
+            // If intermediary is in use, the game jar has to be remapped to developer-facing names to be usable
+            {
                 var builder = graph.nodeBuilder("remapSrgClassesToOfficial");
                 builder.input("input", decompileInput.copy());
                 builder.input("mergedMappings", graph.getRequiredOutput("mergeMappings", "output").asInput());
@@ -269,6 +259,17 @@ public class NeoFormEngine implements AutoCloseable {
 
                 graph.setResult(ResultIds.GAME_JAR_NO_RECOMP, officialOutput);
             }
+
+            // We also expose a few results for mappings in different formats
+            var createMappings = graph.nodeBuilder("createMappings");
+            createMappings.inputFromNodeOutput("officialToObf", "downloadClientMappings", "output");
+            createMappings.inputFromNodeOutput("obfToSrg", "mergeMappings", "output");
+            var action = new CreateLegacyMappingsAction();
+            createMappings.action(action);
+            graph.setResult(ResultIds.NAMED_TO_INTERMEDIARY_MAPPING, createMappings.output("officialToSrg", NodeOutputType.TSRG, "A mapping file that maps user-facing (Mojang, MCP) names to intermediary (SRG)"));
+            graph.setResult(ResultIds.INTERMEDIARY_TO_NAMED_MAPPING, createMappings.output("srgToOfficial", NodeOutputType.SRG, "A mapping file that maps intermediary (SRG) names to user-facing (Mojang, MCP) names"));
+            graph.setResult(ResultIds.CSV_MAPPING, createMappings.output("csvMappings", NodeOutputType.ZIP, "A zip containing csv files with SRG to official mappings"));
+            createMappings.build();
         } else {
             // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
             graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);

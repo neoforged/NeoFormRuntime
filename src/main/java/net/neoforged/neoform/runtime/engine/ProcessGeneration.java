@@ -61,8 +61,7 @@ public class ProcessGeneration {
     private boolean sourcesUseIntermediaryNames;
 
     /**
-     * Indicates that Mojang publishes ProGuard mappings for this version, allowing SRG names
-     * to be remapped to official names without user-supplied MCP CSV data.
+     * Indicates that Mojang publishes ProGuard mappings for this version.
      * ProGuard mappings have been published since Minecraft 1.14.4.
      */
     private boolean hasProguardMappings;
@@ -143,7 +142,6 @@ public class ProcessGeneration {
 
     /**
      * Does Mojang publish ProGuard mappings for this Minecraft version?
-     * When false, SRG-to-official remapping requires user-supplied MCP CSV data.
      */
     public boolean hasProguardMappings() {
         return hasProguardMappings;
