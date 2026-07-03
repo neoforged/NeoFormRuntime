@@ -209,11 +209,6 @@ idea {
                     programParameters = "run --dist joined --neoforge net.neoforged:forge:1.20.1-47.1.54:userdev --parchment-data=org.parchmentmc.data:parchment-1.20.1:2023.09.03@zip --parchment-conflict-prefix=p_ --write-result=namedToIntermediaryMapping:build/1.20.1.tsrg --write-result=gameJarWithNeoForge:build/1.20.1-minecraft.jar --write-result=clientResources:build/1.20.1-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.20.1-minecraft-sources.jar --problems-report=build/1.20.1-problems.json"
                     moduleRef(project, sourceSets.main)
                 }
-                "Run Forge 1.12.2 (joined)"(Application) {
-                    mainClass = mainClassName
-                    programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.12.2-14.23.5.2860:userdev3 --write-result=gameJarWithNeoForge:build/1.12.2-minecraft.jar --write-result=clientResources:build/1.12.2-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.12.2-minecraft-sources.jar"
-                    moduleRef(project, sourceSets.main)
-                }
                 "Run Forge 1.17.1 (joined)"(Application) {
                     mainClass = mainClassName
                     programParameters = "run --dist joined --add-repository https://maven.minecraftforge.net --neoforge net.minecraftforge:forge:1.17.1-37.1.1:userdev --write-result=gameJarWithNeoForge:build/1.17.1-minecraft.jar --write-result=clientResources:build/1.17.1-client-extra.jar --write-result=gameSourcesWithNeoForge:build/1.17.1-minecraft-sources.jar"

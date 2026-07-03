@@ -16,6 +16,10 @@ public class ExecutionNodeBuilder {
         this.id = Objects.requireNonNull(id, "id");
     }
 
+    public String id() {
+        return this.id;
+    }
+
     public boolean hasInput(String inputId) {
         return nodeInputs.containsKey(inputId);
     }

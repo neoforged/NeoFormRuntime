@@ -6,6 +6,7 @@ import net.neoforged.neoform.runtime.actions.DownloadFromVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadLauncherManifestAction;
 import net.neoforged.neoform.runtime.actions.DownloadVersionManifestAction;
 import net.neoforged.neoform.runtime.actions.ExternalJavaToolAction;
+import net.neoforged.neoform.runtime.actions.ExtractNeoFormDataAction;
 import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
@@ -220,9 +221,14 @@ public class NeoFormEngine implements AutoCloseable {
         // If we're running NeoForm for 1.20.1 or earlier, the sources after patches use
         // SRG method and field names, and need to be remapped.
         if (processGeneration.sourcesUseIntermediaryNames()) {
-            if (!graph.hasOutput("mergeMappings", "output")
-                    || !graph.hasOutput("downloadClientMappings", "output")) {
-                throw new IllegalStateException("NFRT currently does not support MCP versions that did not make use of official Mojang mappings (pre 1.17).");
+            if (!graph.hasOutput("mergeMappings", "output")) {
+                if (!processGeneration.hasProguardMappings()) {
+                    throw new IllegalStateException("MCP versions predating Mojang's ProGuard mappings (before 1.14.4) are not supported.");
+                }
+                // 1.14.4–1.16.5: ProGuard mappings exist in the version manifest but the MCP
+                // pipeline predates the mergeMappings/downloadClientMappings steps. Synthesize
+                // equivalent nodes so the unified path below works for all versions.
+                synthesizeMojmapNodes();
             }
 
             applyTransforms(List.of(
@@ -268,6 +274,27 @@ public class NeoFormEngine implements AutoCloseable {
             // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
             graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
         }
+    }
+
+    /**
+     * Synthesizes the {@code downloadClientMappings} and {@code mergeMappings} graph nodes for
+     * MCP configs that predate those pipeline steps (1.14.4–1.16.5). ProGuard mappings are
+     * available from the version manifest for these versions, so the same unified remapping path
+     * used for 1.17+ can be applied after synthesis.
+     */
+    private void synthesizeMojmapNodes() {
+        var dlBuilder = graph.nodeBuilder("downloadClientMappings");
+        dlBuilder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
+        dlBuilder.output("output", NodeOutputType.TXT, "Official mappings for the Minecraft client jar-file.");
+        dlBuilder.action(new DownloadFromVersionManifestAction(artifactManager, "client_mappings"));
+        dlBuilder.build();
+
+        // The MCP config TSRG (config/joined.tsrg) is already in obf→srg format, identical to
+        // what the native mergeMappings step produces. Expose it as a node output.
+        var mergeBuilder = graph.nodeBuilder("mergeMappings");
+        mergeBuilder.output("output", NodeOutputType.TSRG, "Obfuscated-to-SRG mappings from MCP config.");
+        mergeBuilder.action(new ExtractNeoFormDataAction("mappings"));
+        mergeBuilder.build();
     }
 
     private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
@@ -422,13 +449,28 @@ public class NeoFormEngine implements AutoCloseable {
     }
 
     private void applyFunctionToNode(NeoFormDistConfig config, NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
+        var type = switch (step.type()) {
+            case "mergeMappings" -> NodeOutputType.TSRG;
+            case "generateSplitManifest" -> NodeOutputType.JAR_MANIFEST;
+            default -> NodeOutputType.JAR;
+        };
+
+        applyFunctionToNode(config.libraries(), step.values(), type, function, builder);
+    }
+
+    @Nullable
+    public NodeOutput applyFunctionToNode(List<MavenCoordinate> libraries,
+                                          Map<String, String> placeholders,
+                                          NodeOutputType outputType,
+                                          NeoFormFunction function,
+                                          ExecutionNodeBuilder builder) {
         var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
         var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
         // At runtime, {placeholder} in the function arguments can refer to node inputs, node outputs or data (see ProcessingEnvironment#interpolateString).
         // Variables assigned to outputs of other nodes have already been added as node inputs and can be used directly.
         // Any constants or references to data need to be eagerly resolved since those are not supported as node inputs.
-        for (var entry : step.values().entrySet()) {
+        for (var entry : placeholders.entrySet()) {
             if (builder.hasInput(entry.getKey())) {
                 continue; // This placeholder was already declared as a node input (and referes to the output of another node)
             }
@@ -436,6 +478,8 @@ public class NeoFormEngine implements AutoCloseable {
             resolvedJvmArgs.replaceAll(resolver);
             resolvedArgs.replaceAll(resolver);
         }
+
+        NodeOutput[] mainOutput = new NodeOutput[1];
 
         // Now resolve the remaining placeholders.
         Set<String> dataSourcesUsed = new HashSet<>();
@@ -448,13 +492,8 @@ public class NeoFormEngine implements AutoCloseable {
                 // Handle the "magic" output variable. In NeoForm JSON, it's impossible to know which
                 // variables are truly intended to be outputs.
                 if ("output".equals(variable)) {
-                    var type = switch (step.type()) {
-                        case "mergeMappings" -> NodeOutputType.TSRG;
-                        case "generateSplitManifest" -> NodeOutputType.JAR_MANIFEST;
-                        default -> NodeOutputType.JAR;
-                    };
                     if (!builder.hasOutput(variable)) {
-                        builder.output(variable, type, "Output of step " + step.type());
+                        mainOutput[0] = builder.output(variable, outputType, "Output of step " + builder.id());
                     }
                 } else if (dataSources.containsKey(variable)) {
                     // It likely refers to data from the NeoForm zip, this will be handled by the runtime later
@@ -472,14 +511,15 @@ public class NeoFormEngine implements AutoCloseable {
                 } else if (builder.hasInput(variable)) {
                     // The variable was already set by the step and added as an input to the node, so we can safely use it
                 } else {
-                    throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + step.getId());
+                    throw new IllegalArgumentException("Unsupported variable " + variable + " used by step " + builder.id());
                 }
             }
         };
         resolvedJvmArgs.forEach(placeholderProcessor);
         resolvedArgs.forEach(placeholderProcessor);
 
-        var action = new ExternalJavaToolAction(getFunctionClasspath(step, function), function.mainClass());
+        var action = new ExternalJavaToolAction(getFunctionClasspath(builder.id(), function), function.mainClass());
+
         action.setRepositoryUrl(function.repository());
         action.setJvmArgs(resolvedJvmArgs);
         action.setArgs(resolvedArgs);
@@ -494,12 +534,14 @@ public class NeoFormEngine implements AutoCloseable {
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
             var listLibraries = new CreateLibrariesOptionsFile();
             listLibraries.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-            listLibraries.getClasspath().addMavenLibraries(config.libraries());
+            listLibraries.getClasspath().addMavenLibraries(libraries);
             action.setListLibraries(listLibraries);
         }
+
+        return mainOutput[0];
     }
 
-    private static List<MavenCoordinate> getFunctionClasspath(NeoFormStep step, NeoFormFunction function) {
+    private static List<MavenCoordinate> getFunctionClasspath(String step, NeoFormFunction function) {
         List<String> toolClasspath = new ArrayList<>();
         if (function.toolArtifact() != null) {
             if (function.classpath() != null || function.mainClass() != null) {
@@ -878,4 +920,5 @@ public class NeoFormEngine implements AutoCloseable {
             return problemReporter;
         }
     }
+
 }

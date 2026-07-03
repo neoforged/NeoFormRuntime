@@ -41,6 +41,7 @@ public class ProcessGeneration {
         }
     }
 
+    private static final MinecraftReleaseVersion MC_1_14_4 = new MinecraftReleaseVersion(1, 14, 4);
     private static final MinecraftReleaseVersion MC_1_17_1 = new MinecraftReleaseVersion(1, 17, 1);
     private static final MinecraftReleaseVersion MC_1_20_1 = new MinecraftReleaseVersion(1, 20, 1);
     private static final MinecraftReleaseVersion MC_1_21_6 = new MinecraftReleaseVersion(1, 21, 6);
@@ -58,6 +59,12 @@ public class ProcessGeneration {
      * remapping step later. (Either to Mojang mappings, or to MCP).
      */
     private boolean sourcesUseIntermediaryNames;
+
+    /**
+     * Indicates that Mojang publishes ProGuard mappings for this version.
+     * ProGuard mappings have been published since Minecraft 1.14.4.
+     */
+    private boolean hasProguardMappings;
 
     /**
      * SAS was used in Forge 1.20.1 and earlier to remove the "OnlyIn" annotation from client-only classes
@@ -101,6 +108,9 @@ public class ProcessGeneration {
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
         result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
+        // Mojang started publishing ProGuard mappings with 1.14.4
+        result.hasProguardMappings = isGreaterThanOrEqualTo(releaseVersion, MC_1_14_4);
+
         // In 1.21.6 and later, manifest entries should be generated as they may be used instead of RuntimeDistCleaner
         result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
 
@@ -128,6 +138,13 @@ public class ProcessGeneration {
      */
     public boolean sourcesUseIntermediaryNames() {
         return sourcesUseIntermediaryNames;
+    }
+
+    /**
+     * Does Mojang publish ProGuard mappings for this Minecraft version?
+     */
+    public boolean hasProguardMappings() {
+        return hasProguardMappings;
     }
 
     /**

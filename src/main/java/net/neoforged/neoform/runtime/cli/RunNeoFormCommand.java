@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
@@ -220,6 +221,15 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 // The MCF sources have a bogus MANIFEST that should be ignored
                                 Pattern.compile("^(?!META-INF/MANIFEST.MF$).*")
                         ));
+                        // Older Forge versions ship pre-compiled dev-only classes and service registrations
+                        // (e.g. ILaunchHandlerService) under inject/ in the userdev jar.
+                        if (neoforgeConfig.injectFolder() != null) {
+                            action.getInjectedSources().add(new InjectFromZipFileSource(
+                                    neoforgeZipFile,
+                                    neoforgeConfig.injectFolder(),
+                                    Pattern.compile("^(?!.*\\.class$).*")
+                            ));
+                        }
                     }
             ));
         }
@@ -263,8 +273,28 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             }
         }
 
+        // Source post-processors were used to post-process the decompiler output before applying the NF patches.
+        // Example version: 1.12.2.
+        var nfPatchesInputNode = "patch";
+        var sourcePreProcessor = neoforgeConfig.sourcePreProcessor();
+        if (sourcePreProcessor != null) {
+            engine.applyTransform(new ReplaceNodeOutput(
+                            "patch", "output", "applyUserdevSourcePreprocessor",
+                            (builder, previousOutput) -> {
+                                var newOutput = engine.applyFunctionToNode(neoforgeConfig.libraries(), Map.of(
+                                        // Provide the output of patch as the input
+                                        "input", "{patchOutput}"
+                                ), NodeOutputType.ZIP, sourcePreProcessor, builder);
+                                return Objects.requireNonNull(newOutput);
+                            }
+                    )
+            );
+            // Patches now need to use this node as input
+            nfPatchesInputNode = "applyUserdevSourcePreprocessor";
+        }
+
         // Append a patch step to the NeoForge patches
-        engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
+        engine.applyTransform(new ReplaceNodeOutput(nfPatchesInputNode, "output", "applyNeoforgePatches",
                 (builder, previousOutput) -> {
                     return PatchActionFactory.makeAction(builder,
                             new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
