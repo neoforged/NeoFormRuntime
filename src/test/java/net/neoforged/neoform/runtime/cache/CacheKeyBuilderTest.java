@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -22,7 +23,7 @@ class CacheKeyBuilderTest {
     @Test
     void dataSourceCacheKeyIsStableForSameArchiveContents(@TempDir Path tempDir) throws IOException {
         var archive = tempDir.resolve("data.zip");
-        writeZip(archive, Map.of("data.txt", "contents"));
+        writeZip(archive, Map.of("patches/data.txt", "contents"));
 
         try (var zip = new ZipFile(archive.toFile())) {
             var keyA = cacheKeyForDataSource(new DataSource("patches", zip, "patches/"));
@@ -49,6 +50,60 @@ class CacheKeyBuilderTest {
     }
 
     @Test
+    void dataSourceCacheKeyIgnoresDataSourceIdWhenContentsMatch(@TempDir Path tempDir) throws IOException {
+        var archive = tempDir.resolve("data.zip");
+        writeZip(archive, Map.of("patches/data.patch", "patch"));
+
+        try (var zip = new ZipFile(archive.toFile())) {
+            var keyA = cacheKeyForDataSource("data", new DataSource("patches", zip, "patches/"));
+            var keyB = cacheKeyForDataSource("data", new DataSource("renamed", zip, "patches/"));
+
+            assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
+        }
+    }
+
+    @Test
+    void dataSourceCacheKeyIgnoresUnselectedArchiveContents(@TempDir Path tempDir) throws IOException {
+        var archiveA = tempDir.resolve("a.zip");
+        var archiveB = tempDir.resolve("b.zip");
+        writeZip(archiveA, Map.of(
+                "patches/data.patch", "patch",
+                "unrelated.txt", "a"
+        ));
+        writeZip(archiveB, Map.of(
+                "patches/data.patch", "patch",
+                "unrelated.txt", "b"
+        ));
+
+        try (var zipA = new ZipFile(archiveA.toFile());
+             var zipB = new ZipFile(archiveB.toFile())) {
+            var keyA = cacheKeyForDataSource(new DataSource("patches", zipA, "patches/"));
+            var keyB = cacheKeyForDataSource(new DataSource("patches", zipB, "patches/"));
+
+            assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
+        }
+    }
+
+    @Test
+    void dataSourceFileCacheKeyIgnoresEntriesWithSamePrefix(@TempDir Path tempDir) throws IOException {
+        var archiveA = tempDir.resolve("a.zip");
+        var archiveB = tempDir.resolve("b.zip");
+        writeZip(archiveA, Map.of("data.txt", "data"));
+        writeZip(archiveB, Map.of(
+                "data.txt", "data",
+                "data.txt.extra", "extra"
+        ));
+
+        try (var zipA = new ZipFile(archiveA.toFile());
+             var zipB = new ZipFile(archiveB.toFile())) {
+            var keyA = cacheKeyForDataSource(new DataSource("data", zipA, "data.txt"));
+            var keyB = cacheKeyForDataSource(new DataSource("data", zipB, "data.txt"));
+
+            assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
+        }
+    }
+
+    @Test
     void dataSourceChangesCacheKeyWhenArchiveContentsChange(@TempDir Path tempDir) throws IOException {
         var archiveA = tempDir.resolve("a.zip");
         var archiveB = tempDir.resolve("b.zip");
@@ -59,6 +114,41 @@ class CacheKeyBuilderTest {
              var zipB = new ZipFile(archiveB.toFile())) {
             var keyA = cacheKeyForDataSource(new DataSource("patch", zipA, "data.txt"));
             var keyB = cacheKeyForDataSource(new DataSource("patch", zipB, "data.txt"));
+
+            assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
+        }
+    }
+
+    @Test
+    void dataSourceCacheKeyChangesWhenSelectedEntryNameChanges(@TempDir Path tempDir) throws IOException {
+        var archiveA = tempDir.resolve("a.zip");
+        var archiveB = tempDir.resolve("b.zip");
+        writeZip(archiveA, Map.of("patches/a.patch", "patch"));
+        writeZip(archiveB, Map.of("patches/b.patch", "patch"));
+
+        try (var zipA = new ZipFile(archiveA.toFile());
+             var zipB = new ZipFile(archiveB.toFile())) {
+            var keyA = cacheKeyForDataSource(new DataSource("patches", zipA, "patches/"));
+            var keyB = cacheKeyForDataSource(new DataSource("patches", zipB, "patches/"));
+
+            assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
+        }
+    }
+
+    @Test
+    void dataSourceCacheKeyChangesWhenSelectedEntryIsAdded(@TempDir Path tempDir) throws IOException {
+        var archiveA = tempDir.resolve("a.zip");
+        var archiveB = tempDir.resolve("b.zip");
+        writeZip(archiveA, Map.of("patches/a.patch", "a"));
+        writeZip(archiveB, Map.of(
+                "patches/a.patch", "a",
+                "patches/b.patch", "b"
+        ));
+
+        try (var zipA = new ZipFile(archiveA.toFile());
+             var zipB = new ZipFile(archiveB.toFile())) {
+            var keyA = cacheKeyForDataSource(new DataSource("patches", zipA, "patches/"));
+            var keyB = cacheKeyForDataSource(new DataSource("patches", zipB, "patches/"));
 
             assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
         }
@@ -76,14 +166,14 @@ class CacheKeyBuilderTest {
         try (var patchesZip = new ZipFile(patchesArchive.toFile());
              var atsZipA = new ZipFile(atsArchiveA.toFile());
              var atsZipB = new ZipFile(atsArchiveB.toFile())) {
-            var keyA = cacheKeyForDataSources(Map.of(
-                    "patches", new DataSource("patches",patchesZip, "patches/"),
-                    "ats", new DataSource("ats", atsZipA, "ats/")
-            ));
-            var keyB = cacheKeyForDataSources(Map.of(
-                    "patches", new DataSource("patches", patchesZip, "patches/"),
-                    "ats", new DataSource("ats", atsZipB, "ats/")
-            ));
+            var keyA = cacheKeyForDataSources(
+                    new DataSource("patches", patchesZip, "patches/"),
+                    new DataSource("ats", atsZipA, "ats/")
+            );
+            var keyB = cacheKeyForDataSources(
+                    new DataSource("patches", patchesZip, "patches/"),
+                    new DataSource("ats", atsZipB, "ats/")
+            );
 
             assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
         }
@@ -92,7 +182,7 @@ class CacheKeyBuilderTest {
     @Test
     void addDataSourcesRejectsDuplicateDataSourceIds(@TempDir Path tempDir) throws IOException {
         var archive = tempDir.resolve("data.zip");
-        writeZip(archive, Map.of("data.txt", "data"));
+        writeZip(archive, Map.of("patches/data.txt", "data"));
 
         try (var zip = new ZipFile(archive.toFile())) {
             var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(
@@ -113,15 +203,39 @@ class CacheKeyBuilderTest {
                 .hasMessageContaining("missing");
     }
 
+    @Test
+    void addDataSourceRejectsDataSourceWithNoFileEntries(@TempDir Path tempDir) throws IOException {
+        var archive = tempDir.resolve("data.zip");
+        writeZip(archive, Map.of("patches/", ""));
+
+        try (var zip = new ZipFile(archive.toFile())) {
+            var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(
+                    "patches", new DataSource("patches", zip, "patches/")
+            ));
+
+            assertThatThrownBy(() -> builder.addDataSource("data[patches]", "patches"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("patches/");
+        }
+    }
+
     private static CacheKey cacheKeyForDataSource(DataSource dataSource) {
+        return cacheKeyForDataSource("data[" + dataSource.id() + "]", dataSource);
+    }
+
+    private static CacheKey cacheKeyForDataSource(String component, DataSource dataSource) {
         var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(dataSource.id(), dataSource));
-        builder.addDataSource("data[" + dataSource.id() + "]", dataSource.id());
+        builder.addDataSource(component, dataSource.id());
         return builder.build();
     }
 
-    private static CacheKey cacheKeyForDataSources(Map<String, DataSource> dataSources) {
-        var builder = new CacheKeyBuilder("test", new FileHashService(), dataSources);
-        builder.addDataSources("data", dataSources.keySet());
+    private static CacheKey cacheKeyForDataSources(DataSource... dataSources) {
+        var dataSourcesById = new LinkedHashMap<String, DataSource>();
+        for (var dataSource : dataSources) {
+            dataSourcesById.put(dataSource.id(), dataSource);
+        }
+        var builder = new CacheKeyBuilder("test", new FileHashService(), dataSourcesById);
+        builder.addDataSources("data", dataSourcesById.keySet());
         return builder.build();
     }
 
