@@ -28,8 +28,7 @@ public final class PatchActionFactory {
 
         var action = new ExternalJavaToolAction(ToolCoordinate.DIFF_PATCH);
         action.setArgs(List.of(
-                "{input}", patches.archive().getName(),
-                "--prefix", patches.folder(),
+                "{input}", "{" + patches.id() + "}",
                 "--patch",
                 "--archive", "ZIP",
                 "--output", "{output}",

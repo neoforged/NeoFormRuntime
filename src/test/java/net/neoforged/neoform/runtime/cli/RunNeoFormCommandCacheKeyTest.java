@@ -28,7 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class RunNeoFormCommandCacheKeyTest {
     private static final Gson GSON = new Gson();
     private static final List<String> ACTION_CACHE_KEY_NODE_IDS = List.of(
+            "patch",
             "binaryPatch",
+            "applyNeoforgePatches",
             "transformSources",
             "applyDevTransforms"
     );
@@ -44,6 +46,21 @@ class RunNeoFormCommandCacheKeyTest {
         var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
         assertOnlyActionCacheKeysChange(engineA, engineB, "binaryPatch");
+    }
+
+    @Test
+    void sourcePatchCacheKeyChangesWhenPatchDataChanges(@TempDir Path tempDir) throws Exception {
+        var fixture = createNeoForgeCacheKeyFixture(
+                tempDir,
+                new UserdevFixture("binary-patch", "access-transformer")
+                        .withSourcePatchContent("source-patch-a"),
+                new UserdevFixture("binary-patch", "access-transformer")
+                        .withSourcePatchContent("source-patch-b")
+        );
+        var engineA = buildEngineForFixture(tempDir.resolve("home-a"), fixture.userdevA());
+        var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
+
+        assertOnlyActionCacheKeysChange(engineA, engineB, "applyNeoforgePatches");
     }
 
     @Test
@@ -73,7 +90,7 @@ class RunNeoFormCommandCacheKeyTest {
     }
 
     @Test
-    void noRecompileCacheKeysDoNotChangeWhenSourcePatchesChange(@TempDir Path tempDir) throws Exception {
+    void sourcePatchesDoNotAffectNoRecompileCacheKeys(@TempDir Path tempDir) throws Exception {
         var fixture = createNeoForgeCacheKeyFixture(
                 tempDir,
                 new UserdevFixture("binary-patch", "access-transformer")
@@ -84,7 +101,7 @@ class RunNeoFormCommandCacheKeyTest {
         var engineA = buildEngineForFixture(tempDir.resolve("home-a"), fixture.userdevA());
         var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
-        assertOnlyActionCacheKeysChange(engineA, engineB);
+        assertOnlyActionCacheKeysChange(engineA, engineB, "applyNeoforgePatches");
     }
 
     @Test
@@ -101,6 +118,23 @@ class RunNeoFormCommandCacheKeyTest {
         var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
         assertOnlyActionCacheKeysChange(engineA, engineB);
+    }
+
+    @Test
+    void neoFormPatchCacheKeyDoesNotChangeWhenNeoFormArchivePathChanges(@TempDir Path tempDir) throws Exception {
+        var neoformA = tempDir.resolve("neoform-a.zip");
+        var neoformB = tempDir.resolve("neoform-b.zip");
+        writeNeoForm(neoformA, "source-patch");
+        writeNeoForm(neoformB, "source-patch");
+
+        var engineA = buildEngineForNeoFormFixture(tempDir.resolve("home-a"), neoformA);
+        var engineB = buildEngineForNeoFormFixture(tempDir.resolve("home-b"), neoformB);
+        var keyA = computeActionCacheKey(engineA, "patch");
+        var keyB = computeActionCacheKey(engineB, "patch");
+
+        assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
+        assertThat(keyA.components().get("command line arg").value())
+                .isEqualTo(keyB.components().get("command line arg").value());
     }
 
     private static void assertOnlyActionCacheKeysChange(CapturedEngine engineA, CapturedEngine engineB, String... changedNodeIds) {
@@ -136,31 +170,44 @@ class RunNeoFormCommandCacheKeyTest {
         );
     }
 
+    private static CapturedEngine buildEngineForNeoFormFixture(Path homeDir, Path neoform) {
+        return buildEngine(
+                "--home-dir", homeDir.toString(),
+                "--disable-cache-maintenance",
+                "--neoform", neoform.toString()
+        );
+    }
+
     private record NeoForgeCacheKeyFixture(Path userdevA, Path userdevB) {}
 
     private record CapturedEngine(Map<String, CacheKey> actionCacheKeys) {}
 
     private record UserdevFixture(String binaryPatchContent,
                                   String accessTransformerContent,
+                                  String sourcePatchContent,
                                   Map<String, String> extraEntries,
                                   long zipTimestamp,
                                   boolean zipEntriesReversed) {
         private UserdevFixture(String binaryPatchContent, String accessTransformerContent) {
-            this(binaryPatchContent, accessTransformerContent, Map.of(), 0, false);
+            this(binaryPatchContent, accessTransformerContent, "source-patch", Map.of(), 0, false);
         }
 
         private UserdevFixture withExtraEntry(String name, String content) {
             var extraEntries = new LinkedHashMap<>(this.extraEntries);
             extraEntries.put(name, content);
-            return new UserdevFixture(binaryPatchContent, accessTransformerContent, extraEntries, zipTimestamp, zipEntriesReversed);
+            return new UserdevFixture(binaryPatchContent, accessTransformerContent, sourcePatchContent, extraEntries, zipTimestamp, zipEntriesReversed);
+        }
+
+        private UserdevFixture withSourcePatchContent(String sourcePatchContent) {
+            return new UserdevFixture(binaryPatchContent, accessTransformerContent, sourcePatchContent, extraEntries, zipTimestamp, zipEntriesReversed);
         }
 
         private UserdevFixture withZipTimestamp(long zipTimestamp) {
-            return new UserdevFixture(binaryPatchContent, accessTransformerContent, extraEntries, zipTimestamp, zipEntriesReversed);
+            return new UserdevFixture(binaryPatchContent, accessTransformerContent, sourcePatchContent, extraEntries, zipTimestamp, zipEntriesReversed);
         }
 
         private UserdevFixture reverseZipEntries() {
-            return new UserdevFixture(binaryPatchContent, accessTransformerContent, extraEntries, zipTimestamp, true);
+            return new UserdevFixture(binaryPatchContent, accessTransformerContent, sourcePatchContent, extraEntries, zipTimestamp, true);
         }
     }
 
@@ -175,6 +222,16 @@ class RunNeoFormCommandCacheKeyTest {
 
         // Both userdev jars point at the same NeoForm config, sources, universal jar, and binpatcher args.
         // Only the selected embedded NeoForge data differs, so any key change must come from data dependencies.
+        writeNeoForm(neoform, "source-patch");
+        writeZip(sources, Map.of("net/neoforged/test/Example.java", "package net.neoforged.test;\nclass Example {}\n"));
+        writeZip(universal, Map.of("net/neoforged/test/Example.class", "compiled"));
+        writeNeoForgeUserdev(userdevA, neoform, sources, universal, userdevFixtureA);
+        writeNeoForgeUserdev(userdevB, neoform, sources, universal, userdevFixtureB);
+
+        return new NeoForgeCacheKeyFixture(userdevA, userdevB);
+    }
+
+    private static void writeNeoForm(Path neoform, String sourcePatchContent) throws IOException {
         writeZip(neoform, Map.of(
                 "config.json", """
                         {
@@ -210,14 +267,9 @@ class RunNeoFormCommandCacheKeyTest {
                         }
                         """,
                 "patches/", "",
-                "patches/.keep", ""
+                "patches/.keep", "",
+                "patches/net/neoforged/test.patch", sourcePatchContent
         ));
-        writeZip(sources, Map.of("net/neoforged/test/Example.java", "package net.neoforged.test;\nclass Example {}\n"));
-        writeZip(universal, Map.of("net/neoforged/test/Example.class", "compiled"));
-        writeNeoForgeUserdev(userdevA, neoform, sources, universal, userdevFixtureA);
-        writeNeoForgeUserdev(userdevB, neoform, sources, universal, userdevFixtureB);
-
-        return new NeoForgeCacheKeyFixture(userdevA, userdevB);
     }
 
     private static void writeNeoForgeUserdev(Path userdev,
@@ -254,6 +306,7 @@ class RunNeoFormCommandCacheKeyTest {
         entries.put("binary/patches.lzma", fixture.binaryPatchContent());
         entries.put("patches/", "");
         entries.put("patches/.keep", "");
+        entries.put("patches/net/neoforged/test.patch", fixture.sourcePatchContent());
         entries.putAll(fixture.extraEntries());
         writeZip(userdev, entries, fixture.zipTimestamp(), fixture.zipEntriesReversed());
     }
