@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
@@ -10,15 +11,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.zip.ZipFile;
+import java.util.Objects;
+import java.util.SequencedMap;
 
 public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     /**
-     * Names of {@linkplain NeoFormEngine#addDataSource(String, ZipFile, String) data sources} containing
-     * access transformers to apply.
+     * Data sources containing access transformers to apply, keyed by the id registered with
+     * {@linkplain NeoFormEngine#addDataSource(String, java.util.zip.ZipFile, String)}.
      */
-    private List<String> accessTransformersData = List.of();
+    private final SequencedMap<String, DataSource> accessTransformersData = new LinkedHashMap<>();
+
     /**
      * Paths to access transformers that will be applied.
      */
@@ -43,7 +47,7 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
                 "--output", "{output}",
                 "--no-mod-manifest");
 
-        for (var dataId : accessTransformersData) {
+        for (var dataId : accessTransformersData.sequencedKeySet()) {
             var accessTransformers = environment.extractData(dataId);
 
             try (var stream = Files.walk(accessTransformers)) {
@@ -71,17 +75,23 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
-        ck.addStrings("access transformers data ids", accessTransformersData);
+        for (var entry : accessTransformersData.entrySet()) {
+            ck.add("access transformers data[" + entry.getKey() + "]", entry.getValue().cacheKey());
+        }
         ck.addPaths("additional access transformers", additionalAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
     }
 
-    public void setAccessTransformersData(List<String> accessTransformersData) {
-        this.accessTransformersData = List.copyOf(accessTransformersData);
+    public void addAccessTransformersData(String id, DataSource dataSource) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(dataSource, "dataSource");
+        if (accessTransformersData.put(id, dataSource) != null) {
+            throw new IllegalArgumentException("Access transformers data source " + id + " was registered twice.");
+        }
     }
 
     public List<String> getAccessTransformersData() {
-        return accessTransformersData;
+        return List.copyOf(accessTransformersData.sequencedKeySet());
     }
 
     public void setAdditionalAccessTransformers(List<Path> additionalAccessTransformers) {

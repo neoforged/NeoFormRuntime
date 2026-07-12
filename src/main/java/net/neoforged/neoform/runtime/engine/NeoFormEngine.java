@@ -159,11 +159,13 @@ public class NeoFormEngine implements AutoCloseable {
         return resource;
     }
 
-    public void addDataSource(String id, ZipFile zipFile, String sourceFolder) {
+    public DataSource addDataSource(String id, ZipFile zipFile, String sourceFolder) {
         if (dataSources.containsKey(id)) {
             throw new IllegalArgumentException("Data source " + id + " is already defined");
         }
-        dataSources.put(id, new DataSource(zipFile, sourceFolder, fileHashService));
+        var dataSource = new DataSource(zipFile, sourceFolder, fileHashService);
+        dataSources.put(id, dataSource);
+        return dataSource;
     }
 
     public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
