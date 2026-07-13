@@ -2,7 +2,6 @@ package net.neoforged.neoform.runtime.cli;
 
 import com.google.gson.Gson;
 import net.neoforged.neoform.runtime.cache.CacheKey;
-import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import org.junit.jupiter.api.Test;
@@ -35,10 +34,10 @@ class RunNeoFormCommandCacheKeyTest {
                 new UserdevFixture("binary-patch-a", "access-transformer"),
                 new UserdevFixture("binary-patch-b", "access-transformer")
         );
-        var graphA = buildGraphForFixture(tempDir.resolve("home-a"), fixture.userdevA());
-        var graphB = buildGraphForFixture(tempDir.resolve("home-b"), fixture.userdevB());
+        var engineA = buildEngineForFixture(tempDir.resolve("home-a"), fixture.userdevA());
+        var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
-        assertActionCacheKeyChanges(graphA, graphB, "binaryPatch");
+        assertActionCacheKeyChanges(engineA, engineB, "binaryPatch");
     }
 
     @Test
@@ -48,11 +47,11 @@ class RunNeoFormCommandCacheKeyTest {
                 new UserdevFixture("binary-patch", "access-transformer-a"),
                 new UserdevFixture("binary-patch", "access-transformer-b")
         );
-        var graphA = buildGraphForFixture(tempDir.resolve("home-a"), fixture.userdevA());
-        var graphB = buildGraphForFixture(tempDir.resolve("home-b"), fixture.userdevB());
+        var engineA = buildEngineForFixture(tempDir.resolve("home-a"), fixture.userdevA());
+        var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
-        assertActionCacheKeyChanges(graphA, graphB, "transformSources");
-        assertActionCacheKeyChanges(graphA, graphB, "applyDevTransforms");
+        assertActionCacheKeyChanges(engineA, engineB, "transformSources");
+        assertActionCacheKeyChanges(engineA, engineB, "applyDevTransforms");
     }
 
     @Test
@@ -62,36 +61,36 @@ class RunNeoFormCommandCacheKeyTest {
                 new UserdevFixture("binary-patch", "access-transformer"),
                 new UserdevFixture("binary-patch", "access-transformer")
         );
-        var graphA = buildGraphForFixture(tempDir.resolve("home-a"), fixture.userdevA());
-        var graphB = buildGraphForFixture(tempDir.resolve("home-b"), fixture.userdevB());
+        var engineA = buildEngineForFixture(tempDir.resolve("home-a"), fixture.userdevA());
+        var engineB = buildEngineForFixture(tempDir.resolve("home-b"), fixture.userdevB());
 
-        assertActionCacheKeyDoesNotChange(graphA, graphB, "binaryPatch");
-        assertActionCacheKeyDoesNotChange(graphA, graphB, "transformSources");
-        assertActionCacheKeyDoesNotChange(graphA, graphB, "applyDevTransforms");
+        assertActionCacheKeyDoesNotChange(engineA, engineB, "binaryPatch");
+        assertActionCacheKeyDoesNotChange(engineA, engineB, "transformSources");
+        assertActionCacheKeyDoesNotChange(engineA, engineB, "applyDevTransforms");
     }
 
-    private static void assertActionCacheKeyChanges(ExecutionGraph graphA, ExecutionGraph graphB, String nodeId) {
-        var keyA = computeActionCacheKey(graphA, nodeId);
-        var keyB = computeActionCacheKey(graphB, nodeId);
+    private static void assertActionCacheKeyChanges(CapturedEngine engineA, CapturedEngine engineB, String nodeId) {
+        var keyA = computeActionCacheKey(engineA, nodeId);
+        var keyB = computeActionCacheKey(engineB, nodeId);
 
         assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
     }
 
-    private static void assertActionCacheKeyDoesNotChange(ExecutionGraph graphA, ExecutionGraph graphB, String nodeId) {
-        var keyA = computeActionCacheKey(graphA, nodeId);
-        var keyB = computeActionCacheKey(graphB, nodeId);
+    private static void assertActionCacheKeyDoesNotChange(CapturedEngine engineA, CapturedEngine engineB, String nodeId) {
+        var keyA = computeActionCacheKey(engineA, nodeId);
+        var keyB = computeActionCacheKey(engineB, nodeId);
 
         assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
     }
 
-    private static CacheKey computeActionCacheKey(ExecutionGraph graph, String nodeId) {
-        var builder = new CacheKeyBuilder(nodeId, new FileHashService());
-        graph.getRequiredNode(nodeId).action().computeCacheKey(builder);
+    private static CacheKey computeActionCacheKey(CapturedEngine engine, String nodeId) {
+        var builder = engine.neoFormEngine().createCacheKeyBuilder(nodeId);
+        engine.graph().getRequiredNode(nodeId).action().computeCacheKey(builder);
         return builder.build();
     }
 
-    private static ExecutionGraph buildGraphForFixture(Path homeDir, Path userdev) {
-        return buildGraph(
+    private static CapturedEngine buildEngineForFixture(Path homeDir, Path userdev) {
+        return buildEngine(
                 "--home-dir", homeDir.toString(),
                 "--disable-cache-maintenance",
                 "--neoforge", userdev.toString()
@@ -99,6 +98,8 @@ class RunNeoFormCommandCacheKeyTest {
     }
 
     private record NeoForgeCacheKeyFixture(Path userdevA, Path userdevB) {}
+
+    private record CapturedEngine(NeoFormEngine neoFormEngine, ExecutionGraph graph) {}
 
     private record UserdevFixture(String binaryPatchContent, String accessTransformerContent) {}
 
@@ -208,49 +209,49 @@ class RunNeoFormCommandCacheKeyTest {
         }
     }
 
-    private static ExecutionGraph buildGraph(String... args) {
+    private static CapturedEngine buildEngine(String... args) {
         var fullArgs = new ArrayList<String>();
         // The cache-key wiring exists after graph construction; executing nodes would require fake tools to run.
         Collections.addAll(fullArgs, "run", "--print-graph");
         Collections.addAll(fullArgs, args);
 
-        var graphHolder = new AtomicReference<ExecutionGraph>();
-        var commandLine = new CommandLine(new Main(), new GraphCapturingCommandFactory(graphHolder));
+        var engineHolder = new AtomicReference<CapturedEngine>();
+        var commandLine = new CommandLine(new Main(), new EngineCapturingCommandFactory(engineHolder));
         assertEquals(0, commandLine.execute(fullArgs.toArray(String[]::new)));
 
-        var graph = graphHolder.get();
-        assertNotNull(graph);
-        return graph;
+        var engine = engineHolder.get();
+        assertNotNull(engine);
+        return engine;
     }
 
-    private static final class GraphCapturingCommandFactory implements CommandLine.IFactory {
-        private final AtomicReference<ExecutionGraph> graphHolder;
+    private static final class EngineCapturingCommandFactory implements CommandLine.IFactory {
+        private final AtomicReference<CapturedEngine> engineHolder;
         private final CommandLine.IFactory defaultFactory = CommandLine.defaultFactory();
 
-        private GraphCapturingCommandFactory(AtomicReference<ExecutionGraph> graphHolder) {
-            this.graphHolder = graphHolder;
+        private EngineCapturingCommandFactory(AtomicReference<CapturedEngine> engineHolder) {
+            this.engineHolder = engineHolder;
         }
 
         @Override
         public <K> K create(Class<K> cls) throws Exception {
             if (cls == RunNeoFormCommand.class) {
-                return cls.cast(new GraphCapturingRunNeoFormCommand(graphHolder));
+                return cls.cast(new EngineCapturingRunNeoFormCommand(engineHolder));
             }
             return defaultFactory.create(cls);
         }
     }
 
-    private static final class GraphCapturingRunNeoFormCommand extends RunNeoFormCommand {
-        private final AtomicReference<ExecutionGraph> graphHolder;
+    private static final class EngineCapturingRunNeoFormCommand extends RunNeoFormCommand {
+        private final AtomicReference<CapturedEngine> engineHolder;
 
-        private GraphCapturingRunNeoFormCommand(AtomicReference<ExecutionGraph> graphHolder) {
-            this.graphHolder = graphHolder;
+        private EngineCapturingRunNeoFormCommand(AtomicReference<CapturedEngine> engineHolder) {
+            this.engineHolder = engineHolder;
         }
 
         @Override
         protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
             super.runWithNeoFormEngine(engine, closables);
-            graphHolder.set(engine.getGraph());
+            engineHolder.set(new CapturedEngine(engine, engine.getGraph()));
         }
     }
 }

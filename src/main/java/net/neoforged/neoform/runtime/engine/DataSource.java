@@ -1,42 +1,30 @@
 package net.neoforged.neoform.runtime.engine;
 
-import net.neoforged.neoform.runtime.cache.CacheKey;
-import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
-import net.neoforged.neoform.runtime.cli.FileHashService;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.zip.ZipFile;
 
 public final class DataSource {
     private final ZipFile archive;
+    private final Path archivePath;
     private final String folder;
-    private final FileHashService fileHashService;
 
-    public DataSource(ZipFile archive, String folder, FileHashService fileHashService) {
+    public DataSource(ZipFile archive, String folder) {
         this.archive = archive;
+        this.archivePath = Path.of(archive.getName());
         this.folder = folder;
-        this.fileHashService = fileHashService;
     }
 
     public ZipFile archive() {
         return archive;
     }
 
-    public String folder() {
-        return folder;
+    public Path archivePath() {
+        return archivePath;
     }
 
-    public CacheKey.AnnotatedValue cacheKey() {
-        try {
-            var archivePath = Path.of(archive.getName());
-            var hash = fileHashService.getHashValue(archivePath);
-            return new CacheKey.AnnotatedValue(hash, CacheKeyBuilder.prettifyPath(archivePath));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to compute hash for archive " + archive.getName(), e);
-        }
+    public String folder() {
+        return folder;
     }
 
     @Override
@@ -54,6 +42,6 @@ public final class DataSource {
 
     @Override
     public String toString() {
-        return archive.getName() + "!" + folder;
+        return archivePath + "!" + folder;
     }
 }

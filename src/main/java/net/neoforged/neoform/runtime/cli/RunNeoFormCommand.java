@@ -14,7 +14,6 @@ import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
-import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -182,7 +181,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
     private static void applyNeoForgeProcessTransforms(NeoFormEngine engine, JarFile neoforgeZipFile, NeoForgeConfig neoforgeConfig) throws IOException {
         // Add NeoForge specific data sources
-        var neoForgeAccessTransformers = engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
+        engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
 
         // Also inject NeoForge sources, which we can get from the sources file
         var artifactManager = engine.getArtifactManager();
@@ -195,7 +194,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
 
         var transformSources = getOrAddTransformSourcesAction(engine);
 
-        transformSources.addAccessTransformersData("neoForgeAccessTransformers", neoForgeAccessTransformers);
+        transformSources.setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
         // When source remapping is in effect, we would normally have to remap the NeoForge sources as well
         // To circumvent this, we inject the sources before recompile and disable the optimization of
@@ -239,10 +238,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         if (engine.getProcessGeneration().supportsSideAnnotationStripping()) {
             List<String> sasFiles = neoforgeConfig.sideAnnotationStrippers();
             if (!sasFiles.isEmpty()) {
-                List<DataSource> sasDataSources = new ArrayList<>();
                 for (int i = 0; i < sasFiles.size(); i++) {
-                    DataSource sasDataSource = engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
-                    sasDataSources.add(sasDataSource);
+                    engine.addDataSource("sasFile" + i, neoforgeZipFile, sasFiles.get(i));
                 }
 
                 engine.applyTransform(new ReplaceNodeInput("decompile", "input", "stripSideAnnotations",
@@ -256,8 +253,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                                 var dataSourceId = "sasFile" + i;
                                 args.add("--data");
                                 args.add("{" + dataSourceId + "}");
-                                var dataSource = sasDataSources.get(i);
-                                action.addDataDependencyHash(dataSourceId, dataSource::cacheKey);
+                                action.addDataSourceDependency(dataSourceId);
                             }
                             action.setArgs(args);
                             builder.action(action);
@@ -269,10 +265,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         // Append a patch step to the NeoForge patches
+        var neoForgePatches = engine.addDataSource("neoForgePatches", neoforgeZipFile, neoforgeConfig.patchesFolder());
         engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                 (builder, previousOutput) -> {
                     return PatchActionFactory.makeAction(builder,
-                            new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
+                            "neoForgePatches",
+                            neoForgePatches,
                             previousOutput,
                             Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
                             Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));
@@ -290,20 +288,19 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
 
-        applyNeoForgeBinaryPatchProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, neoforgeClassesZip, neoForgeAccessTransformers);
+        applyNeoForgeBinaryPatchProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, neoforgeClassesZip);
 
     }
 
     private static void applyNeoForgeBinaryPatchProcessTransforms(NeoFormEngine engine,
                                                                   JarFile neoforgeZipFile,
                                                                   NeoForgeConfig neoforgeConfig,
-                                                                  ZipFile neoforgeClassesZip,
-                                                                  DataSource neoForgeAccessTransformers) {
+                                                                  ZipFile neoforgeClassesZip) {
         var graph = engine.getGraph();
         var patchBaseJar = graph.getResult(ResultIds.VANILLA_DEOBFUSCATED);
 
-        var patch = engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
-        var binaryPatchOutput = createBinaryPatch(graph, patchBaseJar, patch, neoforgeConfig.binaryPatcherConfig());
+        engine.addDataSource("patch", neoforgeZipFile, neoforgeConfig.binaryPatchesFile());
+        var binaryPatchOutput = createBinaryPatch(graph, patchBaseJar, neoforgeConfig.binaryPatcherConfig());
         binaryPatchOutput = createCopyUnpatchedClasses(graph, patchBaseJar, binaryPatchOutput);
 
         // For binpatches we also need to consider Access Transforms / Interface Injection
@@ -311,7 +308,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         // is very different from when it is placed by the NeoForm process.
         binaryPatchOutput = createBinaryDevTransformNode(graph, binaryPatchOutput.asInput());
         ((ApplyDevTransformsAction) binaryPatchOutput.getNode().action())
-                .addAccessTransformersData("neoForgeAccessTransformers", neoForgeAccessTransformers);
+                .setAccessTransformersData(List.of("neoForgeAccessTransformers"));
 
         // This is a new result here
         var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
@@ -400,13 +397,13 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         return output;
     }
 
-    private static NodeOutput createBinaryPatch(ExecutionGraph graph, NodeOutput clean, DataSource patch, BinpatcherConfig config) {
+    private static NodeOutput createBinaryPatch(ExecutionGraph graph, NodeOutput clean, BinpatcherConfig config) {
         var builder = graph.nodeBuilder("binaryPatch");
         builder.input("clean", clean.asInput());
         var output = builder.output("output", NodeOutputType.JAR, "JAR containing the patched Minecraft classes");
         var action = new ExternalJavaToolAction(MavenCoordinate.parse(config.version()));
         action.setArgs(config.args());
-        action.addDataDependencyHash("patch", patch::cacheKey);
+        action.addDataSourceDependency("patch");
         builder.action(action);
         builder.build();
         return output;
