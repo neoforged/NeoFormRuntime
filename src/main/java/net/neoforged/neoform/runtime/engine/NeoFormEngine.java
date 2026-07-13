@@ -163,7 +163,7 @@ public class NeoFormEngine implements AutoCloseable {
         if (dataSources.containsKey(id)) {
             throw new IllegalArgumentException("Data source " + id + " is already defined");
         }
-        var dataSource = new DataSource(zipFile, sourceFolder, fileHashService);
+        var dataSource = new DataSource(zipFile, sourceFolder);
         dataSources.put(id, dataSource);
         return dataSource;
     }
@@ -395,6 +395,7 @@ public class NeoFormEngine implements AutoCloseable {
             case "patch" -> {
                 PatchActionFactory.makeAction(
                         builder,
+                        "patches",
                         getRequiredDataSource("patches"),
                         null,
                         "a/",
@@ -487,8 +488,7 @@ public class NeoFormEngine implements AutoCloseable {
         action.setArgs(resolvedArgs);
         // Add every referenced data source to the cache key
         for (var dataSourceId : dataSourcesUsed) {
-            var dataSource = Objects.requireNonNull(dataSources.get(dataSourceId), dataSourceId);
-            action.addDataDependencyHash(dataSourceId, dataSource::cacheKey);
+            action.addDataSourceDependency(dataSourceId);
         }
         builder.action(action);
 
@@ -578,7 +578,7 @@ public class NeoFormEngine implements AutoCloseable {
         triggerAndWait(dependencies);
 
         // Prep node output cache
-        var ck = new CacheKeyBuilder(node.id(), fileHashService);
+        var ck = createCacheKeyBuilder(node.id());
         for (var entry : node.inputs().entrySet()) {
             entry.getValue().collectCacheKeyComponent(ck);
         }
@@ -658,6 +658,10 @@ public class NeoFormEngine implements AutoCloseable {
 
     public ExecutionGraph getGraph() {
         return graph;
+    }
+
+    public CacheKeyBuilder createCacheKeyBuilder(String type) {
+        return new CacheKeyBuilder(type, fileHashService, dataSources);
     }
 
     public BuildOptions getBuildOptions() {

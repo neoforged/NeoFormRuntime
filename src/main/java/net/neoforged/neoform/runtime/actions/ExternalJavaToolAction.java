@@ -1,7 +1,6 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.artifacts.Artifact;
-import net.neoforged.neoform.runtime.cache.CacheKey;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.graph.ExecutionNodeAction;
@@ -23,11 +22,8 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.SequencedMap;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -58,10 +54,8 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     /**
      * If the external tool relies on data being made available by the environment
      * via argument interpolation, that external data has to be considered in the cache key.
-     * The values are modeled as suppliers because they only need to be queried/computed
-     * if the action is about to be run. Some NFRT runs may entirely skip it, and thus skip the hash too.
      */
-    private final SequencedMap<String, Supplier<CacheKey.AnnotatedValue>> dataDependencyHashes = new LinkedHashMap<>();
+    private final List<String> dataSourceDependencies = new ArrayList<>();
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -288,9 +282,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
-        for (var entry : dataDependencyHashes.entrySet()) {
-            ck.add("data[" + entry.getKey() + "]", entry.getValue().get());
-        }
+        ck.addDataSources("data", dataSourceDependencies);
         if (listLibraries != null) {
             listLibraries.computeCacheKey(ck);
         }
@@ -339,12 +331,14 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
     }
 
     /**
-     * If this external tools result depends on external data, adds the hash value of that
-     * external data to the cache key of this action under the given id.
+     * If this external tool's result depends on external data, adds that data source
+     * to the cache key of this action.
      */
-    public void addDataDependencyHash(String id, Supplier<CacheKey.AnnotatedValue> hash) {
-        if (dataDependencyHashes.put(id, hash) != null) {
+    public void addDataSourceDependency(String id) {
+        Objects.requireNonNull(id, "id");
+        if (dataSourceDependencies.contains(id)) {
             throw new IllegalArgumentException("Data dependency " + id + " was registered twice.");
         }
+        dataSourceDependencies.add(id);
     }
 }
