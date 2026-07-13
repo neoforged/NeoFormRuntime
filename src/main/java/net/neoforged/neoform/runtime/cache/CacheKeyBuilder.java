@@ -20,10 +20,6 @@ public class CacheKeyBuilder {
 
     private final Map<String, CacheKey.AnnotatedValue> components = new LinkedHashMap<>();
 
-    public CacheKeyBuilder(String type, FileHashService fileHashService) {
-        this(type, fileHashService, Map.of());
-    }
-
     public CacheKeyBuilder(String type, FileHashService fileHashService, Map<String, DataSource> dataSources) {
         this.type = type;
         this.fileHashService = fileHashService;
