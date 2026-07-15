@@ -14,7 +14,6 @@ import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
-import net.neoforged.neoform.runtime.engine.DataSource;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
@@ -251,8 +250,10 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
                             List<String> args = new ArrayList<>();
                             Collections.addAll(args, "--strip", "--input", "{input}", "--output", "{output}");
                             for (int i = 0; i < sasFiles.size(); i++) {
+                                var dataSourceId = "sasFile" + i;
                                 args.add("--data");
-                                args.add("{sasFile" + i + "}");
+                                args.add("{" + dataSourceId + "}");
+                                action.addDataSourceDependency(dataSourceId);
                             }
                             action.setArgs(args);
                             builder.action(action);
@@ -264,10 +265,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
 
         // Append a patch step to the NeoForge patches
+        var neoForgePatches = engine.addDataSource("neoForgePatches", neoforgeZipFile, neoforgeConfig.patchesFolder());
         engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                 (builder, previousOutput) -> {
                     return PatchActionFactory.makeAction(builder,
-                            new DataSource(neoforgeZipFile, neoforgeConfig.patchesFolder(), engine.getFileHashingService()),
+                            neoForgePatches,
                             previousOutput,
                             Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),
                             Objects.requireNonNullElse(neoforgeConfig.modifiedPathPrefix(), "b/"));
@@ -399,6 +401,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         var output = builder.output("output", NodeOutputType.JAR, "JAR containing the patched Minecraft classes");
         var action = new ExternalJavaToolAction(MavenCoordinate.parse(config.version()));
         action.setArgs(config.args());
+        action.addDataSourceDependency("patch");
         builder.action(action);
         builder.build();
         return output;

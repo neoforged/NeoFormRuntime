@@ -71,7 +71,7 @@ public class ApplyDevTransformsAction extends ExternalJavaToolAction {
     @Override
     public void computeCacheKey(CacheKeyBuilder ck) {
         super.computeCacheKey(ck);
-        ck.addStrings("access transformers data ids", accessTransformersData);
+        ck.addDataSources("access transformers data", accessTransformersData);
         ck.addPaths("additional access transformers", additionalAccessTransformers);
         ck.addPaths("injected interfaces", injectedInterfaces);
     }

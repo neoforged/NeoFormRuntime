@@ -1,7 +1,7 @@
 package net.neoforged.neoform.runtime.cache;
 
 import net.neoforged.neoform.runtime.cli.FileHashService;
-import org.jetbrains.annotations.NotNull;
+import net.neoforged.neoform.runtime.engine.DataSource;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -16,12 +16,14 @@ import java.util.Map;
 public class CacheKeyBuilder {
     private final String type;
     private final FileHashService fileHashService;
+    private final Map<String, DataSource> dataSources;
 
     private final Map<String, CacheKey.AnnotatedValue> components = new LinkedHashMap<>();
 
-    public CacheKeyBuilder(String type, FileHashService fileHashService) {
+    public CacheKeyBuilder(String type, FileHashService fileHashService, Map<String, DataSource> dataSources) {
         this.type = type;
         this.fileHashService = fileHashService;
+        this.dataSources = Map.copyOf(dataSources);
     }
 
     public void addPaths(String component, Collection<Path> resultPath) {
@@ -43,6 +45,28 @@ public class CacheKeyBuilder {
         }
 
         add(component, hashValue, prettifyPath(path));
+    }
+
+    public void addDataSources(String component, Collection<String> dataSourceIds) {
+        for (var dataSourceId : dataSourceIds) {
+            addDataSource(component + "[" + dataSourceId + "]", dataSourceId);
+        }
+    }
+
+    public void addDataSource(String component, String dataSourceId) {
+        var dataSource = dataSources.get(dataSourceId);
+        if (dataSource == null) {
+            throw new IllegalArgumentException("Data source " + dataSourceId + " is not defined");
+        }
+
+        var archivePath = dataSource.archivePath();
+        String hashValue;
+        try {
+            hashValue = fileHashService.getHashValue(archivePath);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to compute hash for archive " + archivePath, e);
+        }
+        add(component, hashValue, prettifyPath(archivePath));
     }
 
     public static String prettifyPath(Path path) {

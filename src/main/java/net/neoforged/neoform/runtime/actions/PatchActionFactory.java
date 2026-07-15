@@ -40,7 +40,7 @@ public final class PatchActionFactory {
                 "--base-path-prefix", basePathPrefix,
                 "--modified-path-prefix", modifiedPathPrefix
         ));
-        action.addDataDependencyHash("patches", patches::cacheKey);
+        action.addDataSourceDependency(patches.id());
 
         builder.action(action);
         return mainOutput;
