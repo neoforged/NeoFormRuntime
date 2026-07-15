@@ -269,7 +269,6 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         engine.applyTransform(new ReplaceNodeOutput("patch", "output", "applyNeoforgePatches",
                 (builder, previousOutput) -> {
                     return PatchActionFactory.makeAction(builder,
-                            "neoForgePatches",
                             neoForgePatches,
                             previousOutput,
                             Objects.requireNonNullElse(neoforgeConfig.basePathPrefix(), "a/"),

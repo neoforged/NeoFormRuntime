@@ -5,14 +5,20 @@ import java.util.Objects;
 import java.util.zip.ZipFile;
 
 public final class DataSource {
+    private final String id;
     private final ZipFile archive;
     private final Path archivePath;
     private final String folder;
 
-    public DataSource(ZipFile archive, String folder) {
+    public DataSource(String id, ZipFile archive, String folder) {
+        this.id = id;
         this.archive = archive;
         this.archivePath = Path.of(archive.getName());
         this.folder = folder;
+    }
+
+    public String id() {
+        return id;
     }
 
     public ZipFile archive() {

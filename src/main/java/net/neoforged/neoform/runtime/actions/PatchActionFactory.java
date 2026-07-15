@@ -13,12 +13,10 @@ import java.util.Objects;
 public final class PatchActionFactory {
 
     public static NodeOutput makeAction(ExecutionNodeBuilder builder,
-                                        String patchesDataSourceId,
                                         DataSource patches,
                                         @Nullable NodeOutput sources,
                                         String basePathPrefix,
                                         String modifiedPathPrefix) {
-        Objects.requireNonNull(patchesDataSourceId, "patchesDataSourceId");
         Objects.requireNonNull(patches, "patches");
         if (sources != null) {
             builder.input("input", sources.asInput());
@@ -42,7 +40,7 @@ public final class PatchActionFactory {
                 "--base-path-prefix", basePathPrefix,
                 "--modified-path-prefix", modifiedPathPrefix
         ));
-        action.addDataSourceDependency(patchesDataSourceId);
+        action.addDataSourceDependency(patches.id());
 
         builder.action(action);
         return mainOutput;

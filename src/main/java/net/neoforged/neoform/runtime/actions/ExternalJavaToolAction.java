@@ -22,8 +22,10 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +57,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
      * If the external tool relies on data being made available by the environment
      * via argument interpolation, that external data has to be considered in the cache key.
      */
-    private final List<String> dataSourceDependencies = new ArrayList<>();
+    private final Set<String> dataSourceDependencies = new HashSet<>();
 
     /**
      * Tools that are referenced by the NeoForm/MCP process files usually are only guaranteed to run
@@ -282,7 +284,7 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
         }
         ck.add("command line arg", String.join(" ", args));
         ck.add("jvm args", String.join(" ", jvmArgs));
-        ck.addDataSources("data", dataSourceDependencies);
+        ck.addDataSources("data dependency", dataSourceDependencies);
         if (listLibraries != null) {
             listLibraries.computeCacheKey(ck);
         }
@@ -336,9 +338,6 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
      */
     public void addDataSourceDependency(String id) {
         Objects.requireNonNull(id, "id");
-        if (dataSourceDependencies.contains(id)) {
-            throw new IllegalArgumentException("Data dependency " + id + " was registered twice.");
-        }
         dataSourceDependencies.add(id);
     }
 }

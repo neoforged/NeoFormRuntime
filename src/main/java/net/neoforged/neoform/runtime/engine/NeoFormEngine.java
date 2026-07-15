@@ -163,7 +163,7 @@ public class NeoFormEngine implements AutoCloseable {
         if (dataSources.containsKey(id)) {
             throw new IllegalArgumentException("Data source " + id + " is already defined");
         }
-        var dataSource = new DataSource(zipFile, sourceFolder);
+        var dataSource = new DataSource(id, zipFile, sourceFolder);
         dataSources.put(id, dataSource);
         return dataSource;
     }
@@ -395,7 +395,6 @@ public class NeoFormEngine implements AutoCloseable {
             case "patch" -> {
                 PatchActionFactory.makeAction(
                         builder,
-                        "patches",
                         getRequiredDataSource("patches"),
                         null,
                         "a/",

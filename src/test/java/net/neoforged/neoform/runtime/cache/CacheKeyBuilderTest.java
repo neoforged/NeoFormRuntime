@@ -25,8 +25,8 @@ class CacheKeyBuilderTest {
         writeZip(archive, Map.of("data.txt", "contents"));
 
         try (var zip = new ZipFile(archive.toFile())) {
-            var keyA = cacheKeyForDataSource("patches", new DataSource(zip, "patches/"));
-            var keyB = cacheKeyForDataSource("patches", new DataSource(zip, "patches/"));
+            var keyA = cacheKeyForDataSource(new DataSource("patches", zip, "patches/"));
+            var keyB = cacheKeyForDataSource(new DataSource("patches", zip, "patches/"));
 
             assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
         }
@@ -41,8 +41,8 @@ class CacheKeyBuilderTest {
 
         try (var zipA = new ZipFile(archiveA.toFile());
              var zipB = new ZipFile(archiveB.toFile())) {
-            var keyA = cacheKeyForDataSource("patches", new DataSource(zipA, "patches/"));
-            var keyB = cacheKeyForDataSource("patches", new DataSource(zipB, "patches/"));
+            var keyA = cacheKeyForDataSource(new DataSource("patches", zipA, "patches/"));
+            var keyB = cacheKeyForDataSource(new DataSource("patches", zipB, "patches/"));
 
             assertThat(keyA.hashValue()).isEqualTo(keyB.hashValue());
         }
@@ -57,8 +57,8 @@ class CacheKeyBuilderTest {
 
         try (var zipA = new ZipFile(archiveA.toFile());
              var zipB = new ZipFile(archiveB.toFile())) {
-            var keyA = cacheKeyForDataSource("patch", new DataSource(zipA, "data.txt"));
-            var keyB = cacheKeyForDataSource("patch", new DataSource(zipB, "data.txt"));
+            var keyA = cacheKeyForDataSource(new DataSource("patch", zipA, "data.txt"));
+            var keyB = cacheKeyForDataSource(new DataSource("patch", zipB, "data.txt"));
 
             assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
         }
@@ -77,12 +77,12 @@ class CacheKeyBuilderTest {
              var atsZipA = new ZipFile(atsArchiveA.toFile());
              var atsZipB = new ZipFile(atsArchiveB.toFile())) {
             var keyA = cacheKeyForDataSources(Map.of(
-                    "patches", new DataSource(patchesZip, "patches/"),
-                    "ats", new DataSource(atsZipA, "ats/")
+                    "patches", new DataSource("patches",patchesZip, "patches/"),
+                    "ats", new DataSource("ats", atsZipA, "ats/")
             ));
             var keyB = cacheKeyForDataSources(Map.of(
-                    "patches", new DataSource(patchesZip, "patches/"),
-                    "ats", new DataSource(atsZipB, "ats/")
+                    "patches", new DataSource("patches", patchesZip, "patches/"),
+                    "ats", new DataSource("ats", atsZipB, "ats/")
             ));
 
             assertThat(keyA.hashValue()).isNotEqualTo(keyB.hashValue());
@@ -96,7 +96,7 @@ class CacheKeyBuilderTest {
 
         try (var zip = new ZipFile(archive.toFile())) {
             var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(
-                    "patches", new DataSource(zip, "patches/")
+                    "patches", new DataSource("patches", zip, "patches/")
             ));
 
             assertThatThrownBy(() -> builder.addDataSources("data", List.of("patches", "patches")))
@@ -113,9 +113,9 @@ class CacheKeyBuilderTest {
                 .hasMessageContaining("missing");
     }
 
-    private static CacheKey cacheKeyForDataSource(String dataSourceId, DataSource dataSource) {
-        var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(dataSourceId, dataSource));
-        builder.addDataSource("data[" + dataSourceId + "]", dataSourceId);
+    private static CacheKey cacheKeyForDataSource(DataSource dataSource) {
+        var builder = new CacheKeyBuilder("test", new FileHashService(), Map.of(dataSource.id(), dataSource));
+        builder.addDataSource("data[" + dataSource.id() + "]", dataSource.id());
         return builder.build();
     }
 
