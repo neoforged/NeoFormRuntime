@@ -60,29 +60,12 @@ public class CacheKeyBuilder {
         }
 
         try {
-            add(component, hashDataSource(dataSource), prettifyPath(dataSource.archivePath()));
+            var hasher = new ZipContentHasher(dataSource.archive());
+            hasher.addPath(dataSource.folder());
+            add(component, hasher.getHash(), prettifyPath(dataSource.archivePath()));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to compute hash for data source " + dataSource, e);
         }
-    }
-
-    private String hashDataSource(DataSource dataSource) throws IOException {
-        var archive = dataSource.archive();
-        var dataPath = dataSource.folder();
-        var hasher = new ZipContentHasher(archive);
-
-        if (!dataPath.isEmpty()) {
-            var rootEntry = archive.getEntry(dataPath);
-            if (rootEntry != null && !rootEntry.isDirectory()) {
-                hasher.addEntry(rootEntry);
-                return hasher.getHash();
-            }
-        }
-
-        if (hasher.addFilteredEntriesFromPath(dataPath, entry -> !entry.isDirectory()) == 0) {
-            throw new IllegalArgumentException("Data source " + dataSource + " does not exist.");
-        }
-        return hasher.getHash();
     }
 
     public static String prettifyPath(Path path) {
