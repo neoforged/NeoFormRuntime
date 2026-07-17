@@ -46,6 +46,19 @@ class InjectFromZipFileSourceTest {
     }
 
     @Test
+    void cacheKeyDoesNotChangeWhenDirectoryEntriesChange(@TempDir Path tempDir) throws Exception {
+        var zipA = tempDir.resolve("a.zip");
+        var zipB = tempDir.resolve("b.zip");
+        zipEntries(Map.of("net/neoforged/test/A.java", "class A {}")).write(zipA);
+        zipEntries(Map.of(
+                "net/neoforged/test/", "",
+                "net/neoforged/test/A.java", "class A {}"
+        )).write(zipB);
+
+        assertThat(cacheKey(zipA).value()).isEqualTo(cacheKey(zipB).value());
+    }
+
+    @Test
     void cacheKeyChangesWhenIncludedContentChanges(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");

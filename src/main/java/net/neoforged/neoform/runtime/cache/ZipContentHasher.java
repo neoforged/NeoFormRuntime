@@ -45,17 +45,17 @@ public final class ZipContentHasher {
             }
         }
 
-        if (addEntriesUnderPath(path, entry -> !entry.isDirectory()) == 0) {
+        if (addFileEntriesUnderPath(path, entry -> true) == 0) {
             throw new IllegalArgumentException("ZIP path " + path + " does not select any file entries in " + zipFile.getName());
         }
     }
 
-    public int addEntriesUnderPath(String path, Predicate<ZipEntry> entryFilter) throws IOException {
+    public int addFileEntriesUnderPath(String path, Predicate<ZipEntry> entryFilter) throws IOException {
         int count = 0;
         var entries = zipFile.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if ((path.isEmpty() || entry.getName().startsWith(path)) && entryFilter.test(entry)) {
+            if (!entry.isDirectory() && (path.isEmpty() || entry.getName().startsWith(path)) && entryFilter.test(entry)) {
                 addEntry(entry);
                 count++;
             }
