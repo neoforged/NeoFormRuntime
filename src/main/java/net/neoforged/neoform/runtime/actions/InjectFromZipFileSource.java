@@ -66,7 +66,7 @@ public class InjectFromZipFileSource implements InjectSource {
     @Override
     public CacheKey.AnnotatedValue getCacheKey(FileHashService fileHashService) throws IOException {
         var hasher = new ZipContentHasher(zf, contentFilter::copy);
-        hasher.addFilteredEntriesFromPath(sourcePath, this::matchesIncludeFilter);
+        hasher.addEntriesUnderPath(sourcePath, this::matchesIncludeFilter);
 
         return new CacheKey.AnnotatedValue(
                 hasher.getHash(),
