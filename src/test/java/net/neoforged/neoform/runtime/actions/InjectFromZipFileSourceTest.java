@@ -28,8 +28,19 @@ class InjectFromZipFileSourceTest {
         );
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, entries, false);
-        writeZip(zipB, entries, true);
+        zipEntries(entries).write(zipA);
+        zipEntries(entries).reverseEntries().write(zipB);
+
+        assertThat(cacheKey(zipA).value()).isEqualTo(cacheKey(zipB).value());
+    }
+
+    @Test
+    void cacheKeyDoesNotChangeWhenZipEntryTimesChange(@TempDir Path tempDir) throws Exception {
+        var entries = Map.of("net/neoforged/test/A.java", "class A {}");
+        var zipA = tempDir.resolve("a.zip");
+        var zipB = tempDir.resolve("b.zip");
+        zipEntries(entries).setTime(0).write(zipA);
+        zipEntries(entries).setTime(1000).write(zipB);
 
         assertThat(cacheKey(zipA).value()).isEqualTo(cacheKey(zipB).value());
     }
@@ -38,8 +49,8 @@ class InjectFromZipFileSourceTest {
     void cacheKeyChangesWhenIncludedContentChanges(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, Map.of("net/neoforged/test/A.java", "class A {}"), false);
-        writeZip(zipB, Map.of("net/neoforged/test/A.java", "class Changed {}"), false);
+        zipEntries(Map.of("net/neoforged/test/A.java", "class A {}")).write(zipA);
+        zipEntries(Map.of("net/neoforged/test/A.java", "class Changed {}")).write(zipB);
 
         assertThat(cacheKey(zipA).value()).isNotEqualTo(cacheKey(zipB).value());
     }
@@ -48,8 +59,8 @@ class InjectFromZipFileSourceTest {
     void cacheKeyChangesWhenIncludedEntryNameChanges(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, Map.of("net/neoforged/test/A.java", "class Example {}"), false);
-        writeZip(zipB, Map.of("net/neoforged/test/B.java", "class Example {}"), false);
+        zipEntries(Map.of("net/neoforged/test/A.java", "class Example {}")).write(zipA);
+        zipEntries(Map.of("net/neoforged/test/B.java", "class Example {}")).write(zipB);
 
         assertThat(cacheKey(zipA).value()).isNotEqualTo(cacheKey(zipB).value());
     }
@@ -58,14 +69,14 @@ class InjectFromZipFileSourceTest {
     void cacheKeyDoesNotChangeWhenExcludedContentChanges(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, Map.of(
+        zipEntries(Map.of(
                 "net/neoforged/test/A.java", "class A {}",
                 "net/neoforged/test/A.txt", "a"
-        ), false);
-        writeZip(zipB, Map.of(
+        )).write(zipA);
+        zipEntries(Map.of(
                 "net/neoforged/test/A.java", "class A {}",
                 "net/neoforged/test/A.txt", "b"
-        ), false);
+        )).write(zipB);
 
         var includeJava = Pattern.compile(".*\\.java");
 
@@ -77,8 +88,8 @@ class InjectFromZipFileSourceTest {
     void cacheKeyUsesContentFilterOutput(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, Map.of("META-INF/MANIFEST.MF", "Digest: a"), false);
-        writeZip(zipB, Map.of("META-INF/MANIFEST.MF", "Digest: b"), false);
+        zipEntries(Map.of("META-INF/MANIFEST.MF", "Digest: a")).write(zipA);
+        zipEntries(Map.of("META-INF/MANIFEST.MF", "Digest: b")).write(zipB);
 
         InjectFromZipFileSource.ContentFilter normalizeManifest = (entry, in, out) -> out.write("normalized".getBytes(StandardCharsets.UTF_8));
 
@@ -90,14 +101,14 @@ class InjectFromZipFileSourceTest {
     void cacheKeyDoesNotChangeWhenEntriesOutsideSourcePathChange(@TempDir Path tempDir) throws Exception {
         var zipA = tempDir.resolve("a.zip");
         var zipB = tempDir.resolve("b.zip");
-        writeZip(zipA, Map.of(
+        zipEntries(Map.of(
                 "source/A.java", "class A {}",
                 "other/A.java", "class OtherA {}"
-        ), false);
-        writeZip(zipB, Map.of(
+        )).write(zipA);
+        zipEntries(Map.of(
                 "source/A.java", "class A {}",
                 "other/A.java", "class OtherB {}"
-        ), false);
+        )).write(zipB);
 
         assertThat(cacheKey(zipA, "source/", null, null).value())
                 .isEqualTo(cacheKey(zipB, "source/", null, null).value());
@@ -116,19 +127,43 @@ class InjectFromZipFileSourceTest {
         }
     }
 
-    private static void writeZip(Path path, Map<String, String> entries, boolean reverseEntries) throws IOException {
-        var zipEntries = new ArrayList<>(entries.entrySet());
-        if (reverseEntries) {
-            Collections.reverse(zipEntries);
+    private static ZipEntryBuilder zipEntries(Map<String, String> entries) {
+        return new ZipEntryBuilder(entries);
+    }
+
+    private static final class ZipEntryBuilder {
+        private final ArrayList<Map.Entry<String, String>> entries;
+        private long time;
+        private boolean reverseEntries;
+
+        private ZipEntryBuilder(Map<String, String> entries) {
+            this.entries = new ArrayList<>(entries.entrySet());
         }
 
-        try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
-            for (var entry : zipEntries) {
-                var zipEntry = new ZipEntry(entry.getKey());
-                zipEntry.setTime(0);
-                output.putNextEntry(zipEntry);
-                output.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
-                output.closeEntry();
+        private ZipEntryBuilder reverseEntries() {
+            reverseEntries = true;
+            return this;
+        }
+
+        private ZipEntryBuilder setTime(long time) {
+            this.time = time;
+            return this;
+        }
+
+        private void write(Path path) throws IOException {
+            var zipEntries = new ArrayList<>(entries);
+            if (reverseEntries) {
+                Collections.reverse(zipEntries);
+            }
+
+            try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
+                for (var entry : zipEntries) {
+                    var zipEntry = new ZipEntry(entry.getKey());
+                    zipEntry.setTime(time);
+                    output.putNextEntry(zipEntry);
+                    output.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
+                    output.closeEntry();
+                }
             }
         }
     }
