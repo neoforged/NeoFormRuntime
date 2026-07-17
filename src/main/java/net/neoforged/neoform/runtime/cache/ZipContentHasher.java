@@ -36,7 +36,7 @@ public final class ZipContentHasher {
         entries.put(entry.getName(), new CacheKey.AnnotatedValue(hashEntry(entry), null));
     }
 
-    public void addFileOrDirectoryPath(String path) throws IOException {
+    public void addDataSourcePath(String path) throws IOException {
         if (!path.isEmpty()) {
             var rootEntry = zipFile.getEntry(path);
             if (rootEntry != null && !rootEntry.isDirectory()) {

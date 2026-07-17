@@ -61,7 +61,7 @@ public class CacheKeyBuilder {
 
         try {
             var hasher = new ZipContentHasher(dataSource.archive());
-            hasher.addFileOrDirectoryPath(dataSource.folder());
+            hasher.addDataSourcePath(dataSource.folder());
             add(component, hasher.getHash(), prettifyPath(dataSource.archivePath()));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to compute hash for data source " + dataSource, e);
