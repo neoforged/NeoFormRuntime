@@ -80,11 +80,6 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
             cacheManager.setDisabled(disableCache);
             cacheManager.setAnalyzeMisses(analyzeCacheMisses);
 
-            if (!disableCacheMaintenance) {
-                cacheManager.performMaintenance();
-                lockManager.performMaintenance();
-            }
-
             var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
 
             var fileHashService = new FileHashService();
@@ -103,6 +98,11 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
                 applyBuildOptions(engine);
 
                 runWithNeoFormEngine(engine, closables);
+            }
+
+            if (!disableCacheMaintenance) {
+                cacheManager.performMaintenance();
+                lockManager.performMaintenance();
             }
         } finally {
             for (var closable : closables) {

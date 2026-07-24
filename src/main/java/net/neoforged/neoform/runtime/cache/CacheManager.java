@@ -213,11 +213,14 @@ public class CacheManager implements AutoCloseable {
             return;
         }
 
-        LOG.println("Cache size exceeds target size. Deleting oldest entries first.");
+        LOG.println("Cache size exceeds target size. Deleting least-recently-used entries first.");
 
-        // If the total size still exceeds the target, group remaining cache entries by key and find the biggest impact
+        // If the total size still exceeds the target, group remaining cache entries by key and evict the
+        // least-recently-used groups first. The marker (.txt) file's modification time is refreshed on every
+        // cache hit (see restoreOutputsFromCache), so the most recent modification time within a group
+        // reflects when that cached step was last used.
         var groupedEntries = new ArrayList<>(entries.stream().collect(Collectors.groupingBy(CacheEntry::cacheKey)).values());
-        groupedEntries.sort(Comparator.<List<CacheEntry>>comparingLong(group -> group.stream().mapToLong(CacheEntry::size).sum()).reversed());
+        groupedEntries.sort(Comparator.<List<CacheEntry>>comparingLong(group -> group.stream().mapToLong(CacheEntry::lastModified).max().orElse(0L)));
         long freedSpace = 0;
         var deletedEntries = 0;
         for (var group : groupedEntries) {
