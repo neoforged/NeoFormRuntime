@@ -59,14 +59,13 @@ public class CacheKeyBuilder {
             throw new IllegalArgumentException("Data source " + dataSourceId + " is not defined");
         }
 
-        var archivePath = dataSource.archivePath();
-        String hashValue;
         try {
-            hashValue = fileHashService.getHashValue(archivePath);
+            var hasher = new ZipContentHasher(dataSource.archive());
+            hasher.addFileEntriesAtOrUnderPath(dataSource.folder());
+            add(component, hasher.getHash(), prettifyPath(dataSource.archivePath()));
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to compute hash for archive " + archivePath, e);
+            throw new UncheckedIOException("Failed to compute hash for data source " + dataSource, e);
         }
-        add(component, hashValue, prettifyPath(archivePath));
     }
 
     public static String prettifyPath(Path path) {

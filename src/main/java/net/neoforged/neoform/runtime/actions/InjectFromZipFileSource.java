@@ -1,16 +1,13 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKey;
+import net.neoforged.neoform.runtime.cache.ZipContentHasher;
 import net.neoforged.neoform.runtime.cli.FileHashService;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.security.DigestOutputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -68,27 +65,11 @@ public class InjectFromZipFileSource implements InjectSource {
 
     @Override
     public CacheKey.AnnotatedValue getCacheKey(FileHashService fileHashService) throws IOException {
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA1");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-        var digestStream = new DigestOutputStream(OutputStream.nullOutputStream(), digest);
-
-        var entries = zf.entries();
-        while (entries.hasMoreElements()) {
-            var entry = entries.nextElement();
-            if ((sourcePath.isEmpty() || entry.getName().startsWith(sourcePath)) && matchesIncludeFilter(entry)) {
-                digestStream.write(entry.getName().getBytes());
-                try (var in = zf.getInputStream(entry)) {
-                    contentFilter.copy(entry, in, digestStream);
-                }
-            }
-        }
+        var hasher = new ZipContentHasher(zf, contentFilter::copy);
+        hasher.addFileEntriesUnderPath(sourcePath, this::matchesIncludeFilter);
 
         return new CacheKey.AnnotatedValue(
-                HexFormat.of().formatHex(digest.digest()),
+                hasher.getHash(),
                 sourcePath + " from " + zf.getName() + (includeFilterPattern == null ? "" : " matching " + includeFilterPattern.pattern())
         );
     }
