@@ -189,6 +189,16 @@ idea {
                     programParameters = "run --dist joined --neoform net.neoforged:neoform:1.21-20240613.152323@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
                     moduleRef(project, sourceSets.main)
                 }
+                "Run Neoform 26.1 (joined) - common/client split"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoform net.neoforged:neoform:26.1-1@zip --write-result=gameCommonSources:build/common-sources.jar --write-result=gameClientSources:build/client-sources.jar --write-result=gameCommonJar:build/common.jar --write-result=gameClientJar:build/client.jar --write-result=gameCommonJarWithSources:build/common-with-sources.jar --write-result=gameClientJarWithSources:build/client-with-sources.jar --write-result=gameCommonJarNoRecomp:build/common-norecomp.jar --write-result=gameClientJarNoRecomp:build/client-norecomp.jar"
+                    moduleRef(project, sourceSets.main)
+                }
+                "Run Neoforge 26.1 (joined) - common/client split"(Application) {
+                    mainClass = mainClassName
+                    programParameters = "run --dist joined --neoforge net.neoforged:neoforge:26.1.2.29-beta:userdev --write-result=gameCommonSources:build/common-sources.jar --write-result=gameClientSources:build/client-sources.jar --write-result=gameCommonJarNoRecomp:build/common-norecomp.jar --write-result=gameClientJarNoRecomp:build/client-norecomp.jar --write-result=gameCommonJarNoRecompWithNeoForge:build/common-norecomp-neoforge.jar --write-result=gameClientJarNoRecompWithNeoForge:build/client-norecomp-neoforge.jar --write-result=gameCommonJarWithNeoForge:build/common-recomp-neoforge.jar --write-result=gameClientJarWithNeoForge:build/client-recomp-neoforge.jar --write-result=gameCommonSourcesWithNeoForge:build/common-sources-neoforge.jar --write-result=gameClientSourcesWithNeoForge:build/client-sources-neoforge.jar --write-result=gameCommonJarWithSourcesAndNeoForge:build/common-recomp-sources-neoforge.jar --write-result=gameClientJarWithSourcesAndNeoForge:build/client-recomp-sources-neoforge.jar"
+                    moduleRef(project, sourceSets.main)
+                }
                 "Run Neoforge 1.20.6 (joined) + Parchment"(Application) {
                     mainClass = mainClassName
                     programParameters = "run --dist joined --neoforge net.neoforged:neoforge:20.6.72-beta:userdev --add-repository=https://maven.parchmentmc.org --parchment-data=org.parchmentmc.data:parchment-1.20.6:2024.05.01:checked@zip --write-result=gameJar:build/minecraft.jar --write-result=clientResources:build/client-extra.jar --write-result=gameSources:build/minecraft-sources.jar"
