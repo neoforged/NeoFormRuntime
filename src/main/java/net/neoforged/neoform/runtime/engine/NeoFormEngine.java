@@ -595,9 +595,37 @@ public class NeoFormEngine implements AutoCloseable {
             LOG.println(AnsiColor.MUTED + StringUtil.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
         }
 
+        try {
+            // Check for a complete cache hit before taking the node lock. This
+            // lets parallel Gradle/NFRT processes reuse a published cache entry
+            // without waiting behind another process that is producing or
+            // checking the same cache key.
+            //
+            // writeResults holds the cache-use lock while nodes run and
+            // requested results are copied. With cleanup excluded, the restored
+            // cache paths remain valid for the rest of that operation. Writers
+            // publish entries by moving every output into the cache before
+            // writing the marker file, and restore only succeeds when that
+            // marker and every declared output file are present.
+            //
+            // Skip miss analysis here; the locked fallback below performs the
+            // normal restore check and miss analysis.
+            var preLockOutputValues = new HashMap<String, Path>();
+            if (cacheManager.restoreOutputsFromCacheWithoutMissAnalysis(node, cacheKey, preLockOutputValues)) {
+                node.complete(preLockOutputValues, true);
+                return;
+            }
+        } catch (Throwable t) {
+            node.fail();
+            throw new NodeExecutionException(node, t);
+        }
+
         try (var lock = lockManager.lock(cacheKey.toString())) {
             var outputValues = new HashMap<String, Path>();
 
+            // Keep the locked restore as a race-safe fallback to avoid doing
+            // the work twice. Another process may have populated the cache
+            // while this invocation was waiting for the node lock.
             if (cacheManager.restoreOutputsFromCache(node, cacheKey, outputValues)) {
                 node.complete(outputValues, true);
                 return;

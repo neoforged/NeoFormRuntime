@@ -285,13 +285,20 @@ public class CacheManager implements AutoCloseable {
     }
 
     public boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {
+        return restoreOutputsFromCache(node, cacheKey, outputValues, analyzeMisses);
+    }
+
+    public boolean restoreOutputsFromCacheWithoutMissAnalysis(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues) throws IOException {
+        return restoreOutputsFromCache(node, cacheKey, outputValues, false);
+    }
+
+    private boolean restoreOutputsFromCache(ExecutionNode node, CacheKey cacheKey, Map<String, Path> outputValues, boolean analyzeMisses) throws IOException {
         if (disabled) {
             return false;
         }
 
         var intermediateCacheDir = getIntermediateResultsDir();
         var cacheMarkerFile = getCacheMarkerFile(cacheKey);
-        Files.createDirectories(intermediateCacheDir);
         if (Files.isRegularFile(cacheMarkerFile)) {
             // Try to rebuild output values from cache
             boolean complete = true;
@@ -324,6 +331,7 @@ public class CacheManager implements AutoCloseable {
         }
 
         var intermediateCacheDir = getIntermediateResultsDir();
+        Files.createDirectories(intermediateCacheDir);
         var finalOutputValues = new HashMap<String, Path>(outputValues.size());
         for (var entry : outputValues.entrySet()) {
             var filename = cacheKey + "_" + entry.getKey() + node.getRequiredOutput(entry.getKey()).type().getExtension();
