@@ -31,7 +31,7 @@ public class CacheKeyBuilder {
             try {
                 return new CacheKey.AnnotatedValue(fileHashService.getHashValue(path), path.toString());
             } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                throw new UncheckedIOException(createHashFailureExceptionMessage(component, path), e);
             }
         }).toList());
     }
@@ -41,7 +41,7 @@ public class CacheKeyBuilder {
         try {
             hashValue = fileHashService.getHashValue(path);
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new UncheckedIOException(createHashFailureExceptionMessage(component, path), e);
         }
 
         add(component, hashValue, prettifyPath(path));
@@ -125,5 +125,11 @@ public class CacheKeyBuilder {
 
     public FileHashService getFileHashService() {
         return fileHashService;
+    }
+
+    private static String createHashFailureExceptionMessage(String component, Path path) {
+        return "Failed to hash path " + path + " for cache key component '" + component
+                + "'. The file may have been deleted while this NeoFormRuntime run was still using it, "
+                + "for example by an older NeoFormRuntime version or by manual deletion.";
     }
 }
