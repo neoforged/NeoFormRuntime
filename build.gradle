@@ -60,6 +60,10 @@ jar {
 
 AdhocComponentWithVariants javaComponent = (AdhocComponentWithVariants) project.components.getByName("java")
 
+sourceSets {
+    integrationTest
+}
+
 configurations {
     changelog {
         canBeResolved = false
@@ -84,6 +88,16 @@ configurations {
         }
         components.java.addVariantsFromConfiguration(it) {}
     }
+    integrationTestTools {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+def toolVersions = new java.util.Properties()
+file("src/main/resources/tools.properties").withInputStream {
+    toolVersions.load(it)
 }
 
 dependencies {
@@ -104,13 +118,15 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
     testImplementation 'org.mockito:mockito-junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
+    integrationTestImplementation platform('org.junit:junit-bom:5.13.2')
+    integrationTestImplementation platform('org.assertj:assertj-bom:3.27.3')
+    integrationTestImplementation 'org.junit.jupiter:junit-jupiter'
+    integrationTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    integrationTestImplementation 'org.assertj:assertj-core'
+    integrationTestTools toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER")
 }
 
 // Add dependencies to external tools
-var toolVersions = new java.util.Properties()
-file("src/main/resources/tools.properties").withInputStream {
-    toolVersions.load(it)
-}
 for (var toolDependency : toolVersions.values()) {
     dependencies {
         externalTools(toolDependency)
@@ -128,6 +144,24 @@ artifacts {
 
 test {
     useJUnitPlatform()
+    dependsOn "integrationTest"
+}
+
+tasks.register("integrationTest", Test) {
+    description = "Runs tests against the packaged NFRT command line"
+    group = "verification"
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    dependsOn shadowJar
+    inputs.file(shadowJar.archiveFile)
+    inputs.files(configurations.integrationTestTools)
+    inputs.property("javaSourceTransformerCoordinate", toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER"))
+    doFirst {
+        systemProperty "nfrt.test.executable-jar", shadowJar.archiveFile.get().asFile.absolutePath
+        systemProperty "nfrt.test.java-source-transformer-coordinate", toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER")
+        systemProperty "nfrt.test.java-source-transformer-jar", configurations.integrationTestTools.singleFile.absolutePath
+    }
 }
 
 publishing {

@@ -109,12 +109,12 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
             for (var path : validatedAccessTransformers) {
                 args.add("--access-transformer");
-                args.add(environment.getPathArgument(path));
+                args.add(environment.getPathArgument(path.toAbsolutePath()));
             }
 
             for (var path : additionalAccessTransformers) {
                 args.add("--access-transformer");
-                args.add(environment.getPathArgument(path));
+                args.add(environment.getPathArgument(path.toAbsolutePath()));
             }
         }
 
