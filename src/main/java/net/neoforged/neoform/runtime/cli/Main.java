@@ -57,7 +57,7 @@ public class Main {
     boolean warnOnArtifactManifestMiss;
 
     @Option(names = "--launcher-meta-uri", scope = ScopeType.INHERIT)
-    URI launcherManifestUrl = URI.create("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json");
+    URI launcherManifestUrl = URI.create("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
 
     @Option(
             names = "--verbose",

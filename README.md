@@ -55,7 +55,7 @@ This produces the Vanilla artifacts in build/
 | `--access-transformer=<path>`       | Adds access transformers which will be applied to the source before recompiling it.                                                                                                                                                                     |
 | `--interface-injection-data=<path>` | Adds [interface injection data](https://github.com/neoforged/JavaSourceTransformer?tab=readme-ov-file#interface-injection) which will be applied to the source before recompiling it.                                                                   |
 | `--repository=<uri>`                | Adds additional repositories that NFRT will use when it downloads artifacts. By default, the NeoForge repository and local Maven are used.                                                                                                              |
-| `--launcher-meta-uri=<url>`         | Specifies a different URL to download the Launcher manifest from. The default is `https://launchermeta.mojang.com/mc/game/version_manifest_v2.json`                                                                                                     |                                                                                             |
+| `--launcher-meta-uri=<url>`         | Specifies a different URL to download the Launcher manifest from. The default is `https://piston-meta.mojang.com/mc/game/version_manifest_v2.json`                                                                                                     |                                                                                             |
 | `--disable-cache`                   | Disables use of the intermediate result cache.                                                                                                                                                                                                          |
 | `--print-graph`                     | Prints information about the execution graph used to create the artifacts.                                                                                                                                                                              |
 | `--use-eclipse-compiler`            | When recompiling Minecraft sources, use the Eclipse compiler rather than javac. The Eclipse compiler is able to compile in parallel, while javac is single-threaded.                                                                                    |
@@ -158,7 +158,7 @@ NFRT will continue to download the artifact remotely in this case.
 
 ### Mojang Launcher Manifest
 
-The full URL to the [Launcher version manifest](https://launchermeta.mojang.com/mc/game/version_manifest_v2.json) can be
+The full URL to the [Launcher version manifest](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json) can be
 overridden using `--launcher-meta-uri`.
 
 ### Output Settings
