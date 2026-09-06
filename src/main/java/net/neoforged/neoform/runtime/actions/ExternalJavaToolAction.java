@@ -313,6 +313,20 @@ public class ExternalJavaToolAction implements ExecutionNodeAction {
 
     public void setJvmArgs(List<String> jvmArgs) {
         this.jvmArgs = Objects.requireNonNull(jvmArgs);
+
+        // NeoForm hardcodes 4G for Vineflower, but Vineflower will use one thread per core
+        // and the RAM usage should scale with the number of cores.
+        if (isVineflower()) {
+            int allowedMebibytes = Math.max(
+                    // At least 4G
+                    4096,
+                    // Allocate 256M per core
+                    256 * Runtime.getRuntime().availableProcessors());
+            boolean hasXmx = this.jvmArgs.removeIf(s -> s.startsWith("-Xmx"));
+            if (hasXmx) {
+                this.jvmArgs.add("-Xmx" + allowedMebibytes + "m");
+            }
+        }
     }
 
     public List<String> getArgs() {
