@@ -37,6 +37,18 @@ repositories {
             includeModule("net.fabricmc", "fabric-loom-native")
         }
     }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "MinecraftForge"
+                url = "https://maven.minecraftforge.net/"
+            }
+        }
+        filter {
+            includeModule("net.minecraftforge", "mergetool")
+        }
+    }
 }
 
 java {
@@ -59,6 +71,10 @@ jar {
 }
 
 AdhocComponentWithVariants javaComponent = (AdhocComponentWithVariants) project.components.getByName("java")
+
+sourceSets {
+    integrationTest
+}
 
 configurations {
     changelog {
@@ -84,6 +100,33 @@ configurations {
         }
         components.java.addVariantsFromConfiguration(it) {}
     }
+    integrationTestJavaSourceTransformer {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    integrationTestDiffPatch {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    integrationTestInstallerTools {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    integrationTestSideAnnotationStripper {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    integrationTestImplementation.extendsFrom(testImplementation)
+    integrationTestRuntimeOnly.extendsFrom(testRuntimeOnly)
+}
+
+def toolVersions = new java.util.Properties()
+file("src/main/resources/tools.properties").withInputStream {
+    toolVersions.load(it)
 }
 
 dependencies {
@@ -105,13 +148,14 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
     testImplementation 'org.mockito:mockito-junit-jupiter'
     testImplementation 'org.assertj:assertj-core'
+    integrationTestCompileOnly sourceSets.main.output
+    integrationTestJavaSourceTransformer toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER")
+    integrationTestDiffPatch toolVersions.getProperty("DIFF_PATCH")
+    integrationTestInstallerTools toolVersions.getProperty("INSTALLER_TOOLS")
+    integrationTestSideAnnotationStripper toolVersions.getProperty("MCF_SIDE_ANNOTATION_STRIPPER")
 }
 
 // Add dependencies to external tools
-var toolVersions = new java.util.Properties()
-file("src/main/resources/tools.properties").withInputStream {
-    toolVersions.load(it)
-}
 for (var toolDependency : toolVersions.values()) {
     dependencies {
         externalTools(toolDependency)
@@ -129,6 +173,40 @@ artifacts {
 
 test {
     useJUnitPlatform()
+}
+
+final integrationTest = tasks.register("integrationTest", Test) {
+    description = "Runs tests against the packaged NFRT command line"
+    group = "verification"
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    dependsOn shadowJar
+    inputs.file(shadowJar.archiveFile)
+    inputs.files(
+            configurations.integrationTestJavaSourceTransformer,
+            configurations.integrationTestDiffPatch,
+            configurations.integrationTestInstallerTools,
+            configurations.integrationTestSideAnnotationStripper
+    )
+    inputs.property("javaSourceTransformerCoordinate", toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER"))
+    inputs.property("diffPatchCoordinate", toolVersions.getProperty("DIFF_PATCH"))
+    inputs.property("installerToolsCoordinate", toolVersions.getProperty("INSTALLER_TOOLS"))
+    inputs.property("sideAnnotationStripperCoordinate", toolVersions.getProperty("MCF_SIDE_ANNOTATION_STRIPPER"))
+    doFirst {
+        systemProperty "nfrt.test.executable-jar", shadowJar.archiveFile.get().asFile.absolutePath
+        systemProperty "nfrt.test.java-source-transformer-coordinate", toolVersions.getProperty("JAVA_SOURCE_TRANSFORMER")
+        systemProperty "nfrt.test.java-source-transformer-jar", configurations.integrationTestJavaSourceTransformer.singleFile.absolutePath
+        systemProperty "nfrt.test.diff-patch-coordinate", toolVersions.getProperty("DIFF_PATCH")
+        systemProperty "nfrt.test.diff-patch-jar", configurations.integrationTestDiffPatch.singleFile.absolutePath
+        systemProperty "nfrt.test.installer-tools-coordinate", toolVersions.getProperty("INSTALLER_TOOLS")
+        systemProperty "nfrt.test.installer-tools-jar", configurations.integrationTestInstallerTools.singleFile.absolutePath
+        systemProperty "nfrt.test.side-annotation-stripper-coordinate", toolVersions.getProperty("MCF_SIDE_ANNOTATION_STRIPPER")
+        systemProperty "nfrt.test.side-annotation-stripper-jar", configurations.integrationTestSideAnnotationStripper.singleFile.absolutePath
+    }
+}
+tasks.named("check") {
+    dependsOn integrationTest
 }
 
 publishing {
