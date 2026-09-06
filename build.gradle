@@ -62,6 +62,11 @@ tasks.withType(JavaCompile).configureEach() {
     options.encoding = "UTF-8"
 }
 
+tasks.withType(Test).configureEach() {
+    // Keep test output stable, including output from Java processes launched by integration tests.
+    environment "_JAVA_OPTIONS", "-Duser.language=en -Duser.country=US"
+}
+
 def mainClassName = 'net.neoforged.neoform.runtime.cli.Main'
 
 jar {
