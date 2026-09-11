@@ -23,8 +23,6 @@ import net.neoforged.neoform.runtime.graph.NodeOutputType;
 import net.neoforged.neoform.runtime.graph.transforms.ModifyAction;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeInput;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
-import net.neoforged.neoform.runtime.utils.FileUtil;
-import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
@@ -35,11 +33,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -462,25 +457,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             System.exit(1);
         }
 
-        var results = engine.createResults(neededResults.keySet().toArray(new String[0]));
-
-        for (var entry : neededResults.entrySet()) {
-            var result = results.get(entry.getKey());
-            if (result == null) {
-                throw new IllegalStateException("Result " + entry.getKey() + " was requested but not produced");
-            }
-            var resultFileHash = HashingUtil.hashFile(result, "SHA-1");
-            try {
-                if (HashingUtil.hashFile(entry.getValue(), "SHA-1").equals(resultFileHash)) {
-                    continue; // Nothing to do the file already matches
-                }
-            } catch (NoSuchFileException ignored) {
-            }
-
-            var tmpFile = Paths.get(entry.getValue() + ".tmp");
-            Files.copy(result, tmpFile, StandardCopyOption.REPLACE_EXISTING);
-            FileUtil.atomicMove(tmpFile, entry.getValue());
-        }
+        engine.writeResults(neededResults);
     }
 
     private static ApplySourceTransformAction getOrAddTransformSourcesAction(NeoFormEngine engine) {

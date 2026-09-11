@@ -1,5 +1,6 @@
 package net.neoforged.neoform.runtime.cache;
 
+import net.mezzdev.readwritefilelock.ReadWriteFileLock;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
 import net.neoforged.neoform.runtime.utils.FileUtil;
@@ -8,6 +9,7 @@ import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.StringUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -61,6 +63,13 @@ public class CacheManager implements AutoCloseable {
     private final Path workspacesDir;
 
     /**
+     * Coordinates cleanup with processes that are using intermediate cache files.
+     * Readers hold the lock while returned cache paths may still be copied. Cleanup
+     * holds the write lock before deleting cache files.
+     */
+    private final ReadWriteFileLock cacheUseLock;
+
+    /**
      * Maximum age of cache entries in the intermediate work cache in hours.
      */
     private long maxAgeInHours = 24 * 31;
@@ -80,6 +89,7 @@ public class CacheManager implements AutoCloseable {
         this.intermediateResultsDir = homeDir.resolve("intermediate_results");
         this.assetsDir = Objects.requireNonNullElse(assetsDir, homeDir.resolve("assets"));
         this.workspacesDir = workspacesDir;
+        this.cacheUseLock = ReadWriteFileLock.forFile(homeDir.resolve("nfrt_cache_use.lock"));
     }
 
     public void performMaintenance() throws IOException {
@@ -109,11 +119,18 @@ public class CacheManager implements AutoCloseable {
                     return;
                 }
 
-                LOG.println("Performing periodic cache maintenance on " + homeDir);
+                try (var useLock = cacheUseLock.tryLockForWrite()) {
+                    if (useLock == null) {
+                        LOG.println("Cache is currently in use. Skipping periodic cache maintenance.");
+                        return;
+                    }
 
-                cleanUpIntermediateResults();
+                    LOG.println("Performing periodic cache maintenance on " + homeDir);
 
-                Files.setLastModifiedTime(cacheLock, FileTime.from(Instant.now()));
+                    cleanUpIntermediateResultsLocked();
+
+                    Files.setLastModifiedTime(cacheLock, FileTime.from(Instant.now()));
+                }
 
                 return;
             }
@@ -127,6 +144,20 @@ public class CacheManager implements AutoCloseable {
     }
 
     /**
+     * Prevents cleanup from deleting intermediate-cache files while they're being used.
+     * <p>
+     * The node lock still protects each cache key. This lock covers the longer lifetime
+     * where returned cache paths may be read after the node lock has been released.
+     */
+    public Closeable lockCacheForUse() throws IOException {
+        if (disabled) {
+            return () -> {
+            };
+        }
+        return cacheUseLock.lockForRead();
+    }
+
+    /**
      * Cleans the cache of intermediate results based on two goals:
      * <ol>
      * <li>Removing cache entries that have not been used for a given number of hours. We use the last modification
@@ -135,6 +166,12 @@ public class CacheManager implements AutoCloseable {
      * </ul>
      */
     public void cleanUpIntermediateResults() throws IOException {
+        try (var lock = cacheUseLock.lockForWrite()) {
+            cleanUpIntermediateResultsLocked();
+        }
+    }
+
+    private void cleanUpIntermediateResultsLocked() throws IOException {
         if (!Files.exists(intermediateResultsDir)) {
             return;
         }
