@@ -9,12 +9,13 @@ import net.neoforged.neoform.runtime.actions.InjectFromZipFileSource;
 import net.neoforged.neoform.runtime.actions.InjectZipContentAction;
 import net.neoforged.neoform.runtime.actions.MergeWithSourcesAction;
 import net.neoforged.neoform.runtime.actions.PatchActionFactory;
-import net.neoforged.neoform.runtime.actions.RecompileSourcesAction;
 import net.neoforged.neoform.runtime.actions.StripManifestDigestContentFilter;
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.config.neoforge.BinpatcherConfig;
 import net.neoforged.neoform.runtime.config.neoforge.NeoForgeConfig;
+import net.neoforged.neoform.runtime.engine.ClasspathConfiguration;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
+import net.neoforged.neoform.runtime.engine.ProcessGeneration;
 import net.neoforged.neoform.runtime.graph.ExecutionGraph;
 import net.neoforged.neoform.runtime.graph.ExecutionNode;
 import net.neoforged.neoform.runtime.graph.NodeInput;
@@ -95,6 +96,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     protected void runWithNeoFormEngine(NeoFormEngine engine, List<AutoCloseable> closables) throws IOException, InterruptedException {
         var artifactManager = engine.getArtifactManager();
 
+        ProcessGeneration processGeneration;
         if (sourceArtifacts.neoforge != null) {
             var neoforgeArtifact = artifactManager.get(sourceArtifacts.neoforge);
             var neoforgeZipFile = engine.addManagedResource(new JarFile(neoforgeArtifact.path().toFile()));
@@ -108,14 +110,20 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             } else {
                 neoformArtifact = artifactManager.get(neoforgeConfig.neoformArtifact()).path();
             }
+            var neoforgeClasses = artifactManager.get(neoforgeConfig.universalArtifact()).path();
+            var additionalCompileClasspath = new ArrayList<ClasspathItem>();
+            for (var library : neoforgeConfig.libraries()) {
+                additionalCompileClasspath.add(ClasspathItem.of(library));
+            }
+            additionalCompileClasspath.add(ClasspathItem.of(neoforgeClasses));
 
-            engine.loadNeoFormData(neoformArtifact, dist);
+            processGeneration = engine.loadNeoFormData(neoformArtifact, dist, additionalCompileClasspath);
 
-            applyNeoForgeProcessTransforms(engine, neoforgeZipFile, neoforgeConfig);
+            applyNeoForgeProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, processGeneration, neoforgeClasses);
         } else {
             var neoFormDataPath = artifactManager.get(sourceArtifacts.neoform).path();
 
-            engine.loadNeoFormData(neoFormDataPath, dist);
+            processGeneration = engine.loadNeoFormData(neoFormDataPath, dist, List.of());
         }
 
         applyAdditionalAccessTransformers(engine);
@@ -135,7 +143,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             };
             // Before 1.20.2, sources were still in SRG, while parchment was defined using Mojang names.
             // Hence, we need to apply Parchment after we remap SRG to Mojang names
-            if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+            if (processGeneration.sourcesUseIntermediaryNames()) {
                 engine.applyTransform(new ReplaceNodeOutput("remapSrgSourcesToOfficial", "output", "applyParchment", sourceTransform(engine, jstConsumer)));
             } else {
                 jstConsumer.accept(getOrAddTransformSourcesAction(engine));
@@ -147,13 +155,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             ((ApplySourceTransformAction) transformNode.action()).setInjectedInterfaces(interfaceInjectionDataFiles);
 
             // Add the stub source jar to the recomp classpath
-            engine.applyTransform(new ModifyAction<>(
-                    "recompile",
-                    RecompileSourcesAction.class,
-                    action -> {
-                        action.getSourcepath().add(ClasspathItem.of(transformNode.getRequiredOutput("stubs")));
-                    }
-            ));
+            engine.getGraph().getRequiredNode("recompile")
+                    .setInput("additionalSourcepath", transformNode.getRequiredOutput("stubs").asInput());
         }
 
         // Transformations for the binpatch pipeline
@@ -162,7 +165,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             // The node can be created by the NeoForge process (see applyNeoForgeProcessTransforms)
             var transformNode = graph.getNode("applyDevTransforms");
             if (transformNode == null) {
-                transformNode = createBinaryDevTransformNodeForNeoForm(engine);
+                transformNode = createBinaryDevTransformNodeForNeoForm(engine, processGeneration);
             }
             if (!(transformNode.action() instanceof ApplyDevTransformsAction applyDevTransformsAction)) {
                 throw new IllegalStateException("Node applyDevTransforms has a different action type than expected. Expected: "
@@ -179,14 +182,17 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         execute(engine);
     }
 
-    private static void applyNeoForgeProcessTransforms(NeoFormEngine engine, JarFile neoforgeZipFile, NeoForgeConfig neoforgeConfig) throws IOException {
+    private static void applyNeoForgeProcessTransforms(NeoFormEngine engine,
+                                                       JarFile neoforgeZipFile,
+                                                       NeoForgeConfig neoforgeConfig,
+                                                       ProcessGeneration processGeneration,
+                                                       Path neoforgeClasses) throws IOException {
         // Add NeoForge specific data sources
         engine.addDataSource("neoForgeAccessTransformers", neoforgeZipFile, neoforgeConfig.accessTransformersFolder());
 
         // Also inject NeoForge sources, which we can get from the sources file
         var artifactManager = engine.getArtifactManager();
         var neoforgeSources = artifactManager.get(neoforgeConfig.sourcesArtifact()).path();
-        var neoforgeClasses = artifactManager.get(neoforgeConfig.universalArtifact()).path();
         var neoforgeSourcesZip = new ZipFile(neoforgeSources.toFile());
         var neoforgeClassesZip = new ZipFile(neoforgeClasses.toFile());
         engine.addManagedResource(neoforgeSourcesZip);
@@ -200,7 +206,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         // To circumvent this, we inject the sources before recompile and disable the optimization of
         // injecting the already compiled NeoForge classes later.
         // Since remapping and recompiling will invariably change the digests, we also need to strip any signatures.
-        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             engine.applyTransform(new ModifyAction<>(
                     "inject",
                     InjectZipContentAction.class,
@@ -223,19 +229,9 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
             ));
         }
 
-        // Add NeoForge libraries to the list of libraries
-        engine.applyTransform(new ModifyAction<>(
-                "recompile",
-                RecompileSourcesAction.class,
-                action -> {
-                    action.getClasspath().addMavenLibraries(neoforgeConfig.libraries());
-                    action.getClasspath().addPaths(List.of(neoforgeClasses));
-                }
-        ));
-
         // If the Forge (or NeoForge) version uses side annotation strippers, apply them after merging
         // This is a legacy concept, see https://github.com/MinecraftForge/ForgeGradle/blob/477b8685abcfe76755c2d49f60b07fabbfdb8b5f/src/mcp/java/net/minecraftforge/gradle/mcp/function/SideAnnotationStripperFunction.java#L24
-        if (engine.getProcessGeneration().supportsSideAnnotationStripping()) {
+        if (processGeneration.supportsSideAnnotationStripping()) {
             List<String> sasFiles = neoforgeConfig.sideAnnotationStrippers();
             if (!sasFiles.isEmpty()) {
                 for (int i = 0; i < sasFiles.size(); i++) {
@@ -277,8 +273,8 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         ));
 
         var graph = engine.getGraph();
-        var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip);
-        var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip);
+        var sourcesWithNeoForgeOutput = createSourcesWithNeoForge(engine, neoforgeSourcesZip, processGeneration);
+        var compiledWithNeoForgeOutput = createCompiledWithNeoForge(engine, neoforgeClassesZip, processGeneration);
 
         var sourcesAndCompiledWithNeoForgeOutput =
                 createSourcesAndCompiledWithNeoForge(graph, compiledWithNeoForgeOutput, sourcesWithNeoForgeOutput);
@@ -287,14 +283,15 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         graph.setResult(ResultIds.GAME_JAR_WITH_NEOFORGE, compiledWithNeoForgeOutput);
         graph.setResult(ResultIds.GAME_JAR_WITH_SOURCES_AND_NEOFORGE, sourcesAndCompiledWithNeoForgeOutput);
 
-        applyNeoForgeBinaryPatchProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, neoforgeClassesZip);
+        applyNeoForgeBinaryPatchProcessTransforms(engine, neoforgeZipFile, neoforgeConfig, neoforgeClassesZip, processGeneration);
 
     }
 
     private static void applyNeoForgeBinaryPatchProcessTransforms(NeoFormEngine engine,
                                                                   JarFile neoforgeZipFile,
                                                                   NeoForgeConfig neoforgeConfig,
-                                                                  ZipFile neoforgeClassesZip) {
+                                                                  ZipFile neoforgeClassesZip,
+                                                                  ProcessGeneration processGeneration) {
         var graph = engine.getGraph();
         var patchBaseJar = graph.getResult(ResultIds.VANILLA_DEOBFUSCATED);
 
@@ -311,7 +308,7 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         // This is a new result here
         var binaryWithNeoForgeOutput = createBinaryWithNeoForge(graph, binaryPatchOutput, neoforgeClassesZip);
 
-        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             // Minecraft and NeoForge classes need to be remapped,
             // so we only expose jars that contains both (similar to the standard decomp/recomp pipeline)
             var remapper = graph.getRequiredNode("remapSrgClassesToOfficial");
@@ -341,12 +338,14 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         }
     }
 
-    private static NodeOutput createCompiledWithNeoForge(NeoFormEngine engine, ZipFile neoforgeClassesZip) {
+    private static NodeOutput createCompiledWithNeoForge(NeoFormEngine engine,
+                                                         ZipFile neoforgeClassesZip,
+                                                         ProcessGeneration processGeneration) {
         var graph = engine.getGraph();
         var recompiledClasses = graph.getRequiredOutput("recompile", "output");
 
         // In older processes, we already had to inject the sources before recompiling (due to remapping)
-        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             return recompiledClasses;
         }
 
@@ -363,10 +362,12 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
     }
 
     // Add a step that produces a sources-zip containing both Minecraft and NeoForge sources
-    private static NodeOutput createSourcesWithNeoForge(NeoFormEngine engine, ZipFile neoforgeSourcesZip) {
+    private static NodeOutput createSourcesWithNeoForge(NeoFormEngine engine,
+                                                        ZipFile neoforgeSourcesZip,
+                                                        ProcessGeneration processGeneration) {
         var graph = engine.getGraph();
 
-        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             // 1.20.1 and below use SRG in production and for ATs, so we cannot use the JST output as it is in SRG
             // therefore we must output the renamed sources
             return graph.getRequiredOutput("remapSrgSourcesToOfficial", "output");
@@ -514,12 +515,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         return (builder, previousNodeOutput) -> {
             builder.input("input", previousNodeOutput.asInput());
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var action = new ApplySourceTransformAction();
             // The source transforms should inherit the classpath from the decompiler
             var decompileAction = (ExternalJavaToolAction) engine.getGraph().getRequiredNode("decompile").action();
-            if (decompileAction.getListLibraries() != null) {
-                action.getListLibraries().setClasspath(decompileAction.getListLibraries().getClasspath().copy());
-            }
+            var decompileLibraries = decompileAction.getListLibraries();
+            var classpathConfig = decompileLibraries == null ? ClasspathConfiguration.ofMinecraft() : decompileLibraries.getClasspath();
+            var action = new ApplySourceTransformAction(classpathConfig);
             builder.action(action);
             actionConsumer.accept(action);
             builder.output("stubs", NodeOutputType.JAR, "Additional stubs (resulted as part of interface injection) to add to the recompilation classpath");
@@ -527,10 +527,11 @@ public class RunNeoFormCommand extends NeoFormEngineCommand {
         };
     }
 
-    private static ExecutionNode createBinaryDevTransformNodeForNeoForm(NeoFormEngine engine) {
+    private static ExecutionNode createBinaryDevTransformNodeForNeoForm(NeoFormEngine engine,
+                                                                        ProcessGeneration processGeneration) {
         NodeOutput transformedOutput;
         var graph = engine.getGraph();
-        if (engine.getProcessGeneration().sourcesUseIntermediaryNames()) {
+        if (processGeneration.sourcesUseIntermediaryNames()) {
             // We have to transform in srg, and the remapped classes have to remain the result
             var remapNode = graph.getRequiredNode("remapSrgClassesToOfficial");
             var remapInput = remapNode.getRequiredInput("input");

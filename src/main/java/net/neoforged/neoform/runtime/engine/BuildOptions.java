@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.util.List;
 import java.util.Objects;
@@ -10,29 +11,24 @@ import java.util.Objects;
  * Customization options for Java compilation and related settings.
  */
 public class BuildOptions {
-    private boolean useEclipseCompiler;
+    private final boolean useEclipseCompiler;
 
+    @Unmodifiable
     @Nullable
-    private List<ClasspathItem> overriddenCompileClasspath;
+    private final List<ClasspathItem> overriddenCompileClasspath;
+
+    public BuildOptions(boolean useEclipseCompiler, @Nullable List<ClasspathItem> overriddenCompileClasspath) {
+        this.useEclipseCompiler = useEclipseCompiler;
+        this.overriddenCompileClasspath = overriddenCompileClasspath == null ? null : List.copyOf(overriddenCompileClasspath);
+    }
 
     public boolean isUseEclipseCompiler() {
         return useEclipseCompiler;
     }
 
-    public void setUseEclipseCompiler(boolean useEclipseCompiler) {
-        this.useEclipseCompiler = useEclipseCompiler;
-    }
-
+    @Unmodifiable
     public @Nullable List<ClasspathItem> getOverriddenCompileClasspath() {
         return overriddenCompileClasspath;
-    }
-
-    public void setOverriddenCompileClasspath(@Nullable List<ClasspathItem> overriddenCompileClasspath) {
-        if (overriddenCompileClasspath != null) {
-            this.overriddenCompileClasspath = List.copyOf(overriddenCompileClasspath);
-        } else {
-            this.overriddenCompileClasspath = null;
-        }
     }
 
     @Override

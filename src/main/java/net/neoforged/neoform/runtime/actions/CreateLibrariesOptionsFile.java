@@ -1,12 +1,13 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.ClasspathConfiguration;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
-import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 /**
  * Creates a Vineflower options file for listing referenced jar files. This would usually be implemented in
@@ -18,16 +19,17 @@ import java.nio.file.Path;
  * that keeps an invalid options file (pointing to the old home directory) with an up-to-date cache key.
  */
 public class CreateLibrariesOptionsFile {
-    private ExtensibleClasspath classpath = new ExtensibleClasspath();
+    private final ClasspathConfiguration classpathConfig;
+
+    public CreateLibrariesOptionsFile(ClasspathConfiguration classpathConfig) {
+        this.classpathConfig = Objects.requireNonNull(classpathConfig, "classpathConfig");
+    }
 
     /**
      * Writes the library list to a file.
      */
     public Path writeFile(ProcessingEnvironment environment) throws IOException {
-        var versionManifest = environment.getRequiredInput("versionManifest", ResultRepresentation.MINECRAFT_VERSION_MANIFEST);
-
-        var effectiveClasspathItems = classpath.mergeWithMinecraftLibraries(versionManifest).getEffectiveClasspath();
-        var classpath = environment.getArtifactManager().resolveClasspath(effectiveClasspathItems);
+        var classpath = classpathConfig.resolve(environment);
 
         var vineflowerArgs = classpath.stream().map(l -> "-e=" + l.toAbsolutePath()).toList();
 
@@ -37,14 +39,10 @@ public class CreateLibrariesOptionsFile {
     }
 
     public void computeCacheKey(CacheKeyBuilder ck) {
-        classpath.computeCacheKey("listLibraries classpath", ck);
+        classpathConfig.computeCacheKey("listLibraries classpath", ck);
     }
 
-    public ExtensibleClasspath getClasspath() {
-        return classpath;
-    }
-
-    public void setClasspath(ExtensibleClasspath classpath) {
-        this.classpath = classpath;
+    public ClasspathConfiguration getClasspath() {
+        return classpathConfig;
     }
 }

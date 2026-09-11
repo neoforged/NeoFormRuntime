@@ -17,6 +17,7 @@ import net.neoforged.neoform.runtime.actions.RemapSrgClassesAction;
 import net.neoforged.neoform.runtime.actions.RemapSrgSourcesAction;
 import net.neoforged.neoform.runtime.actions.SplitResourcesFromClassesAction;
 import net.neoforged.neoform.runtime.artifacts.ArtifactManager;
+import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
 import net.neoforged.neoform.runtime.cache.CacheManager;
 import net.neoforged.neoform.runtime.cli.FileHashService;
@@ -77,9 +78,8 @@ public class NeoFormEngine implements AutoCloseable {
     private final Map<ExecutionNode, CompletableFuture<Void>> executingNodes = new IdentityHashMap<>();
     private final LockManager lockManager;
     private final ExecutionGraph graph = new ExecutionGraph();
-    private final BuildOptions buildOptions = new BuildOptions();
+    private final BuildOptions buildOptions;
     private boolean verbose;
-    private ProcessGeneration processGeneration;
 
     /**
      * Nodes can reference certain configuration data (access transformers, patches, etc.) which come
@@ -108,11 +108,13 @@ public class NeoFormEngine implements AutoCloseable {
     public NeoFormEngine(ArtifactManager artifactManager,
                          FileHashService fileHashService,
                          CacheManager cacheManager,
-                         LockManager lockManager) {
+                         LockManager lockManager,
+                         BuildOptions buildOptions) {
         this.artifactManager = artifactManager;
         this.fileHashService = fileHashService;
         this.cacheManager = cacheManager;
         this.lockManager = lockManager;
+        this.buildOptions = buildOptions;
 
         this.javaExecutable = ProcessHandle.current()
                 .info()
@@ -168,7 +170,9 @@ public class NeoFormEngine implements AutoCloseable {
         return dataSource;
     }
 
-    public void loadNeoFormData(Path neoFormDataPath, String dist) throws IOException {
+    public ProcessGeneration loadNeoFormData(Path neoFormDataPath,
+                                             String dist,
+                                             List<ClasspathItem> additionalCompileClasspath) throws IOException {
         var zipFile = new ZipFile(neoFormDataPath.toFile());
         var config = NeoFormConfig.from(zipFile);
         var distConfig = config.getDistConfig(dist);
@@ -178,23 +182,45 @@ public class NeoFormEngine implements AutoCloseable {
             addDataSource(entry.getKey(), zipFile, entry.getValue());
         }
 
-        loadNeoFormProcess(distConfig);
+        return loadNeoFormProcess(distConfig, additionalCompileClasspath);
     }
 
-    public void loadNeoFormProcess(NeoFormDistConfig distConfig) {
-        processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
+    private ProcessGeneration loadNeoFormProcess(NeoFormDistConfig distConfig, List<ClasspathItem> additionalCompileClasspath) {
+        var processGeneration = ProcessGeneration.fromMinecraftVersion(distConfig.minecraftVersion());
+
+        final ClasspathConfiguration neoFormClasspathConfig;
+        final ClasspathConfiguration compileClasspathConfig;
+
+        var overriddenCompileClasspath = buildOptions.getOverriddenCompileClasspath();
+        if (overriddenCompileClasspath != null) {
+            neoFormClasspathConfig = ClasspathConfiguration.of(overriddenCompileClasspath);
+            compileClasspathConfig = neoFormClasspathConfig;
+        } else {
+            var neoFormClasspathEntries = new ArrayList<ClasspathItem>();
+            for (var library : distConfig.libraries()) {
+                neoFormClasspathEntries.add(ClasspathItem.of(library));
+            }
+            neoFormClasspathConfig = ClasspathConfiguration.ofMinecraftAnd(neoFormClasspathEntries);
+            if (additionalCompileClasspath.isEmpty()) {
+                compileClasspathConfig = neoFormClasspathConfig;
+            } else {
+                var compileClasspathEntries = new ArrayList<>(neoFormClasspathEntries);
+                compileClasspathEntries.addAll(additionalCompileClasspath);
+                compileClasspathConfig = ClasspathConfiguration.ofMinecraftAnd(compileClasspathEntries);
+            }
+        }
 
         for (var step : distConfig.steps()) {
             if (step.name().equals("listLibraries")) {
                 // We fold listLibraries inside the steps that use it
                 continue;
             }
-            addNodeForStep(graph, distConfig, step);
+            addNodeForStep(graph, distConfig, step, processGeneration, neoFormClasspathConfig);
         }
 
         var sourcesOutput = graph.getRequiredOutput("patch", "output");
 
-        var compiledOutput = addRecompileStep(distConfig, sourcesOutput);
+        var compiledOutput = addRecompileStep(distConfig, sourcesOutput, compileClasspathConfig);
 
         var sourcesAndCompiledOutput = addMergeWithSourcesStep(compiledOutput, sourcesOutput);
 
@@ -270,9 +296,11 @@ public class NeoFormEngine implements AutoCloseable {
             // Without the presence of further patching or renaming, the game jar without recompilation is the deobfuscated vanilla jar
             graph.setResultFromCurrentInput(ResultIds.GAME_JAR_NO_RECOMP, decompileInput);
         }
+
+        return processGeneration;
     }
 
-    private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput) {
+    private NodeOutput addRecompileStep(NeoFormDistConfig distConfig, NodeOutput sourcesOutput, ClasspathConfiguration compileClasspathConfig) {
         // Add a recompile step
         var builder = graph.nodeBuilder("recompile");
         builder.input("sources", sourcesOutput.asInput());
@@ -280,16 +308,12 @@ public class NeoFormEngine implements AutoCloseable {
         var compiledOutput = builder.output("output", NodeOutputType.JAR, "Compiled minecraft sources");
         RecompileSourcesAction compileAction;
         if (buildOptions.isUseEclipseCompiler()) {
-            compileAction = new RecompileSourcesActionWithECJ();
+            compileAction = new RecompileSourcesActionWithECJ(compileClasspathConfig);
         } else {
-            compileAction = new RecompileSourcesActionWithJDK();
+            compileAction = new RecompileSourcesActionWithJDK(compileClasspathConfig);
         }
 
         compileAction.setTargetJavaVersion(distConfig.javaVersion());
-
-        // Add NeoForm libraries or apply overridden classpath fully
-        compileAction.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-        compileAction.getClasspath().addMavenLibraries(distConfig.libraries());
 
         builder.action(compileAction);
         builder.build();
@@ -307,7 +331,11 @@ public class NeoFormEngine implements AutoCloseable {
         return output;
     }
 
-    private void addNodeForStep(ExecutionGraph graph, NeoFormDistConfig config, NeoFormStep step) {
+    private void addNodeForStep(ExecutionGraph graph,
+                                NeoFormDistConfig config,
+                                NeoFormStep step,
+                                ProcessGeneration processGeneration,
+                                ClasspathConfiguration neoFormClasspathConfig) {
         var builder = graph.nodeBuilder(step.getId());
 
         // "variables" should now hold all global variables referenced by the step/function, but those
@@ -407,7 +435,7 @@ public class NeoFormEngine implements AutoCloseable {
                     throw new IllegalArgumentException("Step " + step.getId() + " references undefined function " + step.type());
                 }
 
-                applyFunctionToNode(config, step, function, builder);
+                applyFunctionToNode(neoFormClasspathConfig, step, function, builder);
             }
         }
 
@@ -423,7 +451,7 @@ public class NeoFormEngine implements AutoCloseable {
         return result;
     }
 
-    private void applyFunctionToNode(NeoFormDistConfig config, NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
+    private void applyFunctionToNode(ClasspathConfiguration neoFormClasspathConfig, NeoFormStep step, NeoFormFunction function, ExecutionNodeBuilder builder) {
         var resolvedJvmArgs = new ArrayList<>(Objects.requireNonNullElse(function.jvmargs(), List.of()));
         var resolvedArgs = new ArrayList<>(Objects.requireNonNullElse(function.args(), List.of()));
 
@@ -493,9 +521,7 @@ public class NeoFormEngine implements AutoCloseable {
 
         if (usesListLibraries[0]) {
             builder.inputFromNodeOutput("versionManifest", "downloadJson", "output");
-            var listLibraries = new CreateLibrariesOptionsFile();
-            listLibraries.getClasspath().setOverriddenClasspath(buildOptions.getOverriddenCompileClasspath());
-            listLibraries.getClasspath().addMavenLibraries(config.libraries());
+            var listLibraries = new CreateLibrariesOptionsFile(neoFormClasspathConfig);
             action.setListLibraries(listLibraries);
         }
     }
@@ -673,10 +699,6 @@ public class NeoFormEngine implements AutoCloseable {
 
     public CacheManager getCacheManager() {
         return cacheManager;
-    }
-
-    public ProcessGeneration getProcessGeneration() {
-        return processGeneration;
     }
 
     public void setJavaHome(Path javaHome) {

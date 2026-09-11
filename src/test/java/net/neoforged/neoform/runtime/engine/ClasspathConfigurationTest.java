@@ -1,4 +1,4 @@
-package net.neoforged.neoform.runtime.actions;
+package net.neoforged.neoform.runtime.engine;
 
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.manifests.MinecraftDownload;
@@ -11,7 +11,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ExtensibleClasspathTest {
+class ClasspathConfigurationTest {
     private static final MinecraftLibrary MC_LIB = new MinecraftLibrary(
             "group:artifact:1.2.3-mc", new MinecraftLibrary.Downloads(new MinecraftDownload("", 0, null, null), Map.of()), List.of(), null
     );
@@ -20,31 +20,34 @@ class ExtensibleClasspathTest {
 
     @Test
     void testMavenLibraryOverridesMinecraftLibrary() {
-        var classpath = new ExtensibleClasspath();
-        classpath.addMinecraftLibraries(List.of(MC_LIB));
-        classpath.addMavenLibraries(List.of(MAVEN_LIB));
+        var classpath = ClasspathConfiguration.ofMinecraftAnd(List.of(
+                ClasspathItem.of(MC_LIB),
+                ClasspathItem.of(MAVEN_LIB)
+        ));
 
-        assertThat(classpath.getEffectiveClasspath())
+        assertThat(classpath.entries())
                 .containsExactly(ClasspathItem.of(MAVEN_LIB));
     }
 
     @Test
     void testMinecraftLibraryOverridesMavenLibrary() {
-        var classpath = new ExtensibleClasspath();
-        classpath.addMavenLibraries(List.of(MAVEN_LIB));
-        classpath.addMinecraftLibraries(List.of(MC_LIB));
+        var classpath = ClasspathConfiguration.ofMinecraftAnd(List.of(
+                ClasspathItem.of(MAVEN_LIB),
+                ClasspathItem.of(MC_LIB)
+        ));
 
-        assertThat(classpath.getEffectiveClasspath())
+        assertThat(classpath.entries())
                 .containsExactly(ClasspathItem.of(MC_LIB));
     }
 
     @Test
     void testLibraryOverridesConsiderClassifiersAsDistinctive() {
-        var classpath = new ExtensibleClasspath();
-        classpath.addMavenLibraries(List.of(MAVEN_LIB));
-        classpath.addMavenLibraries(List.of(MAVEN_LIB_WITH_CLASSIFIER));
+        var classpath = ClasspathConfiguration.of(List.of(
+                ClasspathItem.of(MAVEN_LIB),
+                ClasspathItem.of(MAVEN_LIB_WITH_CLASSIFIER)
+        ));
 
-        assertThat(classpath.getEffectiveClasspath())
+        assertThat(classpath.entries())
                 .containsExactly(ClasspathItem.of(MAVEN_LIB), ClasspathItem.of(MAVEN_LIB_WITH_CLASSIFIER));
     }
 }

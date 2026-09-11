@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.ClasspathConfiguration;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.ToolCoordinate;
@@ -8,7 +9,6 @@ import net.neoforged.problems.FileProblemReporter;
 import net.neoforged.problems.Problem;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,13 +32,7 @@ import java.util.zip.ZipOutputStream;
 public class ApplySourceTransformAction extends ExternalJavaToolAction {
     protected static final Logger LOG = Logger.create();
 
-    private final CreateLibrariesOptionsFile listLibraries = new CreateLibrariesOptionsFile();
-    /**
-     * Additional libraries to be added to the classpath for parsing the sources.
-     * Minecraft libraries are pulled in automatically from the same source used by the
-     * decompiler.
-     */
-    private final ExtensibleClasspath parserClasspath = new ExtensibleClasspath();
+    private final CreateLibrariesOptionsFile listLibraries;
 
     /**
      * names of {@linkplain net.neoforged.neoform.runtime.engine.NeoFormEngine#addDataSource(String, ZipFile, String) data sources} containing
@@ -75,8 +69,9 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
      */
     private List<String> additionalArguments = new ArrayList<>();
 
-    public ApplySourceTransformAction() {
+    public ApplySourceTransformAction(ClasspathConfiguration classpathConfig) {
         super(ToolCoordinate.JAVA_SOURCE_TRANSFORMER);
+        listLibraries = new CreateLibrariesOptionsFile(classpathConfig);
     }
 
     @Override
@@ -131,14 +126,6 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         if (parchmentData != null) {
             args.add("--enable-parchment");
             args.add("--parchment-mappings=" + environment.getPathArgument(parchmentData.toAbsolutePath()));
-        }
-
-        if (!parserClasspath.isEmpty()) {
-            var classpath = environment.getArtifactManager().resolveClasspath(parserClasspath.getEffectiveClasspath());
-            args.add("--classpath");
-            args.add(classpath.stream()
-                    .map(environment::getPathArgument)
-                    .collect(Collectors.joining(File.pathSeparator)));
         }
 
         args.addAll(additionalArguments);
@@ -215,7 +202,6 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
         }
         ck.addStrings("additional arguments", additionalArguments);
         listLibraries.computeCacheKey(ck);
-        parserClasspath.computeCacheKey("parser classpath", ck);
     }
 
     public CreateLibrariesOptionsFile getListLibraries() {
@@ -256,10 +242,6 @@ public class ApplySourceTransformAction extends ExternalJavaToolAction {
 
     public void setParchmentData(@Nullable Path parchmentData) {
         this.parchmentData = parchmentData;
-    }
-
-    public ExtensibleClasspath getParserClasspath() {
-        return parserClasspath;
     }
 
     public List<String> getAdditionalArguments() {

@@ -2,9 +2,8 @@ package net.neoforged.neoform.runtime.engine;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -49,7 +48,8 @@ public class ProcessGeneration {
      * Indicates whether the Minecraft server jar file contains third party
      * dependencies directly in its root directory, which need to be ignored.
      */
-    private final List<String> additionalDenyListForMinecraftJars = new ArrayList<>();
+    @Unmodifiable
+    private final List<String> additionalDenyListForMinecraftJars;
 
     /**
      * Indicates that the sources produced by MCP/NeoForm and NeoForge in this version use
@@ -57,19 +57,29 @@ public class ProcessGeneration {
      * In those versions, to produce usable sources, we need to apply an additional
      * remapping step later. (Either to Mojang mappings, or to MCP).
      */
-    private boolean sourcesUseIntermediaryNames;
+    private final boolean sourcesUseIntermediaryNames;
 
     /**
      * SAS was used in Forge 1.20.1 and earlier to remove the "OnlyIn" annotation from client-only classes
      * that we'd want to be able to use on the server as well.
      */
-    private boolean supportsSideAnnotationStripping;
+    private final boolean supportsSideAnnotationStripping;
 
     /**
      * Enables generation of the MANIFEST.MF in the client and server resource files that
      * indicates which distribution each file came from. Only applies to joined distributions.
      */
-    private boolean generateDistSourceManifest;
+    private final boolean generateDistSourceManifest;
+
+    private ProcessGeneration(List<String> additionalDenyListForMinecraftJars,
+                              boolean sourcesUseIntermediaryNames,
+                              boolean generateDistSourceManifest,
+                              boolean supportsSideAnnotationStripping) {
+        this.additionalDenyListForMinecraftJars = additionalDenyListForMinecraftJars;
+        this.sourcesUseIntermediaryNames = sourcesUseIntermediaryNames;
+        this.supportsSideAnnotationStripping = supportsSideAnnotationStripping;
+        this.generateDistSourceManifest = generateDistSourceManifest;
+    }
 
     /**
      * For (Neo)Forge 1.20.1 and below, we have to remap method and field names from
@@ -79,13 +89,13 @@ public class ProcessGeneration {
     static ProcessGeneration fromMinecraftVersion(String minecraftVersion) {
         var releaseVersion = MinecraftReleaseVersion.parse(minecraftVersion);
 
-        var result = new ProcessGeneration();
+        List<String> additionalDenyListForMinecraftJars = List.of();
 
         // Minecraft 1.17.1 and older directly shaded dependency class files into the server.jar
         // while newer versions use embedded jar files instead.
         // When merging the server.jar and client.jar, we need to exclude these dependency classes.
         if (isLessThanOrEqualTo(releaseVersion, MC_1_17_1)) {
-            Collections.addAll(result.additionalDenyListForMinecraftJars,
+            additionalDenyListForMinecraftJars = List.of(
                     "com/mojang/(authlib|bridge|brigadier|datafixers|serialization|util)/.*",
                     "com/google/.*",
                     "joptsimple/.*",
@@ -99,14 +109,19 @@ public class ProcessGeneration {
         }
 
         // In 1.20.2 and later, NeoForge switched to Mojmap at runtime and sources defined in Mojmap
-        result.sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
+        var sourcesUseIntermediaryNames = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
         // In 1.21.6 and later, manifest entries should be generated as they may be used instead of RuntimeDistCleaner
-        result.generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
+        var generateDistSourceManifest = isGreaterThanOrEqualTo(releaseVersion, MC_1_21_6);
 
-        result.supportsSideAnnotationStripping = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
+        var supportsSideAnnotationStripping = isLessThanOrEqualTo(releaseVersion, MC_1_20_1);
 
-        return result;
+        return new ProcessGeneration(
+                additionalDenyListForMinecraftJars,
+                sourcesUseIntermediaryNames,
+                generateDistSourceManifest,
+                supportsSideAnnotationStripping
+        );
     }
 
     private static boolean isLessThanOrEqualTo(@Nullable MinecraftReleaseVersion releaseVersion, MinecraftReleaseVersion version) {

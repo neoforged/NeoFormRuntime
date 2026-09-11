@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.ClasspathConfiguration;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 
 import javax.tools.Diagnostic;
@@ -24,6 +25,10 @@ import java.util.Map;
  * Uses the current JDKs java compiler interface to recompile the sources.
  */
 public class RecompileSourcesActionWithJDK extends RecompileSourcesAction {
+    public RecompileSourcesActionWithJDK(ClasspathConfiguration classpathConfig) {
+        super(classpathConfig);
+    }
+
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
         var sources = environment.getRequiredInputPath("sources");

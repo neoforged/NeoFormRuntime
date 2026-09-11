@@ -2,6 +2,7 @@ package net.neoforged.neoform.runtime.cli;
 
 import net.neoforged.neoform.runtime.artifacts.ClasspathItem;
 import net.neoforged.neoform.runtime.downloads.DownloadManager;
+import net.neoforged.neoform.runtime.engine.BuildOptions;
 import net.neoforged.neoform.runtime.engine.NeoFormEngine;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.problems.FileProblemReporter;
@@ -83,7 +84,8 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
             var artifactManager = commonOptions.createArtifactManager(cacheManager, downloadManager, lockManager, launcherInstallations);
 
             var fileHashService = new FileHashService();
-            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager)) {
+            var buildOptions = createBuildOptions();
+            try (var engine = new NeoFormEngine(artifactManager, fileHashService, cacheManager, lockManager, buildOptions)) {
                 if (problemReporter != null) {
                     engine.setProblemReporter(problemReporter);
                 }
@@ -95,7 +97,6 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
                 }
 
                 engine.setVerbose(commonOptions.verbose);
-                applyBuildOptions(engine);
 
                 runWithNeoFormEngine(engine, closables);
             }
@@ -119,15 +120,15 @@ public abstract class NeoFormEngineCommand implements Callable<Integer> {
         return 0;
     }
 
-    private void applyBuildOptions(NeoFormEngine engine) {
-        engine.getBuildOptions().setUseEclipseCompiler(useEclipseCompiler);
-
-        if (compileClasspath != null) {
-            var compileClasspath = Arrays.stream(this.compileClasspath.split(Pattern.quote(File.pathSeparator)))
-                    .map(Paths::get)
-                    .map(ClasspathItem::of)
-                    .toList();
-            engine.getBuildOptions().setOverriddenCompileClasspath(compileClasspath);
+    private BuildOptions createBuildOptions() {
+        if (compileClasspath == null) {
+            return new BuildOptions(useEclipseCompiler, null);
         }
+
+        var compileClasspath = Arrays.stream(this.compileClasspath.split(Pattern.quote(File.pathSeparator)))
+                .map(Paths::get)
+                .map(ClasspathItem::of)
+                .toList();
+        return new BuildOptions(useEclipseCompiler, compileClasspath);
     }
 }

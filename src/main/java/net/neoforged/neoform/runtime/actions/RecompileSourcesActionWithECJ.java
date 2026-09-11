@@ -1,6 +1,7 @@
 package net.neoforged.neoform.runtime.actions;
 
 import net.neoforged.neoform.runtime.cache.CacheKeyBuilder;
+import net.neoforged.neoform.runtime.engine.ClasspathConfiguration;
 import net.neoforged.neoform.runtime.engine.ProcessingEnvironment;
 import org.eclipse.jdt.internal.compiler.CompilationResult;
 import org.eclipse.jdt.internal.compiler.Compiler;
@@ -43,6 +44,10 @@ public class RecompileSourcesActionWithECJ extends RecompileSourcesAction {
     // Special marker for compilation units that arise from jars on the source path
     // whose compilation result should be discarded.
     private static final String DEV_NULL_DESTINATION = "/dev/null";
+
+    public RecompileSourcesActionWithECJ(ClasspathConfiguration classpathConfig) {
+        super(classpathConfig);
+    }
 
     @Override
     public void run(ProcessingEnvironment environment) throws IOException, InterruptedException {
