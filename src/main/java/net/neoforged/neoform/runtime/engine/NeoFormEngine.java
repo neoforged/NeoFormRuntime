@@ -36,6 +36,8 @@ import net.neoforged.neoform.runtime.graph.ResultRepresentation;
 import net.neoforged.neoform.runtime.graph.transforms.GraphTransform;
 import net.neoforged.neoform.runtime.graph.transforms.ReplaceNodeOutput;
 import net.neoforged.neoform.runtime.utils.AnsiColor;
+import net.neoforged.neoform.runtime.utils.FileUtil;
+import net.neoforged.neoform.runtime.utils.HashingUtil;
 import net.neoforged.neoform.runtime.utils.JavaInstallationInformation;
 import net.neoforged.neoform.runtime.utils.Logger;
 import net.neoforged.neoform.runtime.utils.MavenCoordinate;
@@ -45,9 +47,12 @@ import net.neoforged.problems.ProblemReporter;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -568,7 +573,7 @@ public class NeoFormEngine implements AutoCloseable {
         return future;
     }
 
-    public void runNode(ExecutionNode node) throws InterruptedException {
+    private void runNode(ExecutionNode node) throws InterruptedException {
         // Wait for pre-requisites
         Set<ExecutionNode> dependencies = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var input : node.inputs().values()) {
@@ -590,9 +595,37 @@ public class NeoFormEngine implements AutoCloseable {
             LOG.println(AnsiColor.MUTED + StringUtil.indent(cacheKey.describe(), 2) + AnsiColor.RESET);
         }
 
+        try {
+            // Check for a complete cache hit before taking the node lock. This
+            // lets parallel Gradle/NFRT processes reuse a published cache entry
+            // without waiting behind another process that is producing or
+            // checking the same cache key.
+            //
+            // writeResults holds the cache-use lock while nodes run and
+            // requested results are copied. With cleanup excluded, the restored
+            // cache paths remain valid for the rest of that operation. Writers
+            // publish entries by moving every output into the cache before
+            // writing the marker file, and restore only succeeds when that
+            // marker and every declared output file are present.
+            //
+            // Skip miss analysis here; the locked fallback below performs the
+            // normal restore check and miss analysis.
+            var preLockOutputValues = new HashMap<String, Path>();
+            if (cacheManager.restoreOutputsFromCacheWithoutMissAnalysis(node, cacheKey, preLockOutputValues)) {
+                node.complete(preLockOutputValues, true);
+                return;
+            }
+        } catch (Throwable t) {
+            node.fail();
+            throw new NodeExecutionException(node, t);
+        }
+
         try (var lock = lockManager.lock(cacheKey.toString())) {
             var outputValues = new HashMap<String, Path>();
 
+            // Keep the locked restore as a race-safe fallback to avoid doing
+            // the work twice. Another process may have populated the cache
+            // while this invocation was waiting for the node lock.
             if (cacheManager.restoreOutputsFromCache(node, cacheKey, outputValues)) {
                 node.complete(outputValues, true);
                 return;
@@ -618,7 +651,7 @@ public class NeoFormEngine implements AutoCloseable {
         return artifactManager;
     }
 
-    public Map<String, Path> createResults(String... ids) throws InterruptedException {
+    private Map<String, Path> createResults(Iterable<String> ids) throws InterruptedException {
         // Determine the nodes we need to run
         Set<ExecutionNode> nodes = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String id : ids) {
@@ -636,9 +669,72 @@ public class NeoFormEngine implements AutoCloseable {
         for (String id : ids) {
             var nodeOutput = graph.getResult(id);
             results.put(id, nodeOutput.getResultPath());
-            // TODO: move to actual result cache
         }
         return results;
+    }
+
+    /**
+     * Creates requested results and copies them to their destination paths before
+     * returning.
+     * <p>
+     * Node outputs may point into the intermediate cache. The cache-use lock is
+     * acquired before nodes are scheduled and remains held until every requested
+     * result has been copied.
+     */
+    public void writeResults(Map<String, Path> destinations) throws InterruptedException, IOException {
+        // Restored outputs are paths in the intermediate cache, not copies.
+        // Hold the cache-use lock before any nodes run so cleanup cannot delete
+        // those paths before later nodes or result copies read them.
+        try (var lock = cacheManager.lockCacheForUse()) {
+            var results = createResults(destinations.keySet());
+            for (var entry : destinations.entrySet()) {
+                var result = results.get(entry.getKey());
+                if (result == null) {
+                    throw new IllegalStateException("Internal error: createResults did not return an output path for "
+                                                    + "requested result '" + entry.getKey() + "'.");
+                }
+                writeResult(entry.getKey(), result, entry.getValue());
+            }
+        }
+    }
+
+    private static void writeResult(String resultId, Path result, Path destination) throws IOException {
+        var resultFileHash = hashResult(resultId, result);
+        try {
+            if (HashingUtil.hashFile(destination, "SHA-1").equals(resultFileHash)) {
+                return;
+            }
+        } catch (NoSuchFileException ignored) {
+        }
+
+        var tmpFile = Path.of(destination + ".tmp");
+        try (var input = openResult(resultId, result)) {
+            Files.copy(input, tmpFile, StandardCopyOption.REPLACE_EXISTING);
+        }
+        FileUtil.atomicMove(tmpFile, destination);
+    }
+
+    private static String hashResult(String resultId, Path result) throws IOException {
+        try {
+            return HashingUtil.hashFile(result, "SHA-1");
+        } catch (NoSuchFileException e) {
+            throw new IOException(createMissingResultExceptionMessage(resultId, result), e);
+        }
+    }
+
+    private static InputStream openResult(String resultId, Path result) throws IOException {
+        try {
+            return Files.newInputStream(result);
+        } catch (NoSuchFileException e) {
+            throw new IOException(createMissingResultExceptionMessage(resultId, result), e);
+        }
+    }
+
+    private static String createMissingResultExceptionMessage(String resultId, Path result) {
+        return "Result '" + resultId + "' could not be written because its output path is "
+            + "missing: " + result + ". If this path is in the intermediate cache, it may "
+            + "have been deleted by an older NeoFormRuntime version or manual deletion "
+            + "while this process was still using it.";
     }
 
     public void dumpGraph(PrintWriter printWriter) {
